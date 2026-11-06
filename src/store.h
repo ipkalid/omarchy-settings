@@ -119,7 +119,8 @@ private:
     QString directBootProblem();
     QString menuFile() const;
     QVariant listMenu();
-    QString setMenuHidden(const QString &id, bool hidden);
+    QString editMenu(const QStringList &hide, const QStringList &show, QJsonObject &kept, QStringList &skipped);
+    QString menuAction(const QString &action, const QString &id);
 
 public:
     // The app icon, drawn like Omarchy's own menu entries in the theme's colors.

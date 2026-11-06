@@ -706,6 +706,41 @@ private slots:
         QVERIFY(QFileInfo::exists(menu + ".bak.omasettings-" + QDateTime::currentDateTime().toString("yyyyMMdd")));
     }
 
+    void hidingASectionHidesWhatIsInsideItToo() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/omarchy/default/omarchy/omarchy-menu.jsonc",
+                  "{\n  \"learn\": {\"label\":\"Learn\"},\n  \"learn.bash\": {\"label\":\"Bash\"},\n"
+                  "  \"learn.arch\": {\"label\":\"Arch\"},\n  \"learn.arch.wiki\": {\"label\":\"Wiki\"}\n}\n");
+        const QString menu = dir.path() + "/config/omarchy/extensions/omarchy-menu.jsonc";
+        const QByteArray original = "{\n  \"learn.arch\": {\"when\": \"false\"}\n}\n";
+        writeText(menu, original);
+        Store store(pathsIn(dir), sys.exec());
+        auto hidden = [&](const QString &id) {
+            for (const QVariant &i : store.list("menu").toList())
+                if (i.toMap().value("id") == id) return i.toMap().value("hidden").toBool();
+            return false;
+        };
+        // Arch was hidden by hand, but its wiki item still shows in search.
+        QVERIFY(!hidden("learn.arch.wiki"));
+        QCOMPARE(store.act("menu.hideInside", {""}), QString());
+        QVERIFY(hidden("learn.arch.wiki"));
+
+        // Hiding Learn hides everything in it.
+        QCOMPARE(store.act("menu.hide", {"learn"}), QString());
+        QVERIFY(hidden("learn") && hidden("learn.bash") && hidden("learn.arch") && hidden("learn.arch.wiki"));
+        // Showing it brings back what it hid, and leaves Arch, which was
+        // hidden by hand, hidden.
+        QCOMPARE(store.act("menu.show", {"learn"}), QString());
+        QVERIFY(!hidden("learn") && !hidden("learn.bash"));
+        QVERIFY(hidden("learn.arch") && hidden("learn.arch.wiki"));
+        // And showing Arch brings back its wiki item; the file is as it was
+        // before any of this, less the line for Arch itself.
+        QCOMPARE(store.act("menu.show", {"learn.arch"}), QString());
+        QVERIFY(!hidden("learn.arch.wiki"));
+        QVERIFY(!readText(menu).contains("when"));
+    }
+
     void aBrokenMenuFileIsLeftAlone() {
         QTemporaryDir dir;
         FakeSystem sys;

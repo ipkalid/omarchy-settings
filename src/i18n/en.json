@@ -78,5 +78,9 @@
   "Filter %n menu items": {
     "one": "Filter %n menu item",
     "other": "Filter %n menu items"
+  },
+  "%n items in hidden sections still show up in search": {
+    "one": "%n item in a hidden section still shows up in search",
+    "other": "%n items in hidden sections still show up in search"
   }
 }

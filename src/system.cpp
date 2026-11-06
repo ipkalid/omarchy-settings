@@ -7,6 +7,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QSaveFile>
 #include <QFile>
@@ -154,8 +155,8 @@ QString Store::actSystem(const QString &action, const QVariantList &args) {
             return tr("Unknown strength %1").arg(a0);
         return runOk("dell-xps-touchpad-haptics", {"set", a0}, 10000);
     }
-    if (action == "menu.hide" || action == "menu.show")
-        return setMenuHidden(a0, action == "menu.hide");
+    if (action == "menu.hide" || action == "menu.show" || action == "menu.hideInside")
+        return menuAction(action, a0);
     if (action == "restart.shell")
         return launch("omarchy-restart-shell", {});
     if (action == "restart.nightLight")
@@ -320,65 +321,83 @@ QVariant Store::listMenu() {
     return out;
 }
 
-QString Store::setMenuHidden(const QString &id, bool hidden) {
-    static const QRegularExpression validId("^[a-z0-9][a-z0-9._-]*$");
-    if (!validId.match(id).hasMatch())
-        return tr("Unknown menu item %1").arg(id);
+// Hides and shows menu items in one pass over the file: read once, every
+// edit made in memory, the result checked as the menu will read it, written
+// once. Items set over several lines are the user's and are left alone.
+QString Store::editMenu(const QStringList &hide, const QStringList &show, QJsonObject &kept, QStringList &skipped) {
     const QString file = menuFile();
     QString text = readText(file);
     if (text.trimmed().isEmpty())
         text = "{\n}\n";
     QStringList lines = text.split('\n');
-
     static const QRegularExpression startsEntry(R"re(^\s*"([a-z0-9][a-z0-9._-]*)"\s*:)re");
-    QList<int> entries;
-    const QList<int> depths = lineDepths(lines);
-    for (int i = 0; i < lines.size(); ++i) {
-        const auto m = startsEntry.match(lines[i]);
-        if (!m.hasMatch() || m.captured(1) != id || depths[i] != 1)
-            continue;
-        if (!oneLineEntry(id).match(lines[i]).hasMatch())
-            return tr("“%1” is set over several lines in your menu file; change it there").arg(id);
-        entries << i;
-    }
 
-    // A condition the user wrote is kept aside while the item is hidden, and
-    // put back when it is shown again.
-    QMutexLocker lock(&m_stateLock);
-    QJsonObject state = managedState();
-    QJsonObject kept = state.value("menuWhen").toObject();
-
-    auto rewrite = [&](int i, QJsonObject entry) {
-        const auto m = oneLineEntry(id).match(lines[i]);
-        if (entry.isEmpty()) {
-            lines.removeAt(i);
-            return;
+    // Where each id's top-level entries are, found afresh after each edit
+    // since edits move lines.
+    auto entriesFor = [&](const QString &id, bool &multi) {
+        QList<int> found;
+        multi = false;
+        const QList<int> depths = lineDepths(lines);
+        for (int i = 0; i < lines.size(); ++i) {
+            const auto m = startsEntry.match(lines[i]);
+            if (!m.hasMatch() || m.captured(1) != id || depths[i] != 1)
+                continue;
+            if (!oneLineEntry(id).match(lines[i]).hasMatch())
+                multi = true;
+            found << i;
         }
-        lines[i] = m.captured(1) + "\"" + id + "\": "
-                   + QString::fromUtf8(QJsonDocument(entry).toJson(QJsonDocument::Compact)) + ",";
+        return found;
     };
+    auto rewrite = [&](const QString &id, int i, const QJsonObject &entry) {
+        const auto m = oneLineEntry(id).match(lines[i]);
+        if (entry.isEmpty())
+            lines.removeAt(i);
+        else
+            lines[i] = m.captured(1) + "\"" + id + "\": "
+                       + QString::fromUtf8(QJsonDocument(entry).toJson(QJsonDocument::Compact)) + ",";
+    };
+    int brace = -1;
+    for (int i = 0; i < lines.size() && brace < 0; ++i)
+        if (lines[i].trimmed().startsWith('{'))
+            brace = i;
+    if (brace < 0)
+        return tr("Your menu file isn't a JSON object; fix it by hand first");
 
-    if (hidden) {
-        if (entries.isEmpty()) {
-            // A new line straight after the opening brace; the menu ignores
-            // a trailing comma.
-            int brace = -1;
-            for (int i = 0; i < lines.size() && brace < 0; ++i)
-                if (lines[i].trimmed().startsWith('{'))
-                    brace = i;
-            if (brace < 0)
-                return tr("Your menu file isn't a JSON object; fix it by hand first");
-            lines.insert(brace + 1, "  \"" + id + "\": {\"when\": \"false\"},");
-        } else {
-            const int last = entries.last();
-            QJsonObject entry = QJsonDocument::fromJson(oneLineEntry(id).match(lines[last]).captured(2).toUtf8()).object();
-            const QString when = entry.value("when").toString();
-            if (!when.isEmpty() && when != "false")
-                kept.insert(id, when);
-            entry.insert("when", "false");
-            rewrite(last, entry);
+    QStringList added;
+    for (const QString &id : hide) {
+        bool multi = false;
+        const QList<int> entries = entriesFor(id, multi);
+        if (multi) {
+            skipped << id;
+            continue;
         }
-    } else {
+        if (entries.isEmpty()) {
+            added << "  \"" + id + "\": {\"when\": \"false\"},";
+            continue;
+        }
+        const int last = entries.last();
+        QJsonObject entry = QJsonDocument::fromJson(oneLineEntry(id).match(lines[last]).captured(2).toUtf8()).object();
+        const QString when = entry.value("when").toString();
+        if (when == "false")
+            continue;
+        // A condition the user wrote is kept aside while hidden.
+        if (!when.isEmpty())
+            kept.insert(id, when);
+        entry.insert("when", "false");
+        rewrite(id, last, entry);
+    }
+    // New lines go together, straight after the opening brace; the menu
+    // ignores a trailing comma.
+    for (int k = added.size() - 1; k >= 0; --k)
+        lines.insert(brace + 1, added[k]);
+
+    for (const QString &id : show) {
+        bool multi = false;
+        const QList<int> entries = entriesFor(id, multi);
+        if (multi) {
+            skipped << id;
+            continue;
+        }
         // Every entry that hides it, from the bottom up so line numbers hold.
         for (int k = entries.size() - 1; k >= 0; --k) {
             const int i = entries[k];
@@ -389,12 +408,14 @@ QString Store::setMenuHidden(const QString &id, bool hidden) {
                 entry.insert("when", kept.value(id));
             else
                 entry.remove("when");
-            rewrite(i, entry);
+            rewrite(id, i, entry);
         }
         kept.remove(id);
     }
 
     const QString next = lines.join('\n');
+    if (next == text)
+        return {};
     if (!validMenuText(next))
         return tr("Changing the menu file would break it, so nothing was changed");
     // One backup a day keeps the hand-written version without piling up.
@@ -406,9 +427,92 @@ QString Store::setMenuHidden(const QString &id, bool hidden) {
     const QByteArray data = next.toUtf8();
     if (!out.open(QIODevice::WriteOnly) || out.write(data) != data.size() || !out.commit())
         return tr("Could not write %1").arg(file);
+    return {};
+}
 
+// The menu's search looks at every item, not only the ones a hidden
+// section shows, so hiding a section hides what is in it too. Which
+// children a section hid is remembered, so showing it again brings back
+// those and leaves alone any the user had hidden one by one.
+QString Store::menuAction(const QString &action, const QString &id) {
+    static const QRegularExpression validId("^[a-z0-9][a-z0-9._-]*$");
+    if (!id.isEmpty() && !validId.match(id).hasMatch())
+        return tr("Unknown menu item %1").arg(id);
+
+    QMutexLocker lock(&m_stateLock);
+    QJsonObject state = managedState();
+    QJsonObject kept = state.value("menuWhen").toObject();
+    QJsonObject cascade = state.value("menuCascade").toObject();
+
+    QHash<QString, bool> hiddenNow;
+    QStringList all;
+    for (const QVariant &v : listMenu().toList()) {
+        const QVariantMap item = v.toMap();
+        all << item.value("id").toString();
+        hiddenNow.insert(item.value("id").toString(), item.value("hidden").toBool());
+    }
+    if (!id.isEmpty() && !all.contains(id))
+        return tr("Unknown menu item %1").arg(id);
+    auto visibleInside = [&](const QString &section) {
+        QStringList out;
+        for (const QString &other : all)
+            if (other.startsWith(section + ".") && !hiddenNow.value(other))
+                out << other;
+        return out;
+    };
+    auto remember = [&](const QString &section, const QStringList &children) {
+        QJsonArray list = cascade.value(section).toArray();
+        for (const QString &c : children)
+            if (!list.contains(c))
+                list << c;
+        if (!list.isEmpty())
+            cascade.insert(section, list);
+    };
+
+    QStringList hide, show;
+    if (action == "menu.hide") {
+        const QStringList children = visibleInside(id);
+        hide << id << children;
+        remember(id, children);
+    } else if (action == "menu.show") {
+        show << id;
+        for (const QJsonValue &c : cascade.value(id).toArray())
+            show << c.toString();
+        cascade.remove(id);
+    } else if (action == "menu.hideInside") {
+        // For sections hidden before this was done for them: each hidden
+        // section's visible items, or every hidden section's when no id.
+        QStringList sections;
+        if (!id.isEmpty())
+            sections << id;
+        else
+            for (const QString &other : all)
+                if (hiddenNow.value(other))
+                    sections << other;
+        for (const QString &section : sections) {
+            const QStringList children = visibleInside(section);
+            hide << children;
+            remember(section, children);
+        }
+        hide.removeDuplicates();
+    } else {
+        return tr("Unknown action %1").arg(action);
+    }
+
+    QStringList skipped;
+    if (QString error = editMenu(hide, show, kept, skipped); !error.isEmpty())
+        return error;
     state.insert("menuWhen", kept);
-    return applyState(state);
+    state.insert("menuCascade", cascade);
+    // Menu bookkeeping has nothing to do with Hyprland, so it is saved
+    // without regenerating or reloading anything.
+    QSaveFile out(statePath());
+    const QByteArray json = reindentJson(QJsonDocument(state).toJson(QJsonDocument::Indented)).toUtf8();
+    if (!out.open(QIODevice::WriteOnly) || out.write(json) != json.size() || !out.commit())
+        return tr("Could not write %1").arg(statePath());
+    if (!skipped.isEmpty())
+        return tr("Left as they are, being set over several lines in your menu file: %1").arg(skipped.join(", "));
+    return {};
 }
 
 // --- The app's icon ------------------------------------------------------------------

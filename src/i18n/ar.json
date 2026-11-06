@@ -74,6 +74,14 @@
     "many": "%n ساعة",
     "other": "%n ساعة"
   },
+  "%n items in hidden sections still show up in search": {
+    "zero": "لا عناصر",
+    "one": "عنصر واحد في أقسام مخفية ما زال يظهر في البحث",
+    "two": "عنصران في أقسام مخفية ما زالا يظهران في البحث",
+    "few": "%n عناصر في أقسام مخفية ما زالت تظهر في البحث",
+    "many": "%n عنصرًا في أقسام مخفية ما زالت تظهر في البحث",
+    "other": "%n عنصر في أقسام مخفية ما زالت تظهر في البحث"
+  },
   "%n items inside": {
     "zero": "لا عناصر بداخله",
     "one": "عنصر واحد بداخله",
@@ -417,8 +425,10 @@
   "Hibernation is not set up": "السبات غير مُعد",
   "Hibernation is set up": "السبات مُعد",
   "Hidden with %1": "مخفي مع %1",
+  "Hidden with %1, but search still finds it": "مخفي مع %1، لكن البحث ما زال يجده",
+  "Hide Them Too": "إخفاؤها أيضًا",
   "Hide items": "إخفاء العناصر",
-  "Hide the parts of the Omarchy menu you don't use. Hiding a section hides everything in it.": "أخفِ أجزاء قائمة Omarchy التي لا تستخدمها. إخفاء قسم يخفي كل ما فيه.",
+  "Hide the parts of the Omarchy menu you don't use. Hiding a section hides everything in it, in search too, and showing it brings those back.": "أخفِ أجزاء قائمة Omarchy التي لا تستخدمها. إخفاء قسم يخفي كل ما فيه، حتى من البحث، وإظهاره يعيدها.",
   "Hide the pointer when idle": "إخفاء المؤشر عند الخمول",
   "High Performance": "أداء عالٍ",
   "Home Folder": "مجلد المنزل",
@@ -475,6 +485,7 @@
   "Layout to add": "التخطيط المراد إضافته",
   "Layouts are xkb codes like us,de": "التخطيطات رموز xkb مثل us,de",
   "Left": "يسار",
+  "Left as they are, being set over several lines in your menu file: %1": "تُركت كما هي لأنها معرّفة على عدة أسطر في ملف القائمة: %1",
   "Less warm": "أقل دفئًا",
   "Light": "خفيفة",
   "Listen through": "الاستماع عبر",
@@ -706,6 +717,7 @@
   "Search settings": "البحث في الإعدادات",
   "Secondary click with two fingers": "النقر الثانوي بإصبعين",
   "Section": "القسم",
+  "Sections hidden before Settings did this for you": "أقسام أُخفيت قبل أن تتولى «الإعدادات» ذلك",
   "Security": "الأمان",
   "Security key": "مفتاح الأمان",
   "See how notifications look": "اطّلع على شكل الإشعارات",
@@ -980,6 +992,5 @@
   "ufw isn't installed": "ufw غير مثبّت",
   "volume output input microphone speakers headphones mute": "مستوى الصوت إخراج إدخال ميكروفون مكبرات سماعات كتم",
   "vpn wireguard openvpn private network tunnel": "vpn wireguard openvpn شبكة خاصة نفق",
-  "~/.config/tmux": "~/.config/tmux",
-  "“%1” is set over several lines in your menu file; change it there": "«%1» معرّف على عدة أسطر في ملف القائمة؛ غيّره هناك"
+  "~/.config/tmux": "~/.config/tmux"
 }

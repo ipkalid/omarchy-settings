@@ -10,13 +10,16 @@ SettingsPage {
     title: qsTr("Omarchy Menu")
     tagline: qsTr("%n hidden", "", page.items.filter(i => i.hidden).length)
     glyph: "\u{F035C}"
-    description: qsTr("Hide the parts of the Omarchy menu you don't use. Hiding a section hides everything in it.")
+    description: qsTr("Hide the parts of the Omarchy menu you don't use. Hiding a section hides everything in it, in search too, and showing it brings those back.")
     lists: ["menu"]
 
     readonly property var items: backend.lists.menu || []
     readonly property var sections: items.filter(i => i.depth === 0)
     readonly property string query: filter.text.trim().toLowerCase()
-    readonly property bool working: backend.busy.indexOf("menu.hide") >= 0 || backend.busy.indexOf("menu.show") >= 0
+    readonly property bool working: ["menu.hide", "menu.show", "menu.hideInside"].some(a => backend.busy.indexOf(a) >= 0)
+    // Items inside a hidden section that are not hidden themselves: the
+    // menu's search still finds them.
+    readonly property var searchable: items.filter(i => !i.hidden && hiddenBy(i.id))
     property var expanded: ({})
 
     readonly property var hiddenIds: {
@@ -46,6 +49,7 @@ SettingsPage {
         readonly property string coveredBy: page.hiddenBy(item.id)
         label: item.label
         sublabel: !item.editable ? qsTr("Set over several lines in your menu file; change it there")
+                 : coveredBy && !item.hidden ? qsTr("Hidden with %1, but search still finds it").arg(page.labelOf(coveredBy))
                  : coveredBy ? qsTr("Hidden with %1").arg(page.labelOf(coveredBy))
                  : item.custom ? qsTr("Added by you") : ""
         glyph: item.icon
@@ -79,6 +83,20 @@ SettingsPage {
         objectName: "menuFilter"
         Layout.fillWidth: true
         placeholderText: qsTr("Filter %n menu items", "", page.items.length)
+    }
+
+    SettingsGroup {
+        visible: page.searchable.length > 0
+        ButtonRow {
+            label: qsTr("%n items in hidden sections still show up in search", "", page.searchable.length)
+            sublabel: qsTr("Sections hidden before Settings did this for you")
+            glyph: "\u{F0349}"
+            tint: ui.urgent
+            text: qsTr("Hide Them Too")
+            highlighted: true
+            busy: page.working
+            onClicked: backend.act("menu.hideInside", [""], ["menu"])
+        }
     }
 
     Repeater {
