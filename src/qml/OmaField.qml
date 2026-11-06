@@ -1,8 +1,11 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic as Basic
 
 // A text input in the shell's style: an outlined box in the monospace font.
-TextField {
+// Built on the Basic style's field, whose placeholder stays inside the box;
+// Material's floats up onto the border as a label when the field takes
+// focus, which the shell's fields never do.
+Basic.TextField {
     id: field
     implicitHeight: ui.controlHeight + ui.s(4)
     leftPadding: ui.s(10)
