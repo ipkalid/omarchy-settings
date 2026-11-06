@@ -37,9 +37,46 @@ SettingsPage {
         return ""
     }
     function labelOf(id) { const i = items.find(x => x.id === id); return i ? i.label : id }
+    // A section's items in tree order: each item followed by what is inside
+    // it, siblings in the order the menu file lists them (it lists all the
+    // nested ones last, which would put them away from their parent).
     function childrenOf(section) {
-        return items.filter(i => i.id.indexOf(section.id + ".") === 0
-            && (query.length === 0 || (i.label + " " + i.id).toLowerCase().indexOf(query) >= 0))
+        const under = {}
+        for (const i of items) {
+            if (i.id.indexOf(section.id + ".") !== 0) continue
+            const parent = i.id.split(".").slice(0, -1).join(".")
+            ;(under[parent] = under[parent] || []).push(i)
+        }
+        const ordered = []
+        const walk = id => { for (const child of (under[id] || [])) { ordered.push(child); walk(child.id) } }
+        walk(section.id)
+        return ordered.filter(i => query.length === 0 || (i.label + " " + i.id).toLowerCase().indexOf(query) >= 0)
+    }
+    // How many items sit under each item, so any item with some inside
+    // can open and close, at every level.
+    readonly property var insideCount: {
+        const counts = {}
+        for (const i of items) {
+            const parts = i.id.split(".")
+            for (let n = 1; n < parts.length; ++n) {
+                const ancestor = parts.slice(0, n).join(".")
+                counts[ancestor] = (counts[ancestor] || 0) + 1
+            }
+        }
+        return counts
+    }
+    function isOpen(id) { return query.length > 0 || !!expanded[id] }
+    function toggleOpen(id) {
+        const next = Object.assign({}, expanded)
+        next[id] = !isOpen(id)
+        expanded = next
+    }
+    // An item shows when every item above it, inside its section, is open.
+    function shownInTree(item) {
+        const parts = item.id.split(".")
+        for (let n = 2; n < parts.length; ++n)
+            if (!isOpen(parts.slice(0, n).join("."))) return false
+        return true
     }
     function toggle(item) { backend.act(item.hidden ? "menu.show" : "menu.hide", [item.id], ["menu"]) }
 
@@ -48,7 +85,10 @@ SettingsPage {
         property var item
         readonly property string coveredBy: page.hiddenBy(item.id)
         label: item.label
-        sublabel: !item.editable ? qsTr("Set over several lines in your menu file; change it there")
+        readonly property int inside: page.insideCount[item.id] || 0
+        sublabel: expandable && !open && inside > 0 && item.depth > 0 && !coveredBy && item.editable
+                 ? qsTr("%n items inside", "", inside)
+                 : !item.editable ? qsTr("Set over several lines in your menu file; change it there")
                  : coveredBy && !item.hidden ? qsTr("Hidden with %1, but search still finds it").arg(page.labelOf(coveredBy))
                  : coveredBy ? qsTr("Hidden with %1").arg(page.labelOf(coveredBy))
                  : item.custom ? qsTr("Added by you") : ""
@@ -116,11 +156,7 @@ SettingsPage {
                 item: group.modelData
                 expandable: group.children_.length > 0
                 open: group.open
-                onExpand: {
-                    const next = Object.assign({}, page.expanded)
-                    next[group.modelData.id] = !group.open
-                    page.expanded = next
-                }
+                onExpand: page.toggleOpen(group.modelData.id)
             }
             Text {
                 visible: !group.open && group.children_.length > 0
@@ -134,7 +170,7 @@ SettingsPage {
                 textFormat: Text.PlainText
             }
             Repeater {
-                model: group.open ? group.children_ : []
+                model: group.open ? group.children_.filter(i => page.shownInTree(i)) : []
                 delegate: Item {
                     required property var modelData
                     width: parent.width
@@ -142,6 +178,9 @@ SettingsPage {
                     MenuItemRow {
                         id: row
                         item: modelData
+                        expandable: (page.insideCount[modelData.id] || 0) > 0
+                        open: page.isOpen(modelData.id)
+                        onExpand: page.toggleOpen(modelData.id)
                         x: Qt.application.layoutDirection === Qt.RightToLeft ? 0 : ui.s(24) * modelData.depth
                         width: parent.width - ui.s(24) * modelData.depth
                     }
