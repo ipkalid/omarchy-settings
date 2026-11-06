@@ -22,7 +22,14 @@ SettingsPage {
     SettingsGroup {
         separated: false
         title: qsTr("Opening Settings")
-        ToggleRow { setting: "integration.menuEntry"; label: qsTr("Show Settings in the Omarchy menu, under Setup") }
+        ChoiceRow {
+            setting: "integration.menuPlace"
+            label: qsTr("Show Settings in the Omarchy menu")
+            glyph: "\u{F062E}"
+            options: [{ value: "off", text: qsTr("Not shown") },
+                      { value: "setup", text: qsTr("Under Setup") },
+                      { value: "top", text: qsTr("At the top") }]
+        }
         ButtonRow {
             label: qsTr("A keyboard shortcut for Settings")
             text: qsTr("Choose Keys…")

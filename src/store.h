@@ -113,7 +113,8 @@ private:
     QString keyboardBacklight() const;
     QString setNightShift(const QString &key, const QVariant &value);
     QString writeNightShift(const QJsonObject &night);
-    QString setMenuEntry(bool on);
+    QString menuPlace();
+    QString setMenuPlace(const QString &place);
     QString updateState(const std::function<QString(QJsonObject &)> &change);
     QJsonObject exportSettings();
 

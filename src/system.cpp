@@ -894,7 +894,7 @@ QVariant Store::listMenuCustom() {
                            {"parent", id.contains('.') ? id.section('.', 0, -2) : QString()},
                            {"hidden", e.value("when").toString() == "false"},
                            // The Settings menu entry is the switch in Changes & Backup.
-                           {"managed", id == "setup.omasettings"}};
+                           {"managed", id == "setup.omasettings" || id == "omasettings"}};
     }
     return out;
 }

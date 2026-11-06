@@ -79,6 +79,9 @@ SettingsPage {
         return true
     }
     readonly property var custom: backend.lists.menuCustom || []
+    // Moving Settings in the menu rewrites the file; show the result once it's written.
+    readonly property bool placing: backend.busy.indexOf("integration.menuPlace") >= 0
+    onPlacingChanged: if (!placing) { backend.load("menu"); backend.load("menuCustom") }
     // Where an item can go: the top of the menu, or any submenu (anything
     // with items in it, and your own submenus).
     readonly property var places: {
@@ -154,6 +157,20 @@ SettingsPage {
         }
     }
 
+    // Where Settings itself opens from: at the top suits people who hide Setup.
+    SettingsGroup {
+        title: qsTr("This App")
+        footer: qsTr("Put Settings at the top of the menu if you've hidden Setup.")
+        ChoiceRow {
+            setting: "integration.menuPlace"
+            label: qsTr("Settings in the menu")
+            glyph: "\u{F062E}"
+            options: [{ value: "off", text: qsTr("Not shown") },
+                      { value: "setup", text: qsTr("Under Setup") },
+                      { value: "top", text: qsTr("At the top") }]
+        }
+    }
+
     // Your own items, wherever they sit in the menu.
     SettingsGroup {
         title: qsTr("Your Items")
@@ -185,7 +202,7 @@ SettingsPage {
                 }
                 Text {
                     visible: crow.modelData.managed
-                    text: qsTr("From Changes & Backup")
+                    text: qsTr("Set under This App")
                     color: ui.muted2
                     font.family: ui.font
                     font.pixelSize: ui.caption

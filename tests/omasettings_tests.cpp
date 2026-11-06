@@ -805,6 +805,27 @@ private slots:
         QVERIFY(!store.act("menu.removeItem", {QVariantMap{{"id", "nope"}}}).isEmpty());
     }
 
+    void settingsCanSitAtTheTopOfTheMenu() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        const QString menu = dir.path() + "/config/omarchy/extensions/omarchy-menu.jsonc";
+        writeText(menu, "{\n  // mine\n  \"setup\": {\"when\": \"false\"},\n  \"setup.omasettings\": {\"label\":\"Settings app\",\"when\":\"false\"}\n}\n");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.read("integration.menuPlace"), QVariant("setup"));
+        QCOMPARE(store.write("integration.menuPlace", "top"), QString());
+        QCOMPARE(store.read("integration.menuPlace"), QVariant("top"));
+        QCOMPARE(store.read("integration.menuEntry"), QVariant(true));
+        QVERIFY(!readText(menu).contains("setup.omasettings"));
+        QVERIFY(readText(menu).contains("\"setup\": {\"when\": \"false\"}"));
+        QVERIFY(readText(menu).contains("// mine"));
+        // Turning the old switch on leaves it where it is.
+        QCOMPARE(store.write("integration.menuEntry", true), QString());
+        QCOMPARE(store.read("integration.menuPlace"), QVariant("top"));
+        QCOMPARE(store.write("integration.menuPlace", "off"), QString());
+        QVERIFY(!readText(menu).contains("omasettings"));
+        QVERIFY(!store.write("integration.menuPlace", "sideways").isEmpty());
+    }
+
     void anItemCanBeAddedToAnEmptyMenuFile() {
         QTemporaryDir dir;
         FakeSystem sys;

@@ -123,32 +123,44 @@ QString Store::setNightShift(const QString &key, const QVariant &value) {
     return {};
 }
 
-static const char *menuEntryLine =
-    "  \"setup.omasettings\": {\"icon\":\"\",\"label\":\"Settings app\",\"action\":\"omasettings\"},";
+// Settings' own entry in the Omarchy menu: under Setup, or at the top level
+// for people who hide Setup. Each is one line, so moving it between the two
+// leaves the rest of the file as it is.
+static const QRegularExpression menuEntryKey(R"re(^\s*"(setup\.)?omasettings"\s*:)re");
 
-QString Store::setMenuEntry(bool on) {
-    const QString file = m_paths.config + "/omarchy/extensions/omarchy-menu.jsonc";
-    QString text = readText(file);
-    const bool present = text.contains("\"setup.omasettings\"");
-    if (on == present)
+QString Store::menuPlace() {
+    const QStringList lines = readText(m_paths.config + "/omarchy/extensions/omarchy-menu.jsonc").split('\n');
+    for (const QString &line : lines)
+        if (const auto m = menuEntryKey.match(line); m.hasMatch())
+            return m.captured(1).isEmpty() ? "top" : "setup";
+    return "off";
+}
+
+QString Store::setMenuPlace(const QString &place) {
+    if (place != "off" && place != "setup" && place != "top")
+        return tr("Unknown place %1").arg(place);
+    if (place == menuPlace())
         return {};
-    if (!text.isEmpty())
-        QFile::copy(file, file + ".bak." + QDateTime::currentDateTime().toString("yyyyMMddHHmmss"));
-    if (on) {
-        // One line after the opening brace, so the user's comments and
-        // entries stay as they are.
-        const int brace = text.indexOf('{');
-        if (brace < 0)
-            text = QStringLiteral("{\n%1\n}\n").arg(QString(menuEntryLine).chopped(1));
-        else
-            text.insert(brace + 1, "\n" + QString(menuEntryLine));
-    } else {
-        QStringList lines = text.split('\n');
+    return rewriteMenu([&](QStringList &lines) {
         lines.erase(std::remove_if(lines.begin(), lines.end(),
-                                   [](const QString &l) { return l.contains("\"setup.omasettings\""); }), lines.end());
-        text = lines.join('\n');
-    }
-    return saveText(file, text);
+                                   [](const QString &l) { return menuEntryKey.match(l).hasMatch(); }), lines.end());
+        if (place == "off")
+            return QString();
+        int brace = -1;
+        for (int i = 0; i < lines.size() && brace < 0; ++i)
+            if (lines[i].trimmed().startsWith('{'))
+                brace = i;
+        if (brace < 0)
+            return tr("Your menu file isn't a JSON object; fix it by hand first");
+        if (lines[brace].trimmed() == "{}") {
+            lines[brace] = "{";
+            lines.insert(brace + 1, "}");
+        }
+        lines.insert(brace + 1, place == "top"
+            ? QStringLiteral("  \"omasettings\": {\"icon\":\"\U000F062E\",\"label\":\"Settings\",\"description\":\"Change how this computer looks and works\",\"action\":\"omasettings\"},")
+            : QStringLiteral("  \"setup.omasettings\": {\"icon\":\"\U000F062E\",\"label\":\"Settings app\",\"action\":\"omasettings\"},"));
+        return QString();
+    });
 }
 
 void Store::buildMore() {
@@ -263,10 +275,19 @@ void Store::buildMore() {
     {
         Setting s;
         s.id = "integration.menuEntry"; s.pane = "general"; s.type = "bool"; s.label = "Show Settings in the Omarchy menu";
-        s.read = [this] {
-            return QVariant(readText(m_paths.config + "/omarchy/extensions/omarchy-menu.jsonc").contains("\"setup.omasettings\""));
+        s.read = [this] { return QVariant(menuPlace() != "off"); };
+        s.write = [this](const QVariant &v) {
+            if (!v.toBool()) return setMenuPlace("off");
+            return menuPlace() == "off" ? setMenuPlace("setup") : QString();
         };
-        s.write = [this](const QVariant &v) { return setMenuEntry(v.toBool()); };
+        add(s);
+    }
+    {
+        Setting s;
+        s.id = "integration.menuPlace"; s.pane = "menu"; s.type = "choice"; s.label = "Settings in the Omarchy menu";
+        s.choices = asVariants({"off", "setup", "top"});
+        s.read = [this] { return QVariant(menuPlace()); };
+        s.write = [this](const QVariant &v) { return setMenuPlace(v.toString()); };
         add(s);
     }
 }
