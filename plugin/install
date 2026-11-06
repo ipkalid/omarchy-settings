@@ -7,7 +7,8 @@
 #
 #   install            build and install (asks to add missing tools)
 #   install --status   print one word: current, build, needs-tools, or package
-#   install --quiet    build and install without asking; exit 3 if tools are missing
+#   install --quiet    build and install without asking; exit 3 if tools are
+#                      missing, 4 if another install is already running
 #   install --home D   install under D instead of $HOME (for testing)
 
 set -euo pipefail
@@ -22,7 +23,7 @@ while (( $# > 0 )); do
   --status) MODE=status; shift ;;
   --quiet) QUIET=1; shift ;;
   --home) TARGET_HOME="$2"; shift 2 ;;
-  -h | --help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h | --help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   *) echo "install: unknown option $1" >&2; exit 2 ;;
   esac
 done
@@ -64,6 +65,22 @@ if [[ $MODE == status ]]; then
   exit 0
 fi
 
+# One install at a time. The shell can briefly run two copies of the
+# plugin's service after an update, and two builds in one folder corrupt
+# each other. A quiet run that finds another under way leaves it to that
+# one (exit 4); an interactive one waits for it.
+mkdir -p "$(dirname "$BUILD")"
+exec 9>"$BUILD.lock"
+if ! flock -n 9; then
+  (( QUIET )) && exit 4
+  echo "Another install of Settings is running; waiting for it to finish…"
+  flock 9
+fi
+if [[ $(status) == current ]]; then
+  echo "Settings is already up to date."
+  exit 0
+fi
+
 missing=$(missing_tools)
 if [[ -n $missing ]]; then
   if (( QUIET )); then
@@ -77,6 +94,9 @@ if [[ -n $missing ]]; then
 fi
 
 echo "Building Settings…"
+# From scratch each time, so a build that was cut short can't leave stale
+# objects behind for the next one; it takes seconds.
+rm -rf "$BUILD"
 mkdir -p "$BUILD"
 cd "$BUILD"
 qmake6 "$SRC/omasettings.pro" >/dev/null

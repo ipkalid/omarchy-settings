@@ -75,8 +75,21 @@ Item {
     id: build
     command: [root.installer, "--quiet"]
     stderr: StdioCollector { id: buildErrors; waitForEnd: true }
-    onRunningChanged: if (running) root.notify([strings.t("installing.title"), strings.t("installing.body")])
+    // Said once the build really starts: a run that finds Settings already
+    // current, or another install under way, stays quiet.
+    property bool built: false
+    stdout: SplitParser {
+      onRead: function(line) {
+        if (String(line).indexOf("Building") === 0) {
+          build.built = true
+          root.notify([strings.t("installing.title"), strings.t("installing.body")])
+        }
+      }
+    }
+    onRunningChanged: if (running) built = false
     onExited: function(exitCode) {
+      if (exitCode === 4 || (exitCode === 0 && !built))
+        return
       if (exitCode === 0)
         root.notify([strings.t("ready.title"), strings.t("ready.body")])
       else if (exitCode === 3)
