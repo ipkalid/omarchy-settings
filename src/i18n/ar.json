@@ -818,6 +818,7 @@
   "The name and email on your commits. Sign in to GitHub to push without typing a password.": "الاسم والبريد على إيداعاتك. سجّل الدخول إلى GitHub لتدفع دون كتابة كلمة مرور.",
   "The printing service isn't running": "خدمة الطباعة لا تعمل",
   "The screensaver draws this text. Make it from a picture, or write your own.": "ترسم شاشة التوقف هذا النص. أنشئه من صورة أو اكتب نصك.",
+  "The theme's foreground color isn't a color": "لون النص في السمة ليس لونًا صالحًا",
   "Theme": "السمة",
   "Themes": "السمات",
   "Themes You Added": "السمات التي أضفتها",
