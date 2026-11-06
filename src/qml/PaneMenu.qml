@@ -153,9 +153,34 @@ SettingsPage {
     SettingsGroup {
         footer: qsTr("Your own entries and anything more than hiding are in omarchy-menu.jsonc. A copy of it is kept the first time each day Settings changes it.")
         ButtonRow {
+            label: qsTr("Restore the default menu")
+            sublabel: qsTr("Shows every hidden item again; your own entries stay")
+            glyph: "\u{F006F}"
+            text: qsTr("Restore Default…")
+            enabled: page.items.some(i => i.hidden) && !page.working
+            onClicked: restoreDialog.open()
+        }
+        ButtonRow {
             label: qsTr("Edit the menu file")
             text: qsTr("Open…")
             onClicked: backend.act("edit", ["menu"])
+        }
+    }
+
+    OmaDialog {
+        id: restoreDialog
+        title: qsTr("Show all %n hidden items?", "", page.items.filter(i => i.hidden).length)
+        acceptText: qsTr("Restore Default")
+        onAccepted: backend.act("menu.showAll", [""], ["menu"])
+        Text {
+            Layout.fillWidth: true
+            text: qsTr("The menu goes back to showing everything Omarchy puts in it. Items you added yourself stay, and a copy of your menu file is saved beside it first, so your hiding can be brought back.")
+            horizontalAlignment: Text.AlignLeft
+            color: ui.muted
+            font.family: ui.font
+            font.pixelSize: ui.small
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
         }
     }
 }

@@ -155,7 +155,7 @@ QString Store::actSystem(const QString &action, const QVariantList &args) {
             return tr("Unknown strength %1").arg(a0);
         return runOk("dell-xps-touchpad-haptics", {"set", a0}, 10000);
     }
-    if (action == "menu.hide" || action == "menu.show" || action == "menu.hideInside")
+    if (action == "menu.hide" || action == "menu.show" || action == "menu.hideInside" || action == "menu.showAll")
         return menuAction(action, a0);
     if (action == "restart.shell")
         return launch("omarchy-restart-shell", {});
@@ -495,6 +495,18 @@ QString Store::menuAction(const QString &action, const QString &id) {
             remember(section, children);
         }
         hide.removeDuplicates();
+    } else if (action == "menu.showAll") {
+        // Back to Omarchy's menu: every hidden item shown, conditions the
+        // user wrote put back, and their own entries left as they are. A
+        // copy of the file as it was is kept first, so the hiding can be
+        // brought back by hand.
+        for (const QString &other : all)
+            if (hiddenNow.value(other))
+                show << other;
+        cascade = QJsonObject();
+        const QString backup = menuFile() + ".bak.omasettings-" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
+        if (!show.isEmpty() && QFileInfo::exists(menuFile()) && !QFile::copy(menuFile(), backup))
+            return tr("Could not back up %1").arg(menuFile());
     } else {
         return tr("Unknown action %1").arg(action);
     }

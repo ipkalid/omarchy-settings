@@ -741,6 +741,27 @@ private slots:
         QVERIFY(!readText(menu).contains("when"));
     }
 
+    void theMenuCanGoBackToDefault() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/omarchy/default/omarchy/omarchy-menu.jsonc",
+                  "{\n  \"learn\": {\"label\":\"Learn\"},\n  \"learn.bash\": {\"label\":\"Bash\"},\n  \"about\": {\"label\":\"About\"}\n}\n");
+        const QString menu = dir.path() + "/config/omarchy/extensions/omarchy-menu.jsonc";
+        writeText(menu, "{\n  \"mine\": {\n    \"label\": \"Mine\",\n    \"action\": \"z\"\n  },\n"
+                        "  \"about\": {\"label\":\"Me\",\"when\":\"[[ -f ~/x ]]\"}\n}\n");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("menu.hide", {"learn"}), QString());
+        QCOMPARE(store.act("menu.hide", {"about"}), QString());
+        QCOMPARE(store.act("menu.showAll", {""}), QString());
+        for (const QVariant &i : store.list("menu").toList())
+            QVERIFY2(!i.toMap().value("hidden").toBool(), qPrintable(i.toMap().value("id").toString()));
+        const QString text = readText(menu);
+        QVERIFY(text.contains("\"action\": \"z\""));      // their own entry stays
+        QVERIFY(text.contains("[[ -f ~/x ]]"));              // and their condition comes back
+        QVERIFY(!text.contains("\"false\""));
+        QVERIFY(!QDir(dir.path() + "/config/omarchy/extensions").entryList({"omarchy-menu.jsonc.bak.omasettings-*-*"}).isEmpty());
+    }
+
     void aBrokenMenuFileIsLeftAlone() {
         QTemporaryDir dir;
         FakeSystem sys;

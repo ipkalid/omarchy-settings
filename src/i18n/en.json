@@ -82,5 +82,9 @@
   "%n items in hidden sections still show up in search": {
     "one": "%n item in a hidden section still shows up in search",
     "other": "%n items in hidden sections still show up in search"
+  },
+  "Show all %n hidden items?": {
+    "one": "Show the %n hidden item?",
+    "other": "Show all %n hidden items?"
   }
 }
