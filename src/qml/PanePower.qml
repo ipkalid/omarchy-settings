@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 SettingsPage {
     id: page
+    resetPane: "power"
     pane: "power"
     title: win.caps.battery ? qsTr("Battery") : qsTr("Power")
     tagline: page.profileNames[backend.values["power.profile"]] || ""

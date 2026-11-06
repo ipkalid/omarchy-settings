@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 SettingsPage {
     id: page
+    resetPane: "displays"
     pane: "displays"
     title: qsTr("Displays")
     tagline: page.monitors.length > 0 ? qsTr("%n displays", "", page.monitors.filter(m => !m.disabled).length) : ""

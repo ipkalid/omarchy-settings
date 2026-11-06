@@ -18,6 +18,8 @@ ScrollView {
     // Settings from other panes this page also shows.
     property var settings: []
     property int pollMs: 0
+    // The pane whose settings Restore Defaults puts back to Omarchy's.
+    property string resetPane: ""
     default property alias content: column.data
 
     function reload() {
@@ -37,7 +39,7 @@ ScrollView {
     }
 
     contentWidth: availableWidth
-    contentHeight: column.implicitHeight + ui.s(40)
+    contentHeight: outer.implicitHeight + ui.s(40)
     clip: true
     Component.onCompleted: reload()
 
@@ -53,9 +55,14 @@ ScrollView {
     }
 
     ColumnLayout {
+      id: outer
+      width: Math.min(page.availableWidth - ui.s(56), Math.round(640 * ui.scale))
+      x: (page.availableWidth - width) / 2
+      spacing: ui.s(18)
+
+      ColumnLayout {
         id: column
-        width: Math.min(page.availableWidth - ui.s(56), Math.round(640 * ui.scale))
-        x: (page.availableWidth - width) / 2
+        Layout.fillWidth: true
         spacing: ui.s(18)
 
         Item { implicitHeight: ui.s(6) }
@@ -120,6 +127,64 @@ ScrollView {
             font.pixelSize: ui.small
             wrapMode: Text.Wrap
             textFormat: Text.PlainText
+        }
+    }
+
+      // Restore Defaults, below everything a pane shows.
+      SettingsGroup {
+        visible: page.resetPane.length > 0
+        ButtonRow {
+          label: qsTr("Restore Omarchy's defaults")
+          sublabel: qsTr("Puts this page's settings back the way Omarchy ships them")
+          glyph: "\u{F099B}"
+          text: qsTr("Restore Defaults…")
+          onClicked: { backend.load("defaults:" + page.resetPane); restoreDialog.open() }
+        }
+      }
+    }
+
+    OmaDialog {
+        id: restoreDialog
+        objectName: "restoreDialog"
+        readonly property var changes: backend.lists["defaults:" + page.resetPane] || []
+        readonly property bool loading: backend.busy.indexOf("list:defaults:" + page.resetPane) >= 0
+        title: qsTr("Restore Omarchy's defaults?")
+        acceptText: qsTr("Restore")
+        canAccept: !loading && changes.length > 0
+        onAccepted: backend.act("pane.reset", [page.resetPane],
+                                ["defaults:" + page.resetPane, "bar", "dock", "monitors", "fonts"], page.resetPane)
+        function shown(v) {
+            if (v === true) return qsTr("On")
+            if (v === false) return qsTr("Off")
+            return String(v).split("\n").join(" ")
+        }
+        Text {
+            Layout.fillWidth: true
+            text: restoreDialog.loading ? qsTr("Checking…")
+                  : restoreDialog.changes.length === 0 ? qsTr("Everything here is already as Omarchy ships it.")
+                  : qsTr("These change back:")
+            horizontalAlignment: Text.AlignLeft
+            color: ui.muted
+            font.family: ui.font
+            font.pixelSize: ui.small
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+        }
+        Repeater {
+            model: restoreDialog.loading ? [] : restoreDialog.changes
+            delegate: Text {
+                required property var modelData
+                Layout.fillWidth: true
+                text: qsTranslate("Setting", modelData.label) + ": "
+                      + (String(modelData.value).length > 0 ? restoreDialog.shown(modelData.value) + " → " : "")
+                      + restoreDialog.shown(modelData["default"])
+                horizontalAlignment: Text.AlignLeft
+                color: ui.fg
+                font.family: ui.font
+                font.pixelSize: ui.small
+                wrapMode: Text.Wrap
+                textFormat: Text.PlainText
+            }
         }
     }
 }

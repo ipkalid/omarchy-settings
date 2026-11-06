@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 SettingsPage {
     id: page
+    resetPane: "desktop"
     pane: "desktop"
     title: qsTr("Desktop & Dock")
     tagline: ({ dwindle: qsTr("Tiling"), scrolling: qsTr("Scrolling"), floating: qsTr("Floating") })[backend.values["desktop.layout"]] || ""

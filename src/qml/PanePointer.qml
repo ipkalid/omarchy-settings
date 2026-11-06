@@ -2,6 +2,7 @@ import QtQuick
 
 SettingsPage {
     id: page
+    resetPane: "pointer"
     pane: "pointer"
     title: win.caps.touchpad ? qsTr("Mouse & Trackpad") : qsTr("Mouse")
     tagline: win.caps.touchpad ? qsTr("Mouse and trackpad") : qsTr("Mouse")

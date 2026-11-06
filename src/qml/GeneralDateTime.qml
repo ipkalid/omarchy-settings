@@ -2,6 +2,7 @@ import QtQuick
 
 SettingsPage {
     id: page
+    resetPane: "general"
     pane: "general"
     lists: ["timezones"]
     settings: ["desktop.barPosition"]

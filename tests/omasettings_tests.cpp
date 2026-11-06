@@ -811,6 +811,42 @@ private slots:
         QVERIFY(sys.calls.contains("omarchy-plugin-clone omarchy.clock"));
     }
 
+    // ---- Restore Defaults ------------------------------------------------------------
+    void panesGoBackToWhatOmarchyShips() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/omarchy/config/omarchy/shell.json", R"({"idle":{"screensaver":150,"lock":300},"dock":{"pinned":["foot"]}})");
+        writeText(dir.path() + "/config/omarchy/shell.json", R"({"idle":{"screensaver":600,"lock":900}})");
+        writeText(dir.path() + "/omarchy/default/hypr/input.lua", "local non_latin_layouts =\n  \" ara ru \"\n");
+        sys.answer("hyprctl -j getoption input:kb_layout", R"({"str":"us,ara"})");
+        sys.answer("hyprctl -j getoption input:kb_options", R"({"str":"compose:ralt"})");
+        sys.answer("omarchy-bar get omarchy.clock format", "h:mm AP");
+        Store store(pathsIn(dir), sys.exec());
+
+        // What would change is listed first, with the value it goes back to.
+        const QVariantList lock = store.defaultsFor("lock");
+        QCOMPARE(lock.size(), 2);
+        QCOMPARE(lock[0].toMap().value("default").toDouble(), 150.0);
+        QCOMPARE(store.resetPane("lock"), QString());
+        QCOMPARE(store.read("lock.screensaverAfter").toInt(), 150);
+        QCOMPARE(store.read("lock.lockAfter").toInt(), 300);
+
+        // Omarchy's keyboard options: Compose on Shift+Caps, and both Alts
+        // to switch since Arabic can't type Latin.
+        QCOMPARE(store.resetPane("keyboard"), QString());
+        QCOMPARE(store.managedState().value("hypr").toObject().value("input:kb_options").toString(),
+                 QString("omarchy:shift_caps_compose,grp:alts_toggle"));
+
+        // The bar goes back through Omarchy's own reset; the clock too.
+        QCOMPARE(store.resetPane("bar"), QString());
+        QVERIFY(sys.calls.contains("omarchy-bar defaults"));
+        QCOMPARE(store.resetPane("general"), QString());
+        QVERIFY(sys.calls.contains("omarchy-bar set omarchy.clock format dddd HH:mm"));
+        // Personal settings are never part of a reset.
+        QVERIFY(!sys.calls.join("|").contains("hostnamectl set-hostname"));
+        QVERIFY(store.managedState().value("hypr").toObject().value("input:kb_layout").isUndefined());
+    }
+
     // ---- The app icon ----------------------------------------------------------------
     void iconFollowsTheThemeAndHooksThemeChanges() {
         QTemporaryDir dir;

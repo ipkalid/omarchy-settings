@@ -77,6 +77,8 @@ ApplicationWindow {
           keywords: qsTr("storage disk space free full folders snapshots snapper package cache") },
         { id: "appearance", group: 1, title: qsTr("Appearance"), glyph: "\u{F03D8}", show: true,
           keywords: qsTr("theme dark light color font text size corners transparency animations") },
+        { id: "fonts", group: 1, title: qsTr("Fonts"), glyph: "\u{F06D6}", show: true,
+          keywords: qsTr("font fonts monospace text size install cjk chinese japanese korean") },
         { id: "desktop", group: 1, title: qsTr("Desktop & Dock"), glyph: "\u{F056E}", show: true,
           keywords: qsTr("dock windows gaps layout tiling focus pointer") },
         { id: "bar", group: 1, title: qsTr("Bar"), glyph: "\u{F06EB}", show: true,

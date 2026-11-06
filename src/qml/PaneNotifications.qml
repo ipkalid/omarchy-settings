@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 SettingsPage {
     id: page
+    resetPane: "notifications"
     pane: "notifications"
     title: qsTr("Notifications")
     tagline: backend.values["notifications.doNotDisturb"] === true ? qsTr("Do Not Disturb") : backend.values["notifications.doNotDisturb"] === false ? qsTr("Showing notifications") : ""

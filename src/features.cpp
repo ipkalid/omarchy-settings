@@ -899,6 +899,8 @@ QString Store::actMore(const QString &action, const QVariantList &args) {
         return importSettings(doc.object());
     }
 
+    if (action == "pane.reset")
+        return resetPane(a0);
     if (action.startsWith("branding.") || action.startsWith("haptics.") || action.startsWith("restart.")
         || action.startsWith("menu.") || action.startsWith("reminder.") || action == "summon"
         || action == "plugin.clone" || action == "xcompose.edit")

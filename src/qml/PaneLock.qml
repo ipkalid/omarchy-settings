@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 SettingsPage {
     id: page
+    resetPane: "lock"
     pane: "lock"
     title: qsTr("Lock Screen")
     tagline: backend.values["lock.stayAwake"] === true ? qsTr("Staying awake") : backend.values["lock.lockAfter"] !== undefined ? qsTr("Locks after %1").arg(page.idleText(backend.values["lock.lockAfter"])) : ""

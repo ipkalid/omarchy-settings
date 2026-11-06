@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 SettingsPage {
     id: page
+    resetPane: "keyboard"
     pane: "keyboard"
     title: qsTr("Keyboard")
     tagline: page.layouts.join(" · ")

@@ -102,6 +102,15 @@ void Store::buildSystem() {
         s.write = [this](const QVariant &v) { return runOk("omarchy-bar", {"set", "omarchy.clock", "verticalFormat", v.toString()}); };
         add(s);
     }
+    {
+        Setting s;
+        s.id = "fonts.cjk"; s.pane = "fonts"; s.type = "choice"; s.label = "Chinese, Japanese, and Korean text";
+        s.choices = asVariants({"default", "jp", "kr", "sc", "tc", "hk"});
+        s.read = [this] { return QVariant(output("omarchy-font-cjk", {}).toLower()); };
+        // Restarts the shell, which takes a moment.
+        s.write = [this](const QVariant &v) { return runOk("omarchy-font-cjk", {v.toString()}, 30000); };
+        add(s);
+    }
     for (const QString &field : {QStringLiteral("name"), QStringLiteral("email")}) {
         Setting s;
         s.id = field == "name" ? "security.gitName" : "security.gitEmail"; s.pane = "security"; s.type = "text";
@@ -709,4 +718,125 @@ QString Store::ensureIconHook() {
                "exit 0\n");
     file.close();
     return runOk("omarchy-hook-install", {"theme-set", script}, 10000);
+}
+
+// --- Restore Defaults -------------------------------------------------------------------
+//
+// What Omarchy ships, from its own files: default/hypr/input.lua and
+// looknfeel.lua, config/omarchy/shell.json, and its commands' resets.
+// Settings that are personal (keyboard layouts, the computer's name, the
+// theme) have no default here and are never reset.
+
+static const QHash<QString, QVariant> &omarchyDefaults() {
+    static const QHash<QString, QVariant> d{
+        {"appearance.corners", "theme"}, {"appearance.transparency", "transparent"}, {"appearance.animations", true},
+        {"appearance.font", "JetBrainsMono Nerd Font"}, {"appearance.textSize", 12}, {"fonts.cjk", "default"},
+        {"desktop.barVisible", true}, {"bar.batteryPercentage", false},
+        {"desktop.dockPosition", "bottom"}, {"desktop.dockAutohide", false}, {"desktop.layout", "dwindle"},
+        {"desktop.gaps", true}, {"desktop.gapsInner", 5}, {"desktop.gapsOuter", 10}, {"desktop.borderSize", 2},
+        {"desktop.dimInactive", false}, {"desktop.focusFollowsMouse", true}, {"desktop.cursorWarps", true},
+        {"desktop.hideCursor", 0.0}, {"desktop.oneWindowRatio", false},
+        {"lock.screensaverAfter", 150.0}, {"lock.lockAfter", 300.0}, {"lock.screensaver", true}, {"lock.stayAwake", false},
+        {"power.suspendInMenu", true},
+        {"notifications.doNotDisturb", false}, {"notifications.crashReports", true},
+        {"display.nightLight", false}, {"display.nightSchedule", false}, {"display.nightStart", "20:00"},
+        {"display.nightEnd", "07:00"}, {"display.nightTemperature", 4000},
+        {"keyboard.repeatRate", 40}, {"keyboard.repeatDelay", 250}, {"keyboard.numlock", true},
+        {"pointer.sensitivity", 0.0}, {"pointer.acceleration", "adaptive"}, {"pointer.naturalScroll", false},
+        {"pointer.scrollSpeed", 1.0}, {"pointer.leftHanded", false}, {"pointer.touchpad", true}, {"pointer.touchscreen", true},
+        {"trackpad.tapToClick", true}, {"trackpad.naturalScroll", false}, {"trackpad.twoFingerClick", true},
+        {"trackpad.scrollSpeed", 0.4}, {"trackpad.disableWhileTyping", true}, {"trackpad.threeFingerDrag", false},
+        {"trackpad.swipeWorkspaces", false},
+        {"general.clockFormat", "dddd HH:mm"}, {"general.clockVerticalFormat", "HH\n—\nmm"}, {"general.autoTime", true},
+    };
+    return d;
+}
+
+static bool sameValue(const QVariant &a, const QVariant &b) {
+    if (!a.isValid() || !b.isValid())
+        return false;
+    bool okA = false, okB = false;
+    const double x = a.toDouble(&okA), y = b.toDouble(&okB);
+    if (okA && okB && a.typeId() != QMetaType::QString && b.typeId() != QMetaType::QString)
+        return qAbs(x - y) < 1e-6;
+    if (a.typeId() == QMetaType::Bool || b.typeId() == QMetaType::Bool)
+        return a.toBool() == b.toBool();
+    return a.toString() == b.toString();
+}
+
+// Omarchy's keyboard options for the layouts in use: Compose on Shift+Caps,
+// and both Alt keys to switch layouts when one of them can't type Latin.
+QString Store::defaultKbOptions() const {
+    QString nonLatin = " af am ara bd bg by et ge gr il in iq ir kg kh kz la lk mk mm mn mv np rs ru sy th tj ua ";
+    static const QRegularExpression listed(R"re(non_latin_layouts\s*=\s*"([^"]+)")re");
+    const auto m = listed.match(readText(m_paths.omarchy + "/default/hypr/input.lua"));
+    if (m.hasMatch())
+        nonLatin = m.captured(1);
+    QString options = "omarchy:shift_caps_compose";
+    for (const QString &layout : hyprGet("input:kb_layout").toString().split(',', Qt::SkipEmptyParts))
+        if (nonLatin.contains(" " + layout.trimmed() + " ")) {
+            options += ",grp:alts_toggle";
+            break;
+        }
+    return options;
+}
+
+QVariantList Store::defaultsFor(const QString &pane) {
+    QVariantList out;
+    const QHash<QString, QVariant> &d = omarchyDefaults();
+    for (const Setting &s : m_settings) {
+        if (s.pane != pane || !d.contains(s.id))
+            continue;
+        const QVariant now = s.read ? s.read() : QVariant();
+        if (now.isValid() && !now.isNull() && !sameValue(now, d.value(s.id)))
+            out << QVariantMap{{"id", s.id}, {"label", s.label}, {"value", now}, {"default", d.value(s.id)}};
+    }
+    // The parts that aren't single settings.
+    if (pane == "keyboard" && hyprGet("input:kb_options").toString() != defaultKbOptions())
+        out << QVariantMap{{"id", "keyboard.options"}, {"label", "Special keys"}, {"value", hyprGet("input:kb_options")},
+                           {"default", defaultKbOptions()}};
+    if (pane == "desktop") {
+        const QJsonArray pinned = QJsonDocument::fromJson(readText(m_paths.omarchy + "/config/omarchy/shell.json").toUtf8())
+                                      .object().value("dock").toObject().value("pinned").toArray();
+        QStringList want;
+        for (const QJsonValue &v : pinned)
+            want << v.toString();
+        const QStringList now = output("omarchy-dock", {"pinned"}).split('\n', Qt::SkipEmptyParts);
+        if (!want.isEmpty() && now != want)
+            out << QVariantMap{{"id", "desktop.dockPinned"}, {"label", "Pinned apps"},
+                               {"value", now.isEmpty() ? QStringLiteral("none") : now.join(", ")}, {"default", want.join(", ")}};
+    }
+    if (pane == "bar")
+        out << QVariantMap{{"id", "bar.layout"}, {"label", "Widgets, position, and background"}, {"value", ""},
+                           {"default", "Omarchy's bar"}};
+    if (pane == "displays" && !managedState().value("monitors").toObject().isEmpty())
+        out << QVariantMap{{"id", "display.monitors"}, {"label", "Display modes set here"}, {"value", ""}, {"default", "monitors.lua"}};
+    return out;
+}
+
+QString Store::resetPane(const QString &pane) {
+    QStringList failed;
+    const QHash<QString, QVariant> &d = omarchyDefaults();
+    for (const QVariant &change : defaultsFor(pane)) {
+        const QString id = change.toMap().value("id").toString();
+        QString error;
+        if (id == "keyboard.options") {
+            error = hyprSet({{"input:kb_options", defaultKbOptions()}});
+        } else if (id == "desktop.dockPinned") {
+            error = runOk("omarchy-dock", QStringList{"pinned"} + change.toMap().value("default").toString().split(", "));
+        } else if (id == "bar.layout") {
+            // Omarchy's own reset for the bar: its widgets, position, and
+            // background, in one write.
+            error = runOk("omarchy-bar", {"defaults"}, 15000);
+        } else if (id == "display.monitors") {
+            for (const QString &name : managedState().value("monitors").toObject().keys())
+                if (QString e = monitorAction("monitor.reset", {name}); !e.isEmpty())
+                    error = e;
+        } else if (d.contains(id)) {
+            error = write(id, d.value(id));
+        }
+        if (!error.isEmpty())
+            failed << change.toMap().value("label").toString() + ": " + error;
+    }
+    return failed.isEmpty() ? QString() : tr("Some settings were not restored: %1").arg(failed.join("; "));
 }

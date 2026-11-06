@@ -227,7 +227,7 @@ int runCli(const QStringList &all, Store &store) {
 
     if (command == "data") {
         const QString name = args.value(1);
-        if (!store.listNames().contains(name))
+        if (!store.listNames().contains(name) && !name.startsWith("defaults:"))
             return fail(json, "unknown list " + name + "; one of: " + store.listNames().join(", "));
         const QVariant data = store.list(name);
         out() << QJsonDocument::fromVariant(data).toJson(json ? QJsonDocument::Compact : QJsonDocument::Indented);

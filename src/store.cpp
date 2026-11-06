@@ -609,13 +609,13 @@ void Store::build() {
         s.write = [this](const QVariant &v) { return runOk("omarchy-toggle-animations", {v.toBool() ? "on" : "off"}, 10000); };
         add(s);
     }
-    add(commandSetting("appearance.font", "appearance", "Monospace font", {},
+    add(commandSetting("appearance.font", "fonts", "Monospace font", {},
         [this] { return output("omarchy-font-current", {}); },
         [this](const QString &v) { return runOk("omarchy-font-set", {v}, 60000); }));
     m_settings.last().choicesList = "fonts";
     {
         Setting s;
-        s.id = "appearance.textSize"; s.pane = "appearance"; s.type = "int"; s.label = "Text size";
+        s.id = "appearance.textSize"; s.pane = "fonts"; s.type = "int"; s.label = "Text size";
         s.min = 9; s.max = 20; s.step = 1;
         s.read = [this] {
             static const QRegularExpression size(R"(text size:\s*(\d+))");
@@ -1095,6 +1095,8 @@ QVariant Store::list(const QString &name) {
         return listSystem(name);
     if (name == "menu")
         return listMenu();
+    if (name.startsWith("defaults:"))
+        return defaultsFor(name.section(':', 1));
     if (name == "vpn")
         return listVpn();
     if (name == "plugins")

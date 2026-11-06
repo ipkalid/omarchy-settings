@@ -32,6 +32,7 @@ struct Setting {
     QVariantList choices; // fixed choices: values
     QString choicesList;  // or the name of the list that holds them
     QString hyprOption;   // for settings kept in the generated Hyprland file
+    QVariant omarchyDefault; // what Omarchy ships, for Restore Defaults
     std::function<QVariant()> read;
     // Returns an empty string on success, or what went wrong.
     std::function<QString(const QVariant &)> write;
@@ -62,6 +63,10 @@ public:
 
     // Hands a Hyprland option back to the user's own config.
     QString resetHypr(const QString &option);
+
+    // What Restore Defaults would change on a pane, and doing it.
+    QVariantList defaultsFor(const QString &pane);
+    QString resetPane(const QString &pane);
 
     // Exposed for tests.
     static QString reindentJson(const QByteArray &json);
@@ -117,6 +122,7 @@ private:
     QVariant listSystem(const QString &name);
     QString actSystem(const QString &action, const QVariantList &args);
     QString directBootProblem();
+    QString defaultKbOptions() const;
     QString menuFile() const;
     QVariant listMenu();
     QString editMenu(const QStringList &hide, const QStringList &show, QJsonObject &kept, QStringList &skipped);

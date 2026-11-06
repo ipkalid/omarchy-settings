@@ -33,6 +33,7 @@
         <file alias="qml/PaneDesktop.qml">qml/PaneDesktop.qml</file>
         <file alias="qml/PaneDisplays.qml">qml/PaneDisplays.qml</file>
         <file alias="qml/PaneFirewall.qml">qml/PaneFirewall.qml</file>
+        <file alias="qml/PaneFonts.qml">qml/PaneFonts.qml</file>
         <file alias="qml/PaneGeneral.qml">qml/PaneGeneral.qml</file>
         <file alias="qml/PaneIcon.qml">qml/PaneIcon.qml</file>
         <file alias="qml/PaneKeyboard.qml">qml/PaneKeyboard.qml</file>

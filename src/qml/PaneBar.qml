@@ -6,6 +6,7 @@ import QtQuick.Layouts
 // stays the one that writes its layout.
 SettingsPage {
     id: page
+    resetPane: "bar"
     pane: "bar"
     title: qsTr("Bar")
     tagline: qsTr("%n widgets", "", page.placedCount)
