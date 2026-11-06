@@ -5,10 +5,15 @@ import QtQuick.Layouts
 // system's snapshots.
 SettingsPage {
     id: page
-    pane: ""
+    pane: "storage"
+    title: qsTr("Storage")
+    tagline: page.system ? qsTr("%1 free").arg(page.size(page.system.free)) : ""
+    glyph: "\u{F02CA}"
+    description: qsTr("How full your disks are, what takes up the room, and the system's snapshots.")
     lists: ["storage"]
 
     readonly property var storage: backend.lists.storage || ({})
+    readonly property var system: (storage.volumes || []).find(v => v.path === "/")
     readonly property var home: backend.lists.homeUsage
     readonly property var snapshots: backend.lists.snapshots
     function size(bytes) {
@@ -19,7 +24,6 @@ SettingsPage {
     }
 
     SettingsGroup {
-        separated: false
         title: qsTr("Disks")
         Repeater {
             model: page.storage.volumes || []

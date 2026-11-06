@@ -12,7 +12,6 @@
         <file alias="qml/GeneralLanguage.qml">qml/GeneralLanguage.qml</file>
         <file alias="qml/GeneralLoginItems.qml">qml/GeneralLoginItems.qml</file>
         <file alias="qml/GeneralSettingsApp.qml">qml/GeneralSettingsApp.qml</file>
-        <file alias="qml/GeneralStorage.qml">qml/GeneralStorage.qml</file>
         <file alias="qml/GeneralUpdate.qml">qml/GeneralUpdate.qml</file>
         <file alias="qml/GeneralWebApps.qml">qml/GeneralWebApps.qml</file>
         <file alias="qml/HelpOverlay.qml">qml/HelpOverlay.qml</file>
@@ -42,6 +41,7 @@
         <file alias="qml/PanePrinters.qml">qml/PanePrinters.qml</file>
         <file alias="qml/PaneSecurity.qml">qml/PaneSecurity.qml</file>
         <file alias="qml/PaneSound.qml">qml/PaneSound.qml</file>
+        <file alias="qml/PaneStorage.qml">qml/PaneStorage.qml</file>
         <file alias="qml/PaneVpn.qml">qml/PaneVpn.qml</file>
         <file alias="qml/PaneWallpaper.qml">qml/PaneWallpaper.qml</file>
         <file alias="qml/PaneWifi.qml">qml/PaneWifi.qml</file>

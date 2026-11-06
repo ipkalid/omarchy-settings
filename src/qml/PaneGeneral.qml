@@ -40,11 +40,6 @@ SettingsPage {
             detail: backend.values["general.timezone"] || ""
             onOpen: win.openSub("GeneralDateTime", qsTr("Date & Time"))
         }
-        NavRow {
-            label: qsTr("Storage")
-            glyph: "\u{F02CA}"
-            onOpen: win.openSub("GeneralStorage", qsTr("Storage"))
-        }
     }
 
     SettingsGroup {
