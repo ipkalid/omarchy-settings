@@ -45,6 +45,17 @@ SettingsPage {
         "preinstalls": { label: qsTr("Preinstalled apps"), detail: qsTr("The apps Omarchy comes with") }
     })
 
+    // Which groups are open. Categories start closed so the page reads as a
+    // list of them; filtering opens everything so matches show.
+    property var openGroups: ({ "tools": true })
+    readonly property bool searching: query.length > 0 || installedOnly || win.query.trim().length > 1
+    function isOpen(id) { return searching || !!openGroups[id] }
+    function toggleGroup(id) {
+        const next = Object.assign({}, openGroups)
+        next[id] = !openGroups[id]
+        openGroups = next
+    }
+
     function run(id) {
         backend.act("software.run", [id], ["software"])
         page.watching = true
@@ -120,6 +131,9 @@ SettingsPage {
         visible: page.query.length === 0 && !page.installedOnly
         title: qsTr("Packages & Tools")
         footer: qsTr("Each opens a terminal to pick what to add or remove.")
+        collapsible: true
+        collapsed: !page.isOpen("tools")
+        onToggle: page.toggleGroup("tools")
         Repeater {
             model: page.items.filter(i => i.category === "tools")
             delegate: AppRow { required property var modelData; item: modelData }
@@ -132,8 +146,14 @@ SettingsPage {
             id: group
             required property var modelData
             readonly property var matching: page.items.filter(i => i.category === modelData.id && page.shown(i))
+            readonly property int installedCount: page.items.filter(i => i.category === modelData.id && i.installed).length
+            readonly property int total: page.items.filter(i => i.category === modelData.id).length
             visible: matching.length > 0
             title: modelData.title
+            collapsible: true
+            collapsed: !page.isOpen(modelData.id)
+            summary: qsTr("%1 of %n installed", "", total).arg(installedCount)
+            onToggle: page.toggleGroup(modelData.id)
             Repeater {
                 model: group.matching
                 delegate: AppRow { required property var modelData; item: modelData }
@@ -155,6 +175,9 @@ SettingsPage {
     SettingsGroup {
         visible: page.query.length === 0 && !page.installedOnly
         title: qsTr("Elsewhere in Settings")
+        collapsible: true
+        collapsed: !page.isOpen("elsewhere")
+        onToggle: page.toggleGroup("elsewhere")
         footer: qsTr("The menu's other Install and Remove items have a place of their own.")
         NavRow {
             label: qsTr("Fonts")

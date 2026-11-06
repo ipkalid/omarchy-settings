@@ -1,4 +1,8 @@
 {
+  "%1 of %n installed": {
+    "one": "%1 of %n installed",
+    "other": "%1 of %n installed"
+  },
   "%n connected": {
     "one": "%n connected",
     "other": "%n connected"
