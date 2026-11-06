@@ -20,6 +20,7 @@ Item {
   }
   readonly property string installer: localPath("install")
   readonly property string manifestPath: localPath("../manifest.json")
+  readonly property string reflogPath: localPath("../.git/logs/HEAD")
 
   function check() {
     if (!statusProbe.running && !build.running)
@@ -33,12 +34,25 @@ Item {
 
   Component.onCompleted: check()
 
-  // `omarchy plugin update` replaces the manifest; look again then.
+  // `omarchy plugin update` moves the checkout to a new commit, which git
+  // records in its reflog; a copy that isn't a checkout changes its
+  // manifest instead. Either way, look again once the update settles.
+  FileView {
+    path: root.reflogPath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: settle.restart()
+  }
   FileView {
     path: root.manifestPath
     watchChanges: true
     printErrors: false
-    onFileChanged: root.check()
+    onFileChanged: settle.restart()
+  }
+  Timer {
+    id: settle
+    interval: 1500
+    onTriggered: root.check()
   }
 
   Process {
@@ -69,7 +83,7 @@ Item {
         toolsPrompt.running = true
       else
         root.notify(["--urgency=critical", strings.t("failed.title"),
-                     buildErrors.text.trim().split("\n").slice(-3).join("\n")])
+                     buildErrors.text.trim().split("\n").slice(-3).join("\n") || strings.t("failed.body").arg(root.installer)])
     }
   }
 

@@ -6,5 +6,6 @@
   "failed.title": "Settings couldn't be installed",
   "tools.title": "Settings needs build tools",
   "tools.body": "A few packages are needed to build the app. Add them in a terminal?",
-  "tools.action": "Add and Install"
+  "tools.action": "Add and Install",
+  "failed.body": "Run %1 in a terminal to see why."
 }

@@ -23,6 +23,30 @@ left included.
 | Lock Screen, Login & Security, Firewall | Idle times; password, fingerprint, security keys; ufw on/off and open ports |
 | Keyboard, Mouse, Printers | Repeat, layouts, special keys, backlight, a shortcut editor; pointer and trackpad; printers |
 
+## Install
+
+Settings ships as an Omarchy plugin. Add it and enable it:
+
+```sh
+omarchy plugin add https://github.com/ipkalid/omarchy-settings.git --enable
+```
+
+Enabling it builds the app (a minute or so) and installs it for you alone,
+under `~/.local`, so no password is needed. A notification says when it's
+ready, and Settings is then in the app launcher (Super + Space). After
+`omarchy plugin update ipkalid.settings`, it is rebuilt the same way. If a
+build tool is missing, a notification offers to add it in a terminal.
+
+The plugin does nothing else in the shell. If the Arch package from
+`bin/install` is installed, the plugin leaves it be.
+
+To remove the app as well as the plugin:
+
+```sh
+~/.local/share/omasettings/uninstall
+omarchy plugin remove ipkalid.settings
+```
+
 ## How it changes things
 
 Settings never rewrites a file you wrote.
