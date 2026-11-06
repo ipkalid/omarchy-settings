@@ -15,7 +15,7 @@ Rectangle {
         { keys: "Ctrl+↑  Ctrl+↓", action: qsTr("Previous or next pane from anywhere") },
         { keys: "Tab", action: qsTr("Move between controls") },
         { keys: "Space", action: qsTr("Toggle the focused switch or press the focused button") },
-        { keys: "Alt+←  Alt+→", action: qsTr("Back and forward") },
+        { keys: "Alt+←  Alt+→", action: qsTr("Back and forward (or the mouse's side buttons)") },
         { keys: "Esc", action: qsTr("Clear the search, or go back") },
         { keys: "Ctrl+Z", action: qsTr("Undo the last change") },
         { keys: "Ctrl+Shift+Z", action: qsTr("Redo") },

@@ -9,6 +9,7 @@ HEADERS += \
     src/cli.h \
     src/hyprconf.h \
     src/proc.h \
+    src/sidebuttons.h \
     src/store.h \
     src/theme.h \
     src/translator.h

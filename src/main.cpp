@@ -13,6 +13,7 @@
 
 #include "backend.h"
 #include "cli.h"
+#include "sidebuttons.h"
 #include "store.h"
 #include "theme.h"
 #include "translator.h"
@@ -72,6 +73,8 @@ int main(int argc, char *argv[]) {
     engine.load(QUrl("qrc:/Main.qml"));
     if (engine.rootObjects().isEmpty())
         return 1;
+    if (auto *window = qobject_cast<QWindow *>(engine.rootObjects().first()))
+        new SideButtons(window);
 
     const int code = app.exec();
     backend.finish();

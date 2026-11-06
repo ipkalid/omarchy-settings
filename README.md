@@ -60,7 +60,7 @@ change can be undone with Ctrl+Z.
 | `↑` `↓` | Move between panes in the sidebar |
 | `Ctrl+↑` `Ctrl+↓` | Previous or next pane from anywhere |
 | `Tab`, `Space` | Move between controls, toggle or press the focused one |
-| `Alt+←` `Alt+→` | Back and forward |
+| `Alt+←` `Alt+→`, mouse side buttons | Back and forward |
 | `Esc` | Clear the search, or go back |
 | `Ctrl+Z`, `Ctrl+Shift+Z` | Undo and redo |
 | `Ctrl+R` | Reload what the pane shows |
