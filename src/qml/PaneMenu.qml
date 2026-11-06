@@ -11,7 +11,7 @@ SettingsPage {
     tagline: qsTr("%n hidden", "", page.items.filter(i => i.hidden).length)
     glyph: "\u{F035C}"
     description: qsTr("Hide the parts of the Omarchy menu you don't use. Hiding a section hides everything in it, in search too, and showing it brings those back.")
-    lists: ["menu"]
+    lists: ["menu", "menuCustom"]
 
     readonly property var items: backend.lists.menu || []
     readonly property var sections: items.filter(i => i.depth === 0)
@@ -78,6 +78,21 @@ SettingsPage {
             if (!isOpen(parts.slice(0, n).join("."))) return false
         return true
     }
+    readonly property var custom: backend.lists.menuCustom || []
+    // Where an item can go: the top of the menu, or any submenu (anything
+    // with items in it, and your own submenus).
+    readonly property var places: {
+        const out = [{ value: "", text: qsTr("Top of the menu") }]
+        const isPlace = i => (insideCount[i.id] || 0) > 0 || custom.some(c => c.id === i.id && !c.action)
+        for (const i of items)
+            if (isPlace(i))
+                out.push({ value: i.id, text: pathOf(i.id) })
+        return out
+    }
+    function pathOf(id) {
+        const parts = id.split(".")
+        return parts.map((_, n) => labelOf(parts.slice(0, n + 1).join("."))).join(" › ")
+    }
     function toggle(item) { backend.act(item.hidden ? "menu.show" : "menu.hide", [item.id], ["menu"]) }
 
     component MenuItemRow: SettingRow {
@@ -136,6 +151,54 @@ SettingsPage {
             highlighted: true
             busy: page.working
             onClicked: backend.act("menu.hideInside", [""], ["menu"])
+        }
+    }
+
+    // Your own items, wherever they sit in the menu.
+    SettingsGroup {
+        title: qsTr("Your Items")
+        footer: qsTr("Items you add go into omarchy-menu.jsonc, the way Omarchy's menu takes extensions. A copy of the file is kept before each change.")
+        Repeater {
+            model: page.custom
+            delegate: SettingRow {
+                id: crow
+                required property var modelData
+                label: modelData.label
+                sublabel: [modelData.parent ? qsTr("In %1").arg(page.pathOf(modelData.parent)) : qsTr("At the top"),
+                           modelData.action ? qsTr("runs %1").arg("\u2066" + modelData.action + "\u2069") : qsTr("submenu"),
+                           modelData.hidden ? qsTr("hidden") : ""].filter(x => !!x).join(" · ")
+                glyph: modelData.icon
+                dimmed: modelData.hidden
+                OmaButton {
+                    visible: !crow.modelData.managed
+                    glyph: "\u{F03EB}"
+                    bordered: false
+                    tooltip: qsTr("Edit")
+                    onClicked: itemDialog.openFor(crow.modelData)
+                }
+                OmaButton {
+                    visible: !crow.modelData.managed
+                    glyph: "\u{F01B4}"
+                    bordered: false
+                    tooltip: qsTr("Delete")
+                    onClicked: { deleteItem.item = crow.modelData; deleteItem.open() }
+                }
+                Text {
+                    visible: crow.modelData.managed
+                    text: qsTr("From Changes & Backup")
+                    color: ui.muted2
+                    font.family: ui.font
+                    font.pixelSize: ui.caption
+                    anchors.verticalCenter: parent.verticalCenter
+                    textFormat: Text.PlainText
+                }
+            }
+        }
+        ButtonRow {
+            label: page.custom.length === 0 ? qsTr("Add your own commands and submenus to the menu") : ""
+            text: qsTr("Add Item…")
+            highlighted: true
+            onClicked: itemDialog.openFor(null)
         }
     }
 
@@ -214,6 +277,104 @@ SettingsPage {
         Text {
             Layout.fillWidth: true
             text: qsTr("The menu goes back to showing everything Omarchy puts in it. Items you added yourself stay, and a copy of your menu file is saved beside it first, so your hiding can be brought back.")
+            horizontalAlignment: Text.AlignLeft
+            color: ui.muted
+            font.family: ui.font
+            font.pixelSize: ui.small
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+        }
+    }
+
+    OmaDialog {
+        id: itemDialog
+        objectName: "itemDialog"
+        property var editing: null
+        readonly property bool isCommand: kind.currentIndex === 0
+        title: editing ? qsTr("Edit “%1”").arg(editing.label) : qsTr("Add a Menu Item")
+        acceptText: editing ? qsTr("Save") : qsTr("Add")
+        width: Math.min(parent ? parent.width - ui.s(48) : 520, Math.round(520 * ui.scale))
+        canAccept: name.text.trim().length > 0 && (!isCommand || command.text.trim().length > 0)
+
+        function openFor(item) {
+            editing = item
+            name.text = item ? item.label : ""
+            icon.text = item ? item.icon : "\u{F0415}"
+            command.text = item ? item.action : ""
+            description.text = item ? item.description : ""
+            kind.currentIndex = item && !item.action ? 1 : 0
+            place.currentIndex = Math.max(0, page.places.findIndex(p => p.value === (item ? item.parent : "")))
+            open()
+            name.forceActiveFocus()
+        }
+        onAccepted: {
+            const item = { label: name.text, icon: icon.text, action: isCommand ? command.text : "", description: description.text }
+            if (editing) { item.id = editing.id; backend.act("menu.editItem", [item], ["menu", "menuCustom"]) }
+            else { item.parent = place.currentValue; backend.act("menu.addItem", [item], ["menu", "menuCustom"]) }
+        }
+
+        OmaField { id: name; Layout.fillWidth: true; placeholderText: qsTr("Name, as the menu shows it") }
+        ChoiceBox {
+            id: place
+            Layout.fillWidth: true
+            maxWidth: 1000
+            enabled: !itemDialog.editing
+            model: page.places
+            textRole: "text"
+            valueRole: "value"
+            Accessible.name: qsTr("Where in the menu")
+        }
+        ChoiceBox {
+            id: kind
+            Layout.fillWidth: true
+            maxWidth: 1000
+            model: [qsTr("Runs a command"), qsTr("Opens a submenu for more items")]
+            Accessible.name: qsTr("What it does")
+        }
+        OmaField {
+            id: command
+            visible: itemDialog.isCommand
+            Layout.fillWidth: true
+            placeholderText: qsTr("Command, e.g. omarchy-launch-editor ~/notes")
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: ui.s(6)
+            OmaField {
+                id: icon
+                Layout.preferredWidth: ui.s(56)
+                horizontalAlignment: TextInput.AlignHCenter
+                font.family: ui.iconFont
+                placeholderText: "?"
+                maximumLength: 2
+                Accessible.name: qsTr("Icon")
+            }
+            // A few Nerd Font glyphs to pick from; any glyph can be pasted.
+            Repeater {
+                model: ["\u{F0415}", "\u{F0493}", "\u{F018D}", "\u{F0379}", "\u{F059F}", "\u{F024B}", "\u{F0463}", "\u{F05B7}", "\u{F0174}"]
+                delegate: OmaButton {
+                    required property string modelData
+                    glyph: modelData
+                    bordered: false
+                    selected: icon.text === modelData
+                    onClicked: icon.text = modelData
+                }
+            }
+        }
+        OmaField { id: description; Layout.fillWidth: true; placeholderText: qsTr("Description (optional; shown under it and searched)") }
+    }
+
+    OmaDialog {
+        id: deleteItem
+        property var item: ({ id: "", label: "" })
+        title: qsTr("Delete “%1”?").arg(item.label)
+        acceptText: qsTr("Delete")
+        onAccepted: backend.act("menu.removeItem", [{ id: item.id }], ["menu", "menuCustom"])
+        Text {
+            Layout.fillWidth: true
+            text: (page.insideCount[deleteItem.item.id] || 0) > 0
+                  ? qsTr("It's a submenu: the %n items inside it go too. A copy of your menu file is kept.", "", page.insideCount[deleteItem.item.id])
+                  : qsTr("It comes out of your menu file; a copy of the file is kept.")
             horizontalAlignment: Text.AlignLeft
             color: ui.muted
             font.family: ui.font

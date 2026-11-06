@@ -762,6 +762,59 @@ private slots:
         QVERIFY(!QDir(dir.path() + "/config/omarchy/extensions").entryList({"omarchy-menu.jsonc.bak.omasettings-*-*"}).isEmpty());
     }
 
+    void yourOwnMenuItemsCanBeAddedChangedAndRemoved() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/omarchy/default/omarchy/omarchy-menu.jsonc",
+                  "{\n  \"learn\": {\"label\":\"Learn\"},\n  \"learn.bash\": {\"label\":\"Bash\"}\n}\n");
+        const QString menu = dir.path() + "/config/omarchy/extensions/omarchy-menu.jsonc";
+        writeText(menu, "{\n  // mine\n  \"tool\": {\n    \"label\": \"Tool\",\n    \"action\": \"run-it --fast\",\n"
+                        "    \"when\": \"true\"\n  }\n}\n");
+        Store store(pathsIn(dir), sys.exec());
+        auto custom = [&](const QString &id) {
+            for (const QVariant &i : store.list("menuCustom").toList())
+                if (i.toMap().value("id") == id) return i.toMap();
+            return QVariantMap();
+        };
+        QCOMPARE(store.list("menuCustom").toList().size(), 1);
+        QCOMPARE(custom("tool").value("action").toString(), QString("run-it --fast"));
+
+        // A new item goes under its section, with an id made from its name
+        // that doesn't clash with one already there.
+        QVariantMap add{{"parent", "learn"}, {"label", "Bash"}, {"action", "man bash"}, {"icon", "X"}};
+        QCOMPARE(store.act("menu.addItem", {add}), QString());
+        QCOMPARE(custom("learn.bash-2").value("label").toString(), QString("Bash"));
+        QCOMPARE(custom("learn.bash-2").value("parent").toString(), QString("learn"));
+        QVERIFY(store.act("menu.addItem", {QVariantMap{{"label", "  "}}}).contains("name"));
+        QVERIFY(store.act("menu.addItem", {QVariantMap{{"label", "A"}, {"action", "x\ny"}}}).contains("one line"));
+
+        // Editing an entry over several lines keeps what the window doesn't
+        // show, and the user's comment.
+        QCOMPARE(store.act("menu.editItem", {QVariantMap{{"id", "tool"}, {"label", "My Tool"}, {"action", "run-it --fast"}}}), QString());
+        QCOMPARE(custom("tool").value("label").toString(), QString("My Tool"));
+        QVERIFY(readText(menu).contains("\"when\":\"true\""));
+        QVERIFY(readText(menu).contains("// mine"));
+
+        // Removing a submenu takes what is inside it too.
+        QCOMPARE(store.act("menu.addItem", {QVariantMap{{"label", "Work"}}}), QString());
+        QCOMPARE(store.act("menu.addItem", {QVariantMap{{"parent", "work"}, {"label", "Notes"}, {"action", "n"}}}), QString());
+        QVERIFY(!custom("work.notes").isEmpty());
+        QCOMPARE(store.act("menu.removeItem", {QVariantMap{{"id", "work"}}}), QString());
+        QVERIFY(custom("work").isEmpty() && custom("work.notes").isEmpty());
+        QVERIFY(!custom("tool").isEmpty());
+        QVERIFY(!store.act("menu.removeItem", {QVariantMap{{"id", "nope"}}}).isEmpty());
+    }
+
+    void anItemCanBeAddedToAnEmptyMenuFile() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        const QString menu = dir.path() + "/config/omarchy/extensions/omarchy-menu.jsonc";
+        writeText(menu, "{}\n");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("menu.addItem", {QVariantMap{{"label", "Hi There"}, {"action", "echo hi"}}}), QString());
+        QVERIFY(readText(menu).contains("\"hi-there\": {"));
+    }
+
     void aBrokenMenuFileIsLeftAlone() {
         QTemporaryDir dir;
         FakeSystem sys;

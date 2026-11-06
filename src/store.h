@@ -127,6 +127,9 @@ private:
     QVariant listMenu();
     QString editMenu(const QStringList &hide, const QStringList &show, QJsonObject &kept, QStringList &skipped);
     QString menuAction(const QString &action, const QString &id);
+    QVariant listMenuCustom();
+    QString rewriteMenu(const std::function<QString(QStringList &)> &change);
+    QString menuItemAction(const QString &action, const QVariantMap &item);
 
 public:
     // The app icon, drawn like Omarchy's own menu entries in the theme's colors.

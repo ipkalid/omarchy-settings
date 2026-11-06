@@ -1,31 +1,11 @@
 {
-  "%n days": {
-    "one": "%n day",
-    "other": "%n days"
-  },
-  "%n hours": {
-    "one": "%n hour",
-    "other": "%n hours"
-  },
-  "%n minutes": {
-    "one": "%n minute",
-    "other": "%n minutes"
-  },
-  "After %n seconds": {
-    "one": "After %n second",
-    "other": "After %n seconds"
-  },
-  "Filter %n shortcuts": {
-    "one": "Filter %n shortcut",
-    "other": "Filter %n shortcuts"
-  },
-  "Going back to the previous settings in %n seconds.": {
-    "one": "Going back to the previous settings in %n second.",
-    "other": "Going back to the previous settings in %n seconds."
-  },
   "%n connected": {
     "one": "%n connected",
     "other": "%n connected"
+  },
+  "%n days": {
+    "one": "%n day",
+    "other": "%n days"
   },
   "%n displays": {
     "one": "%n display",
@@ -35,21 +15,25 @@
     "one": "%n enabled",
     "other": "%n enabled"
   },
-  "%n themes installed": {
-    "one": "%n theme installed",
-    "other": "%n themes installed"
+  "%n hidden": {
+    "one": "%n hidden",
+    "other": "%n hidden"
   },
-  "%n updates available": {
-    "one": "%n update available",
-    "other": "%n updates available"
+  "%n hours": {
+    "one": "%n hour",
+    "other": "%n hours"
   },
-  "%n widgets": {
-    "one": "%n widget",
-    "other": "%n widgets"
+  "%n items in hidden sections still show up in search": {
+    "one": "%n item in a hidden section still shows up in search",
+    "other": "%n items in hidden sections still show up in search"
   },
-  "Filter %n plugins": {
-    "one": "Filter %n plugin",
-    "other": "Filter %n plugins"
+  "%n items inside": {
+    "one": "%n item inside",
+    "other": "%n items inside"
+  },
+  "%n minutes": {
+    "one": "%n minute",
+    "other": "%n minutes"
   },
   "%n printers": {
     "one": "%n printer",
@@ -63,25 +47,45 @@
     "one": "%n snapshot",
     "other": "%n snapshots"
   },
-  "Reset all %n changes?": {
-    "one": "Reset %n change?",
-    "other": "Reset all %n changes?"
+  "%n themes installed": {
+    "one": "%n theme installed",
+    "other": "%n themes installed"
   },
-  "%n hidden": {
-    "one": "%n hidden",
-    "other": "%n hidden"
+  "%n updates available": {
+    "one": "%n update available",
+    "other": "%n updates available"
   },
-  "%n items inside": {
-    "one": "%n item inside",
-    "other": "%n items inside"
+  "%n widgets": {
+    "one": "%n widget",
+    "other": "%n widgets"
+  },
+  "After %n seconds": {
+    "one": "After %n second",
+    "other": "After %n seconds"
   },
   "Filter %n menu items": {
     "one": "Filter %n menu item",
     "other": "Filter %n menu items"
   },
-  "%n items in hidden sections still show up in search": {
-    "one": "%n item in a hidden section still shows up in search",
-    "other": "%n items in hidden sections still show up in search"
+  "Filter %n plugins": {
+    "one": "Filter %n plugin",
+    "other": "Filter %n plugins"
+  },
+  "Filter %n shortcuts": {
+    "one": "Filter %n shortcut",
+    "other": "Filter %n shortcuts"
+  },
+  "Going back to the previous settings in %n seconds.": {
+    "one": "Going back to the previous settings in %n second.",
+    "other": "Going back to the previous settings in %n seconds."
+  },
+  "It's a submenu: the %n items inside it go too. A copy of your menu file is kept.": {
+    "one": "It's a submenu: the item inside it goes too. A copy of your menu file is kept.",
+    "other": "It's a submenu: the %n items inside it go too. A copy of your menu file is kept."
+  },
+  "Reset all %n changes?": {
+    "one": "Reset %n change?",
+    "other": "Reset all %n changes?"
   },
   "Show all %n hidden items?": {
     "one": "Show the %n hidden item?",

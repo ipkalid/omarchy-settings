@@ -871,7 +871,7 @@ QStringList Store::listNames() const {
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
             "storage", "homeUsage", "snapshots", "managed",
-            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog"};
+            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -1095,6 +1095,8 @@ QVariant Store::list(const QString &name) {
         return listSystem(name);
     if (name == "menu")
         return listMenu();
+    if (name == "menuCustom")
+        return listMenuCustom();
     if (name.startsWith("defaults:"))
         return defaultsFor(name.section(':', 1));
     if (name == "vpn")
