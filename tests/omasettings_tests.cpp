@@ -1,6 +1,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
@@ -417,6 +418,182 @@ private slots:
         QCOMPARE(store.act("bar.remove", {"omarchy.weather"}), QString());
         QVERIFY(sys.calls.contains("omarchy-plugin-disable omarchy.weather"));
         QVERIFY(store.act("bar.move", {"omarchy.audio", "right", 0, "middle", 0}).contains("section"));
+    }
+
+    // ---- Shortcuts, login items, window rules, Night Shift, and the rest -------
+    void keysAreWrittenOneWay() {
+        QCOMPARE(Store::normalizeKeys("shift + super + r"), QString("SUPER + SHIFT + R"));
+        QCOMPARE(Store::normalizeKeys("ALT+CTRL+comma"), QString("SUPER + CTRL + ALT + COMMA").mid(8));
+        QCOMPARE(Store::normalizeKeys("SUPER + code:20"), QString("SUPER + code:20"));
+        QVERIFY(Hypr::validKeys("SUPER + code:20"));
+        QVERIFY(!Hypr::validKeys("SUPER + R\"); os.execute(\"x"));
+    }
+
+    void shortcutsLoginItemsAndRulesRender() {
+        QJsonObject state{
+            {"bindings", QJsonArray{QJsonObject{{"keys", "SUPER + E"}, {"description", "Files"}, {"kind", "launch"}, {"value", "org.gnome.Nautilus.desktop"}},
+                                    QJsonObject{{"keys", "SUPER + R"}, {"description", "Say \"hi\""}, {"kind", "command"}, {"value", "notify-send hi"}},
+                                    QJsonObject{{"keys", "bad keys!"}, {"kind", "command"}, {"value", "x"}},
+                                    QJsonObject{{"keys", "SUPER + Z"}, {"kind", "lua"}, {"value", "os.exit()"}}}},
+            {"unbinds", QJsonArray{"SUPER + F", "rm -rf"}},
+            {"autostart", QJsonArray{QJsonObject{{"command", "syncthing"}}, QJsonObject{{"command", "a\nb"}}}},
+            {"windowRules", QJsonArray{QJsonObject{{"class", "^(mpv)$"}, {"float", true}, {"workspace", "3"}, {"width", 800}, {"height", 600}, {"opacity", 0.9}},
+                                       QJsonObject{{"class", "x"}, {"workspace", "3; os.exit()"}}}},
+            {"nightShift", QJsonObject{{"schedule", true}}}};
+        const QString lua = Hypr::renderLua(state);
+        QVERIFY(lua.contains(R"(hl.unbind("SUPER + F"))"));
+        QVERIFY(!lua.contains("rm -rf"));
+        QVERIFY(lua.contains(R"(o.rebind("SUPER + E", "Files", { launch = "org.gnome.Nautilus.desktop" }))"));
+        QVERIFY(lua.contains("o.rebind(\"SUPER + R\", \"Say \\\"hi\\\"\", \"notify-send hi\")"));
+        QVERIFY(!lua.contains("bad keys") && !lua.contains("os.exit"));
+        QVERIFY(lua.contains(R"(o.launch_on_start("syncthing"))"));
+        QVERIFY(lua.contains(R"(o.launch_on_start("hyprsunset"))"));
+        QVERIFY(!lua.contains("a\\nb"));
+        QVERIFY(lua.contains(R"(o.window({ class = "^(mpv)$" }, { float = true, workspace = "3", opacity = "0.90", size = { 800, 600 } }))"));
+        QCOMPARE(lua.count("o.window("), 1);
+    }
+
+    void shortcutActionsKeepOneEntryPerKeys() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("shortcut.disable", {"super + e"}), QString());
+        QCOMPARE(store.act("shortcut.add", {"SUPER + E", "Files", "launch", "nautilus.desktop"}), QString());
+        QCOMPARE(store.act("shortcut.add", {"super+e", "Editor", "command", "zeditor"}), QString());
+        const QJsonObject state = store.managedState();
+        QCOMPARE(state.value("bindings").toArray().size(), 1);
+        QCOMPARE(state.value("bindings").toArray()[0].toObject().value("description").toString(), QString("Editor"));
+        // Adding a shortcut on keys that were turned off turns them back on.
+        QCOMPARE(state.value("unbinds").toArray().size(), 0);
+        QVERIFY(store.act("shortcut.add", {"E", "Typing breaker", "command", "x"}).contains("stops typing"));
+        QVERIFY(store.act("shortcut.add", {"SHIFT + code:20", "Typing breaker", "command", "x"}).contains("stops typing"));
+        QCOMPARE(store.act("shortcut.add", {"F9", "Function key", "command", "x"}), QString());
+        QCOMPARE(store.act("shortcut.remove", {"F9"}), QString());
+        QVERIFY(store.act("shortcut.add", {"SUPER + E", "", "lua", "x"}).contains("Choose what"));
+        QCOMPARE(store.act("shortcut.remove", {"SUPER + E"}), QString());
+        QCOMPARE(store.managedState().value("bindings").toArray().size(), 0);
+    }
+
+    void loginItemsAndRulesAreManaged() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("autostart.add", {"syncthing", "Syncthing"}), QString());
+        QCOMPARE(store.act("autostart.add", {"syncthing", "Again"}), QString());
+        QCOMPARE(store.managedState().value("autostart").toArray().size(), 1);
+        QVERIFY(store.act("autostart.add", {"  ", ""}).contains("Enter a command"));
+        QCOMPARE(store.act("rule.add", {QVariantMap{{"class", "^(mpv)$"}, {"float", true}}}), QString());
+        QVERIFY(store.act("rule.add", {QVariantMap{{"float", true}}}).contains("Choose an app"));
+        QVERIFY(store.act("rule.remove", {5}).contains("gone"));
+        QCOMPARE(store.act("rule.remove", {0}), QString());
+        QCOMPARE(store.act("autostart.remove", {"syncthing"}), QString());
+        QVERIFY(!readText(store.managedLuaPath()).contains("syncthing"));
+    }
+
+    void nightShiftScheduleOwnsHyprsunsetConf() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/config/hypr/hyprsunset.conf", "# mine\nprofile {\n    time = 07:00\n    identity = true\n}\n");
+        writeText(dir.path() + "/omarchy/config/hypr/hyprsunset.conf", "# omarchy default\n");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.write("display.nightStart", "21:30"), QString());
+        // Changing a time while the schedule is off leaves the file alone.
+        QVERIFY(readText(dir.path() + "/config/hypr/hyprsunset.conf").startsWith("# mine"));
+        QCOMPARE(store.write("display.nightSchedule", true), QString());
+        const QString conf = readText(dir.path() + "/config/hypr/hyprsunset.conf");
+        QVERIFY(conf.contains("time = 21:30\n    temperature = 4000"));
+        QVERIFY(conf.contains("time = 07:00\n    identity = true"));
+        QCOMPARE(QDir(dir.path() + "/config/hypr").entryList({"hyprsunset.conf.bak.*"}).size(), 1);
+        QVERIFY(sys.calls.contains("omarchy-restart-hyprsunset"));
+        QVERIFY(readText(store.managedLuaPath()).contains(R"(o.launch_on_start("hyprsunset"))"));
+        QCOMPARE(store.write("display.nightTemperature", 3000), QString());
+        QVERIFY(readText(dir.path() + "/config/hypr/hyprsunset.conf").contains("temperature = 3000"));
+        QCOMPARE(store.write("display.nightSchedule", false), QString());
+        QCOMPARE(readText(dir.path() + "/config/hypr/hyprsunset.conf"), QString("# omarchy default\n"));
+        QVERIFY(!readText(store.managedLuaPath()).contains("hyprsunset"));
+    }
+
+    void menuEntryKeepsTheRestOfTheFile() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        const QString menu = dir.path() + "/config/omarchy/extensions/omarchy-menu.jsonc";
+        writeText(menu, "{\n  // my entries\n  \"mine\": {\"label\":\"Mine\"}\n}\n");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.read("integration.menuEntry"), QVariant(false));
+        QCOMPARE(store.write("integration.menuEntry", true), QString());
+        QCOMPARE(store.read("integration.menuEntry"), QVariant(true));
+        QVERIFY(readText(menu).contains("// my entries"));
+        QCOMPARE(store.write("integration.menuEntry", true), QString());
+        QCOMPARE(readText(menu).count("setup.omasettings"), 1);
+        QCOMPARE(store.write("integration.menuEntry", false), QString());
+        QCOMPARE(readText(menu), QString("{\n  // my entries\n  \"mine\": {\"label\":\"Mine\"}\n}\n"));
+    }
+
+    void privilegedActionsAreChecked() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("firewall.allow", {"22", "tcp"}), QString());
+        QVERIFY(sys.calls.contains("pkexec ufw allow 22/tcp"));
+        QCOMPARE(store.act("firewall.delete", {"6000:6010", "udp", "allow"}), QString());
+        QVERIFY(sys.calls.contains("pkexec ufw delete allow 6000:6010/udp"));
+        QVERIFY(store.act("firewall.allow", {"22; reboot", "tcp"}).contains("port"));
+        QVERIFY(store.act("firewall.delete", {"22", "tcp", "--force"}).contains("Unknown rule"));
+        QVERIFY(store.act("printer.remove", {"-x everything"}).contains("Unknown printer"));
+        QCOMPARE(store.act("printer.default", {"Office_HP"}), QString());
+        QVERIFY(sys.calls.contains("lpoptions -d Office_HP"));
+        QCOMPARE(store.act("mime.set", {"pdf", "org.gnome.Evince"}), QString());
+        QVERIFY(sys.calls.contains("xdg-mime default org.gnome.Evince.desktop application/pdf"));
+        QVERIFY(store.act("mime.set", {"pdf", "../evil"}).contains("Unknown app"));
+        QVERIFY(store.act("theme.remove", {"tokyo-night"}).contains("Only themes you added"));
+        QVERIFY(store.act("webapp.add", {"Mail", "javascript:alert(1)", ""}).contains("https://"));
+        QVERIFY(store.act("launch", {"channel:dev"}).contains("Unknown channel"));
+    }
+
+    void dnsCustomOpensATerminalAndPresetsRunInline() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.write("network.dns", "Google"), QString());
+        QVERIFY(sys.calls.contains("omarchy-dns Google"));
+        QVERIFY(store.write("network.dns", "8.8.8.8").contains("not one of"));
+    }
+
+    void exportLeavesTheMachineBehindAndImportRoundTrips() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        sys.answer("hostnamectl hostname", "my-laptop");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("shortcut.add", {"SUPER + E", "Files", "launch", "nautilus.desktop"}), QString());
+        const QString file = dir.path() + "/export.json";
+        QCOMPARE(store.act("settings.export", {file}), QString());
+        const QJsonObject doc = QJsonDocument::fromJson(readText(file).toUtf8()).object();
+        QCOMPARE(doc.value("app").toString(), QString("omasettings"));
+        QVERIFY(!doc.value("settings").toObject().contains("general.hostname"));
+        QCOMPARE(doc.value("managed").toObject().value("bindings").toArray().size(), 1);
+
+        QTemporaryDir other;
+        FakeSystem sys2;
+        Store fresh(pathsIn(other), sys2.exec());
+        QCOMPARE(fresh.act("settings.import", {file}), QString());
+        QCOMPARE(fresh.managedState().value("bindings").toArray().size(), 1);
+        writeText(other.path() + "/not-ours.json", "{\"app\":\"other\"}");
+        QVERIFY(fresh.act("settings.import", {other.path() + "/not-ours.json"}).contains("not a Settings export"));
+    }
+
+    void managedChangesCanBeListedAndReset() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.write("desktop.borderSize", 4), QString());
+        QCOMPARE(store.act("autostart.add", {"syncthing", "Syncthing"}), QString());
+        const QVariantList changes = store.list("managed").toList();
+        QCOMPARE(changes.size(), 2);
+        QCOMPARE(changes[0].toMap().value("label").toString(), QString("Window border"));
+        QCOMPARE(store.act("managed.reset", {"hypr", "general:border_size"}), QString());
+        QCOMPARE(store.list("managed").toList().size(), 1);
+        QCOMPARE(store.act("managed.resetAll", {}), QString());
+        QCOMPARE(store.list("managed").toList().size(), 0);
     }
 
     // ---- The window's backend -------------------------------------------------------------

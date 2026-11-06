@@ -18,6 +18,13 @@ Item {
     default property alias controls: controls.data
     signal activated()
 
+    // Rows whose label matches the sidebar search are outlined, and the
+    // first one is scrolled into view.
+    readonly property bool matched: win.query.trim().length > 1
+        && label.toLowerCase().indexOf(win.query.trim().toLowerCase()) >= 0
+    onMatchedChanged: if (matched) Qt.callLater(() => win.revealRow(row))
+    Component.onCompleted: if (matched) Qt.callLater(() => win.revealRow(row))
+
     width: parent ? parent.width : 0
     implicitHeight: Math.max(ui.rowHeight, content.implicitHeight + ui.s(10))
     opacity: dimmed ? 0.45 : 1
@@ -25,8 +32,10 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: theme.radius
-        visible: row.selected || (row.clickable && hover.hovered)
+        visible: row.selected || row.matched || (row.clickable && hover.hovered)
         color: row.selected ? ui.hoverFill : ui.normalFill
+        border.width: row.matched ? 1 : 0
+        border.color: ui.accent
     }
 
     RowLayout {

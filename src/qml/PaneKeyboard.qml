@@ -33,6 +33,14 @@ SettingsPage {
             fromText: qsTr("Long"); toText: qsTr("Short")
         }
         ToggleRow { setting: "keyboard.numlock"; label: qsTr("Turn Num Lock on at login") }
+        SliderRow {
+            visible: backend.values["keyboard.backlight"] !== undefined && backend.values["keyboard.backlight"] !== null
+            setting: "keyboard.backlight"
+            label: qsTr("Keyboard brightness")
+            to: 100
+            live: true
+            format: v => qsTr("%1%").arg(Math.round(v).toLocaleString(Qt.locale(), 'f', 0))
+        }
     }
 
     SettingsGroup {

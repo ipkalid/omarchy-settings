@@ -97,6 +97,25 @@ private:
     QString pluginDir(const QString &id) const;
     QHash<QString, QJsonObject> manifests() const;
     void waitForShellWrite(const QDateTime &before);
+
+    // features.cpp: apps, shortcuts, login items, rules, Night Shift, network
+    // and power details, firewall, printers, storage, export and import.
+    void buildMore();
+    QVariant listMore(const QString &name);
+    QString actMore(const QString &action, const QVariantList &args);
+    QVariantList apps() const;
+    QString keyboardBacklight() const;
+    QString setNightShift(const QString &key, const QVariant &value);
+    QString writeNightShift(const QJsonObject &night);
+    QString setMenuEntry(bool on);
+    QString updateState(const std::function<QString(QJsonObject &)> &change);
+    QJsonObject exportSettings();
+    QString importSettings(const QJsonObject &doc);
+
+public:
+    static QString normalizeKeys(const QString &keys);
+
+private:
     QString monitorAction(const QString &action, const QVariantList &args);
     QString launchInTerminal(const QString &id);
 

@@ -93,10 +93,14 @@ ApplicationWindow {
           keywords: qsTr("idle screensaver lock sleep awake") },
         { id: "security", group: 3, title: qsTr("Login & Security"), glyph: "\u{F0237}", show: true,
           keywords: qsTr("password fingerprint security key ssh encryption") },
+        { id: "firewall", group: 3, title: qsTr("Firewall"), glyph: "\u{F0498}", show: true,
+          keywords: qsTr("firewall ufw ports block allow incoming security") },
         { id: "keyboard", group: 4, title: qsTr("Keyboard"), glyph: "\u{F030C}", show: true,
           keywords: qsTr("layout input sources repeat caps lock compose shortcuts keybindings") },
         { id: "pointer", group: 4, title: caps.touchpad ? qsTr("Mouse & Trackpad") : qsTr("Mouse"), glyph: "\u{F037D}",
           show: true, keywords: qsTr("mouse trackpad touchpad scroll speed tap click gestures") },
+        { id: "printers", group: 4, title: qsTr("Printers"), glyph: "\u{F042A}", show: true,
+          keywords: qsTr("printer print cups test page scanner") },
     ]
 
     function paneById(id) { return panes.find(p => p.id === id) }
@@ -122,6 +126,9 @@ ApplicationWindow {
     property string pane: "wifi"
     property string sub: ""
     property string subTitle: ""
+    // What a sub-page was opened for (Settings > Choose Keys opens Shortcuts
+    // ready to add one for Settings).
+    property var subParams: ({})
     property var backStack: []
     property var forwardStack: []
 
@@ -136,7 +143,18 @@ ApplicationWindow {
         sub = subPage || ""
         subTitle = subPageTitle || ""
     }
-    function openSub(page, pageTitle) { go(pane, page, pageTitle) }
+    // The first row matching the search on a page is scrolled to once, not
+    // again every time something re-renders.
+    property string revealedFor: ""
+    function revealRow(row) {
+        const key = pane + "|" + sub + "|" + query
+        if (key === revealedFor || !row.visible || !pageLoader.item || !pageLoader.item.reveal)
+            return
+        revealedFor = key
+        pageLoader.item.reveal(row)
+    }
+
+    function openSub(page, pageTitle, params) { subParams = params || {}; go(pane, page, pageTitle) }
     function back() {
         if (backStack.length === 0) return
         const to = backStack[backStack.length - 1]

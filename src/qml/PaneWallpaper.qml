@@ -47,9 +47,22 @@ SettingsPage {
                 font.pixelSize: ui.small
                 textFormat: Text.PlainText
             }
-            OmaButton {
-                text: qsTr("Next Wallpaper")
-                onClicked: backend.act("background.next", [], ["backgrounds"])
+            Row {
+                spacing: ui.s(8)
+                OmaButton {
+                    text: qsTr("Next Wallpaper")
+                    onClicked: backend.act("background.next", [], ["backgrounds"])
+                }
+                OmaButton {
+                    text: qsTr("Add Pictures…")
+                    onClicked: backend.act("wallpaper.add", [], ["backgrounds"])
+                }
+                OmaButton {
+                    glyph: "\u{F024B}"
+                    bordered: false
+                    tooltip: qsTr("Open the folder")
+                    onClicked: backend.act("wallpaper.openFolder", [])
+                }
             }
         }
     }

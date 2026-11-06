@@ -7,6 +7,7 @@ SettingsPage {
     tagline: win.caps.touchpad ? qsTr("Mouse and trackpad") : qsTr("Mouse")
     glyph: "\u{F037D}"
     description: qsTr("Set how fast the pointer moves, which way scrolling goes, and what taps and swipes do.")
+    lists: ["power"]
 
     function times(v) { return qsTr("%1×").arg(v.toLocaleString(Qt.locale(), 'f', 1)) }
 
@@ -42,6 +43,11 @@ SettingsPage {
         title: qsTr("Trackpad")
         footer: win.caps.touchpad ? qsTr("Swiping uses three fingers left and right.")
                                   : qsTr("No trackpad is connected. These apply when one is.")
+        ToggleRow {
+            visible: win.caps.touchpad === true
+            setting: "pointer.touchpad"
+            label: qsTr("Use the trackpad")
+        }
         ToggleRow { setting: "trackpad.tapToClick"; label: qsTr("Tap to click") }
         ToggleRow { setting: "trackpad.twoFingerClick"; label: qsTr("Secondary click with two fingers") }
         ToggleRow { setting: "trackpad.naturalScroll"; label: qsTr("Natural scrolling") }
@@ -54,5 +60,11 @@ SettingsPage {
         ToggleRow { setting: "trackpad.disableWhileTyping"; label: qsTr("Ignore the trackpad while typing") }
         ToggleRow { setting: "trackpad.threeFingerDrag"; label: qsTr("Three-finger drag") }
         ToggleRow { setting: "trackpad.swipeWorkspaces"; label: qsTr("Swipe between workspaces") }
+    }
+
+    SettingsGroup {
+        visible: (backend.lists.power || {}).touchscreen === true
+        title: qsTr("Touchscreen")
+        ToggleRow { setting: "pointer.touchscreen"; label: qsTr("Use the touchscreen") }
     }
 }

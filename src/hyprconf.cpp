@@ -29,6 +29,16 @@ bool validPosition(const QString &position) {
     return valid.match(position).hasMatch();
 }
 
+bool validKeys(const QString &keys) {
+    static const QRegularExpression valid(R"(^((SUPER|SHIFT|CTRL|ALT) \+ ){0,4}([A-Za-z0-9_]{1,24}|code:\d{1,3}|mouse:\d{3})$)");
+    return valid.match(keys).hasMatch();
+}
+
+bool validWorkspace(const QString &workspace) {
+    static const QRegularExpression valid(R"(^(\d{1,2}|special:[A-Za-z0-9_-]{1,24})$)");
+    return valid.match(workspace).hasMatch();
+}
+
 QString luaString(const QString &value) {
     QString out = "\"";
     for (const QChar c : value) {
@@ -140,6 +150,71 @@ QString renderLua(const QJsonObject &state) {
 
     if (state.value("gestures").toObject().value("workspaceSwipe").toBool())
         out += "\nhl.gesture({ fingers = 3, direction = \"horizontal\", action = \"workspace\" })\n";
+
+    // Keyboard shortcuts: defaults turned off, then the user's own, each
+    // replacing whatever had its keys.
+    QString shortcuts;
+    for (const QJsonValue &v : state.value("unbinds").toArray())
+        if (validKeys(v.toString()))
+            shortcuts += "hl.unbind(" + luaString(v.toString()) + ")\n";
+    for (const QJsonValue &v : state.value("bindings").toArray()) {
+        const QJsonObject b = v.toObject();
+        const QString keys = b.value("keys").toString(), kind = b.value("kind").toString(), value = b.value("value").toString();
+        if (!validKeys(keys) || value.isEmpty())
+            continue;
+        QString action;
+        if (kind == "launch" || kind == "webapp" || kind == "menu")
+            action = "{ " + kind + " = " + luaString(value) + " }";
+        else if (kind == "command")
+            action = luaString(value);
+        else
+            continue;
+        shortcuts += "o.rebind(" + luaString(keys) + ", " + luaString(b.value("description").toString(value)) + ", " + action + ")\n";
+    }
+    if (!shortcuts.isEmpty())
+        out += "\n" + shortcuts;
+
+    // Login items, and the night light's own process when it runs on a
+    // schedule.
+    QString startup;
+    if (state.value("nightShift").toObject().value("schedule").toBool())
+        startup += "o.launch_on_start(\"hyprsunset\")\n";
+    for (const QJsonValue &v : state.value("autostart").toArray()) {
+        const QString command = v.toObject().value("command").toString();
+        if (!command.trimmed().isEmpty() && !command.contains('\n'))
+            startup += "o.launch_on_start(" + luaString(command) + ")\n";
+    }
+    if (!startup.isEmpty())
+        out += "\n" + startup;
+
+    // Window rules, through Omarchy's o.window so floating workspaces know
+    // about the windows they float.
+    QString rules;
+    for (const QJsonValue &v : state.value("windowRules").toArray()) {
+        const QJsonObject r = v.toObject();
+        QStringList match, set;
+        for (const char *key : {"class", "title"}) {
+            const QString pattern = r.value(key).toString();
+            if (!pattern.isEmpty() && !pattern.contains('\n'))
+                match << QString(key) + " = " + luaString(pattern);
+        }
+        for (const char *key : {"float", "tile", "center", "fullscreen", "maximize", "pin"})
+            if (r.value(key).toBool())
+                set << QString(key) + " = true";
+        const QString workspace = r.value("workspace").toString();
+        if (validWorkspace(workspace))
+            set << "workspace = " + luaString(workspace);
+        const double opacity = r.value("opacity").toDouble(0);
+        if (opacity >= 0.1 && opacity < 1)
+            set << "opacity = " + luaString(QString::number(opacity, 'f', 2));
+        const int w = r.value("width").toInt(0), h = r.value("height").toInt(0);
+        if (w >= 100 && h >= 100 && w <= 10000 && h <= 10000)
+            set << QStringLiteral("size = { %1, %2 }").arg(w).arg(h);
+        if (!match.isEmpty() && !set.isEmpty())
+            rules += "o.window({ " + match.join(", ") + " }, { " + set.join(", ") + " })\n";
+    }
+    if (!rules.isEmpty())
+        out += "\n" + rules;
 
     return out;
 }

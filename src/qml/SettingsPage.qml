@@ -29,6 +29,13 @@ ScrollView {
             backend.refresh(id)
     }
 
+    // Scrolls so `item` shows, a little below the top.
+    function reveal(item) {
+        const y = item.mapToItem(column, 0, 0).y
+        const flick = page.contentItem
+        flick.contentY = Math.max(0, Math.min(y - ui.s(60), flick.contentHeight - flick.height))
+    }
+
     contentWidth: availableWidth
     contentHeight: column.implicitHeight + ui.s(40)
     clip: true

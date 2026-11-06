@@ -233,6 +233,34 @@ SettingsPage {
         }
     }
 
+    SettingsGroup {
+        title: qsTr("Night Shift Schedule")
+        footer: backend.values["display.nightSchedule"] === true
+                ? qsTr("Colors warm up at the start time and go back to normal at the end time, every day.")
+                : qsTr("Turn this on to warm the colors every evening without thinking about it.")
+        ToggleRow { setting: "display.nightSchedule"; label: qsTr("Turn on by schedule") }
+        ChoiceRow {
+            visible: backend.values["display.nightSchedule"] === true
+            setting: "display.nightStart"
+            label: qsTr("From")
+            options: (backend.meta("display.nightStart").choices || []).map(t => ({ value: t, text: t }))
+        }
+        ChoiceRow {
+            visible: backend.values["display.nightSchedule"] === true
+            setting: "display.nightEnd"
+            label: qsTr("To")
+            options: (backend.meta("display.nightEnd").choices || []).map(t => ({ value: t, text: t }))
+        }
+        SliderRow {
+            visible: backend.values["display.nightSchedule"] === true
+            setting: "display.nightTemperature"
+            label: qsTr("Warmth")
+            from: 6000; to: 2500; stepSize: 100
+            fromText: qsTr("Less warm"); toText: qsTr("More warm")
+            format: v => qsTr("%1 K").arg(Math.round(v).toLocaleString(Qt.locale(), 'f', 0))
+        }
+    }
+
     OmaDialog {
         id: confirm
         title: qsTr("Keep these display settings?")

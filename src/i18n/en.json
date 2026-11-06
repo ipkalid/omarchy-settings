@@ -50,5 +50,21 @@
   "Filter %n plugins": {
     "one": "Filter %n plugin",
     "other": "Filter %n plugins"
+  },
+  "%n printers": {
+    "one": "%n printer",
+    "other": "%n printers"
+  },
+  "%n rules": {
+    "one": "%n rule",
+    "other": "%n rules"
+  },
+  "%n snapshots": {
+    "one": "%n snapshot",
+    "other": "%n snapshots"
+  },
+  "Reset all %n changes?": {
+    "one": "Reset %n change?",
+    "other": "Reset all %n changes?"
   }
 }

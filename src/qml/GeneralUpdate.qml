@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 SettingsPage {
     id: page
@@ -32,6 +33,52 @@ SettingsPage {
             text: qsTr("Update Now")
             highlighted: page.updates.available === true
             onClicked: backend.act("launch", ["update"])
+        }
+    }
+
+    SettingsGroup {
+        title: qsTr("Update Channel")
+        footer: qsTr("Stable is tested. Release candidates arrive earlier, and edge gets every change as it lands; both can break things. Switching opens a terminal.")
+        SettingRow {
+            label: qsTr("Get updates from")
+            ChoiceBox {
+                maxWidth: Math.round(220 * ui.scale)
+                model: [
+                    { value: "stable", text: qsTr("Stable") },
+                    { value: "rc", text: qsTr("Release candidates") },
+                    { value: "edge", text: qsTr("Edge") }
+                ]
+                textRole: "text"
+                valueRole: "value"
+                currentIndex: ["stable", "rc", "edge"].indexOf(page.about.channel || "stable")
+                onActivated: {
+                    if (currentValue !== page.about.channel) {
+                        channelDialog.channel = currentValue
+                        channelDialog.open()
+                    }
+                    currentIndex = Qt.binding(() => ["stable", "rc", "edge"].indexOf(page.about.channel || "stable"))
+                }
+                Accessible.name: qsTr("Update channel")
+            }
+        }
+    }
+
+    OmaDialog {
+        id: channelDialog
+        property string channel
+        title: qsTr("Switch to the %1 channel?").arg(channel)
+        acceptText: qsTr("Switch")
+        onAccepted: backend.act("launch", ["channel:" + channel], ["about"])
+        Text {
+            Layout.fillWidth: true
+            text: channelDialog.channel === "stable" ? qsTr("Your system moves back to tested releases at the next update.")
+                  : qsTr("You'll get changes before they are fully tested. Switch back to stable at any time.")
+            horizontalAlignment: Text.AlignLeft
+            color: ui.muted
+            font.family: ui.font
+            font.pixelSize: ui.small
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
         }
     }
 

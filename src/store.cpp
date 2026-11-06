@@ -857,6 +857,8 @@ void Store::build() {
         };
         add(s);
     }
+
+    buildMore();
 }
 
 // --- Lists --------------------------------------------------------------------------------
@@ -864,7 +866,9 @@ void Store::build() {
 QStringList Store::listNames() const {
     return {"capabilities", "about", "battery", "updates", "wifi", "bluetooth", "sinks", "sources", "monitors",
             "themes", "backgrounds", "fonts", "languages", "timezones", "keyboardLayouts", "keybindings",
-            "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar"};
+            "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
+            "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
+            "storage", "homeUsage", "snapshots", "managed"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -1023,7 +1027,11 @@ QVariant Store::list(const QString &name) {
             for (const QString &dir : {m_paths.config + "/omarchy/themes/" + slug, m_paths.omarchy + "/themes/" + slug})
                 if (preview.isEmpty() && QFileInfo::exists(dir + "/preview.png"))
                     preview = QUrl::fromLocalFile(dir + "/preview.png").toString();
-            out << entry({{"name", theme}, {"slug", slug}, {"preview", preview}, {"current", theme == current}});
+            // Themes the user added (or customized) live in their config;
+            // only those can be removed.
+            out << entry({{"name", theme}, {"slug", slug}, {"preview", preview}, {"current", theme == current},
+                          {"custom", QFileInfo(m_paths.config + "/omarchy/themes/" + slug).isDir()},
+                          {"stock", QFileInfo(m_paths.omarchy + "/themes/" + slug).isDir()}});
         }
         return out;
     }
@@ -1075,6 +1083,11 @@ QVariant Store::list(const QString &name) {
         return parseXkbLayouts(readFile("/usr/share/X11/xkb/rules/base.lst"));
     if (name == "keybindings")
         return parseKeybindings(output("omarchy-menu-keybindings", {"--print"}, 10000));
+    static const QStringList more{"apps", "fileTypes", "webapps", "dock", "wifiBand", "power", "crashMutes", "shortcuts",
+                                  "loginItems", "windowRules", "firewall", "printers", "storage", "homeUsage",
+                                  "snapshots", "managed"};
+    if (more.contains(name))
+        return listMore(name);
     if (name == "vpn")
         return listVpn();
     if (name == "plugins")
@@ -1113,7 +1126,20 @@ QString Store::launchInTerminal(const QString &id) {
         // VPN support, installed the way Omarchy installs packages.
         {"installWireguard", {"omarchy-pkg-add", "wireguard-tools"}},
         {"installOpenvpn", {"omarchy-pkg-add", "networkmanager-openvpn"}},
+        {"hibernationSetup", {"omarchy-hibernation-setup"}},
+        {"hibernationRemove", {"omarchy-hibernation-remove"}},
+        {"pkgPrune", {"omarchy-update-pkg-prune"}},
+        {"installCups", {"omarchy-pkg-add", "cups", "cups-browsed", "cups-pdf"}},
+        {"installUfw", {"omarchy-pkg-add", "ufw"}},
     };
+    // The update channel takes the channel as an argument; dev is for
+    // working on Omarchy itself and is left to the command line.
+    if (id.startsWith("channel:")) {
+        const QString channel = id.section(':', 1);
+        if (!QStringList{"stable", "rc", "edge"}.contains(channel))
+            return tr("Unknown channel %1").arg(channel);
+        return launch("omarchy-launch-floating-terminal-with-presentation", {"omarchy-channel-set", channel});
+    }
     if (!commands.contains(id))
         return tr("Unknown command %1").arg(id);
     return launch("omarchy-launch-floating-terminal-with-presentation", commands.value(id));
@@ -1243,7 +1269,8 @@ QString Store::act(const QString &action, const QVariantList &args) {
     if (action == "edit") {
         static const QMap<QString, QString> files{
             {"bindings", "/hypr/bindings.lua"}, {"input", "/hypr/input.lua"}, {"looknfeel", "/hypr/looknfeel.lua"},
-            {"monitors", "/hypr/monitors.lua"}, {"shell", "/omarchy/shell.json"}, {"managed", "/hypr/omasettings.lua"}};
+            {"monitors", "/hypr/monitors.lua"}, {"shell", "/omarchy/shell.json"}, {"managed", "/hypr/omasettings.lua"},
+            {"autostart", "/hypr/autostart.lua"}};
         if (!files.contains(a0))
             return tr("Unknown file %1").arg(a0);
         return launch("omarchy-launch-editor", {m_paths.config + files.value(a0)});
@@ -1258,5 +1285,5 @@ QString Store::act(const QString &action, const QVariantList &args) {
     if (action == "about.open")
         return launch("omarchy-launch-about", {});
 
-    return tr("Unknown action %1").arg(action);
+    return actMore(action, args);
 }

@@ -23,6 +23,10 @@ bool validOption(const QString &option);
 bool validMonitorName(const QString &name);
 bool validMode(const QString &mode);
 bool validPosition(const QString &position);
+// "SUPER + SHIFT + R", "ALT + code:20", "PRINT".
+bool validKeys(const QString &keys);
+// A workspace name a window rule may send windows to.
+bool validWorkspace(const QString &workspace);
 
 // The value of `hyprctl -j getoption` output as a QVariant (int, double,
 // bool, or string). Gaps come back as "css" with the four sides run together

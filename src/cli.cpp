@@ -28,6 +28,8 @@ static const char *usage =
     "       omasettings set <id> <value> [--json]\n"
     "       omasettings reset <id> [--json]\n"
     "       omasettings data <list> [--json]\n"
+    "       omasettings act <action> [args...]   (an argument starting with { is JSON)\n"
+    "       omasettings export <file>  |  omasettings import <file>\n"
     "       omasettings skill install [--dir <path>]\n"
     "\n"
     "Panes: wifi bluetooth vpn power general appearance desktop bar plugins\n"
@@ -35,7 +37,7 @@ static const char *usage =
 
 bool isCliCommand(const QStringList &args) {
     const QString command = args.value(1);
-    return QStringList{"list", "get", "set", "reset", "data", "skill", "help", "--help", "-h", "--version"}.contains(command);
+    return QStringList{"list", "get", "set", "reset", "data", "act", "export", "import", "skill", "help", "--help", "-h", "--version"}.contains(command);
 }
 
 static QString plain(const QVariant &v) {
@@ -84,6 +86,10 @@ omasettings list keyboard --json      # one pane
 omasettings get keyboard.repeatRate
 omasettings set keyboard.repeatRate 45 --json
 omasettings data monitors --json      # live data: wifi, bluetooth, sinks, monitors, themes, ...
+omasettings act shortcut.add "SUPER + E" Files launch org.gnome.Nautilus.desktop
+omasettings act autostart.add syncthing Syncthing
+omasettings act rule.add '{"class":"^(mpv)$","float":true,"workspace":"3"}'
+omasettings export ~/Documents        # import <file> applies one
 ```
 
 - Commands exit 0 on success and 1 on failure, with the reason on stderr.
@@ -181,6 +187,25 @@ int runCli(const QStringList &all, Store &store) {
         } else {
             out() << plain(value) << "\n";
         }
+        return 0;
+    }
+
+    if (command == "act" || command == "export" || command == "import") {
+        QString action = command == "act" ? args.value(1) : "settings." + command;
+        QVariantList actArgs;
+        for (const QString &a : args.mid(command == "act" ? 2 : 1)) {
+            if (a.startsWith('{'))
+                actArgs << QJsonDocument::fromJson(a.toUtf8()).object().toVariantMap();
+            else
+                actArgs << a;
+        }
+        if (command != "act" && actArgs.isEmpty())
+            return fail(json, "usage: omasettings " + command + " <file>");
+        const QString error = store.act(action, actArgs);
+        if (!error.isEmpty())
+            return fail(json, error);
+        if (json)
+            out() << QJsonDocument(QJsonObject{{"ok", true}}).toJson(QJsonDocument::Compact) << "\n";
         return 0;
     }
 

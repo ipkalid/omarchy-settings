@@ -10,11 +10,12 @@ Popup {
     property string acceptText: qsTr("OK")
     property string rejectText: qsTr("Cancel")
     property bool showReject: true
+    property bool canAccept: true
     default property alias content: body.data
     signal accepted()
     signal rejected()
 
-    function accept() { close(); accepted() }
+    function accept() { if (canAccept) { close(); accepted() } }
     function reject() { close(); rejected() }
 
     parent: Overlay.overlay
@@ -65,6 +66,7 @@ Popup {
             OmaButton {
                 text: dialog.acceptText
                 highlighted: true
+                enabled: dialog.canAccept
                 onClicked: dialog.accept()
             }
         }

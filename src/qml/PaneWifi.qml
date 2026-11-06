@@ -10,11 +10,12 @@ SettingsPage {
     glyph: page.on ? "\u{F05A9}" : "\u{F05AA}"
     heroSetting: "wifi.enabled"
     description: qsTr("Join wireless networks and manage the ones this computer remembers.")
-    lists: ["wifi"]
+    lists: ["wifi", "wifiBand"]
     pollMs: 15000
 
     readonly property bool on: backend.values["wifi.enabled"] === true
     readonly property var networks: backend.lists.wifi || []
+    readonly property var band: backend.lists.wifiBand || ({})
     readonly property var current: on ? networks.find(n => n.active) : undefined
     readonly property var known: networks.filter(n => n.known)
     readonly property var others: networks.filter(n => !n.known && !n.active)
@@ -52,6 +53,29 @@ SettingsPage {
             tint: ui.muted
             size: ui.small
             anchors.verticalCenter: parent.verticalCenter
+        }
+    }
+
+    SettingsGroup {
+        visible: page.on && !!page.current
+        title: qsTr("Network Details")
+        footer: qsTr("DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.")
+        ChoiceRow {
+            setting: "network.dns"
+            label: qsTr("DNS servers")
+            options: [
+                { value: "DHCP", text: qsTr("From the network") },
+                { value: "Cloudflare", text: "Cloudflare" },
+                { value: "Google", text: "Google" },
+                { value: "Custom", text: qsTr("Custom…") }
+            ]
+        }
+        ChoiceRow {
+            setting: "wifi.band"
+            label: qsTr("Wi-Fi band")
+            sublabel: page.band.band ? qsTr("Now on %1 GHz").arg(page.band.band) : ""
+            options: [{ value: "auto", text: qsTr("Automatic") }].concat(
+                (page.band.available || []).map(b => ({ value: b, text: qsTr("%1 GHz only").arg(b) })))
         }
     }
 

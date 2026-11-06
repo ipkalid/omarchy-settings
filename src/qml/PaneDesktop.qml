@@ -9,6 +9,9 @@ SettingsPage {
     glyph: "\u{F056E}"
     description: qsTr("Place the dock, and choose how windows are laid out and focused.")
 
+    lists: ["dock", "apps", "windowRules"]
+    readonly property var pinned: backend.lists.dock || []
+
     function pixels(v) { return qsTr("%1 px").arg(Math.round(v).toLocaleString(Qt.locale(), 'f', 0)) }
     readonly property var sides: [
         { value: "top", text: qsTr("Top") }, { value: "bottom", text: qsTr("Bottom") },
@@ -20,6 +23,51 @@ SettingsPage {
         footer: qsTr("The dock appears on floating workspaces.")
         ChoiceRow { setting: "desktop.dockPosition"; label: qsTr("Position on screen"); options: page.sides }
         ToggleRow { setting: "desktop.dockAutohide"; label: qsTr("Automatically hide and show the dock") }
+        Repeater {
+            model: page.pinned
+            delegate: SettingRow {
+                required property var modelData
+                required property int index
+                label: modelData.name
+                sublabel: qsTr("Pinned")
+                OmaButton {
+                    glyph: "\u{F0143}"
+                    bordered: false
+                    enabled: index > 0
+                    tooltip: qsTr("Move up")
+                    onClicked: {
+                        const ids = page.pinned.map(p => p.id)
+                        ids.splice(index - 1, 0, ids.splice(index, 1)[0])
+                        backend.act("dock.order", ids, ["dock"])
+                    }
+                }
+                OmaButton {
+                    glyph: "\u{F0156}"
+                    bordered: false
+                    tooltip: qsTr("Unpin")
+                    onClicked: backend.act("dock.unpin", [modelData.id], ["dock"])
+                }
+            }
+        }
+        SettingRow {
+            label: qsTr("Pin an app")
+            ChoiceBox {
+                id: pinApp
+                maxWidth: Math.round(240 * ui.scale)
+                model: (backend.lists.apps || []).filter(a => !page.pinned.some(p => p.id === a.id))
+                textRole: "name"
+                valueRole: "id"
+                currentIndex: -1
+                placeholder: qsTr("Choose an app")
+                onCountChanged: Qt.callLater(() => currentIndex = -1)
+                Accessible.name: qsTr("App to pin")
+            }
+            OmaButton {
+                text: qsTr("Pin")
+                enabled: pinApp.currentIndex >= 0
+                onClicked: backend.act("dock.pin", [pinApp.currentValue], ["dock"])
+            }
+        }
     }
 
     SettingsGroup {
@@ -45,6 +93,17 @@ SettingsPage {
         SliderRow { setting: "desktop.gapsOuter"; label: qsTr("Gap at screen edges"); to: 60; format: page.pixels }
         SliderRow { setting: "desktop.borderSize"; label: qsTr("Window border"); to: 10; format: page.pixels }
         ToggleRow { setting: "desktop.dimInactive"; label: qsTr("Dim inactive windows") }
+    }
+
+    SettingsGroup {
+        NavRow {
+            label: qsTr("Window Rules")
+            sublabel: qsTr("Open apps floating, on a workspace, at a size")
+            glyph: "\u{F05B2}"
+            detail: ((backend.lists.windowRules || {}).rules || []).length > 0
+                    ? qsTr("%n rules", "", backend.lists.windowRules.rules.length) : ""
+            onOpen: win.openSub("DesktopRules", qsTr("Window Rules"))
+        }
     }
 
     SettingsGroup {

@@ -8,7 +8,7 @@ SettingsPage {
     tagline: page.profileNames[backend.values["power.profile"]] || ""
     glyph: win.caps.battery ? "\u{F0079}" : "\u{F0241}"
     description: qsTr("Choose between saving energy and full performance.")
-    lists: ["powerProfiles", "battery"]
+    lists: ["powerProfiles", "battery", "power"]
     settings: ["lock.stayAwake"]
     pollMs: 30000
 
@@ -39,7 +39,31 @@ SettingsPage {
         ChoiceRow {
             setting: "power.profile"
             label: qsTr("Power mode")
+            sublabel: win.caps.battery ? qsTr("Right now") : ""
             options: (backend.lists.powerProfiles || []).map(p => ({ value: p, text: page.profileNames[p] || p }))
+        }
+        ChoiceRow {
+            visible: win.caps.battery === true
+            setting: "power.acProfile"
+            label: qsTr("On the power adapter")
+            options: (backend.lists.powerProfiles || []).map(p => ({ value: p, text: page.profileNames[p] || p }))
+        }
+        ChoiceRow {
+            visible: win.caps.battery === true
+            setting: "power.batteryProfile"
+            label: qsTr("On battery")
+            options: (backend.lists.powerProfiles || []).map(p => ({ value: p, text: page.profileNames[p] || p }))
+        }
+    }
+
+    SettingsGroup {
+        title: qsTr("Hibernation")
+        footer: qsTr("Hibernating saves everything to disk and turns the computer off, so it uses no power and resumes where you left off.")
+        ButtonRow {
+            label: (backend.lists.power || {}).hibernation ? qsTr("Hibernation is set up") : qsTr("Hibernation is not set up")
+            sublabel: (backend.lists.power || {}).hibernation ? qsTr("It shows in the system menu") : qsTr("Sets up a swap file and asks for your password")
+            text: (backend.lists.power || {}).hibernation ? qsTr("Remove…") : qsTr("Set Up…")
+            onClicked: backend.act("launch", [(backend.lists.power || {}).hibernation ? "hibernationRemove" : "hibernationSetup"])
         }
     }
 

@@ -41,9 +41,36 @@ SettingsPage {
             onOpen: win.openSub("GeneralDateTime", qsTr("Date & Time"))
         }
         NavRow {
+            label: qsTr("Storage")
+            glyph: "\u{F02CA}"
+            onOpen: win.openSub("GeneralStorage", qsTr("Storage"))
+        }
+    }
+
+    SettingsGroup {
+        NavRow {
+            label: qsTr("Login Items")
+            glyph: "\u{F0463}"
+            onOpen: win.openSub("GeneralLoginItems", qsTr("Login Items"))
+        }
+        NavRow {
+            label: qsTr("Web Apps")
+            glyph: "\u{F059F}"
+            onOpen: win.openSub("GeneralWebApps", qsTr("Web Apps"))
+        }
+        NavRow {
             label: qsTr("Default Apps")
             glyph: "\u{F003B}"
             onOpen: win.openSub("GeneralApps", qsTr("Default Apps"))
+        }
+    }
+
+    SettingsGroup {
+        NavRow {
+            label: qsTr("Changes & Backup")
+            sublabel: qsTr("What Settings changed, export and import, and how to open Settings")
+            glyph: "\u{F006F}"
+            onOpen: win.openSub("GeneralSettingsApp", qsTr("Changes & Backup"))
         }
     }
 }
