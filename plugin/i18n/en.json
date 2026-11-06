@@ -1,0 +1,10 @@
+{
+  "installing.title": "Installing Settings",
+  "installing.body": "Building the app from the plugin. This takes a minute or two.",
+  "ready.title": "Settings is ready",
+  "ready.body": "Open it from the app launcher (Super + Space).",
+  "failed.title": "Settings couldn't be installed",
+  "tools.title": "Settings needs build tools",
+  "tools.body": "A few packages are needed to build the app. Add them in a terminal?",
+  "tools.action": "Add and Install"
+}

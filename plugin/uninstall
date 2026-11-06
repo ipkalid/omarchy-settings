@@ -1,0 +1,26 @@
+#!/bin/bash
+# Removes the Settings that the plugin installed: the binary, its launcher
+# entry and icon, its entry in the Omarchy menu, and its theme hook. Your
+# settings stay as they are; Settings only ever changed your own config
+# files. A copy of this script is kept at ~/.local/share/omasettings/uninstall
+# so it still works after `omarchy plugin remove ipkalid.settings`.
+
+set -euo pipefail
+
+TARGET_HOME="$HOME"
+[[ ${1:-} == --home ]] && TARGET_HOME="$2"
+
+BIN="$TARGET_HOME/.local/bin/omasettings"
+
+# Take Settings out of the Omarchy menu while the binary is there to do it.
+[[ -x $BIN ]] && HOME="$TARGET_HOME" QT_QPA_PLATFORM=offscreen "$BIN" set integration.menuPlace off >/dev/null 2>&1 || true
+
+rm -f "$BIN" \
+  "$TARGET_HOME/.local/share/applications/omasettings.desktop" \
+  "$TARGET_HOME/.local/share/icons/hicolor/scalable/apps/omasettings.svg" \
+  "$TARGET_HOME/.config/omarchy/hooks/theme-set.d/omasettings-icon"
+rm -rf "$TARGET_HOME/.local/share/omasettings" "${XDG_CACHE_HOME:-$TARGET_HOME/.cache}/omasettings-build"
+
+command -v update-desktop-database >/dev/null && update-desktop-database -q "$TARGET_HOME/.local/share/applications" 2>/dev/null || true
+
+echo "Settings is uninstalled."
