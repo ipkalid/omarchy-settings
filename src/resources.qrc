@@ -37,6 +37,7 @@
         <file alias="qml/PaneIcon.qml">qml/PaneIcon.qml</file>
         <file alias="qml/PaneKeyboard.qml">qml/PaneKeyboard.qml</file>
         <file alias="qml/PaneLock.qml">qml/PaneLock.qml</file>
+        <file alias="qml/PaneMenu.qml">qml/PaneMenu.qml</file>
         <file alias="qml/PaneNotifications.qml">qml/PaneNotifications.qml</file>
         <file alias="qml/PanePlugins.qml">qml/PanePlugins.qml</file>
         <file alias="qml/PanePointer.qml">qml/PanePointer.qml</file>

@@ -5,8 +5,14 @@
 #include "store.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSaveFile>
 #include <QFile>
+#include <QDir>
 #include <QFileInfo>
+#include <QSet>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QVariantMap>
@@ -146,6 +152,8 @@ QString Store::actSystem(const QString &action, const QVariantList &args) {
             return tr("Unknown strength %1").arg(a0);
         return runOk("dell-xps-touchpad-haptics", {"set", a0}, 10000);
     }
+    if (action == "menu.hide" || action == "menu.show")
+        return setMenuHidden(a0, action == "menu.hide");
     if (action == "restart.shell")
         return launch("omarchy-restart-shell", {});
     if (action == "restart.nightLight")
@@ -189,4 +197,214 @@ QStringList Store::terminalCommand(const QString &id) {
     if (kind == "bootScreen" && output("omarchy-plymouth-list", {}, 10000).split('\n').contains(value))
         return {"omarchy-plymouth-set-by-theme", value};
     return {};
+}
+
+// --- The Omarchy menu ---------------------------------------------------------------
+//
+// Items are hidden the way Omarchy's menu extension documents: an entry in
+// ~/.config/omarchy/extensions/omarchy-menu.jsonc whose "when" is "false".
+// The menu reads that file as JSON once whole-line // comments are gone and
+// trailing commas dropped, and a later entry for the same id replaces an
+// earlier one, so edits are made line by line and checked the same way.
+
+static QString stripJsonc(const QString &raw) {
+    static const QRegularExpression comments(R"(^\s*//[^\n]*(\n|$))", QRegularExpression::MultilineOption);
+    static const QRegularExpression trailing(R"(,(\s*[}\]]))");
+    QString out = raw;
+    out.replace(comments, "");
+    out.replace(trailing, "\\1");
+    return out;
+}
+
+static bool validMenuText(const QString &text) {
+    const QString stripped = stripJsonc(text);
+    if (stripped.trimmed().isEmpty())
+        return true;
+    QJsonParseError error;
+    const QJsonDocument doc = QJsonDocument::fromJson(stripped.toUtf8(), &error);
+    return error.error == QJsonParseError::NoError && doc.isObject();
+}
+
+// An entry written on one line: `  "id": {...},`.
+static QRegularExpression oneLineEntry(const QString &id) {
+    return QRegularExpression("^(\\s*)\"" + QRegularExpression::escape(id) + "\"\\s*:\\s*(\\{.*\\})\\s*(,?)\\s*$");
+}
+
+// The brace depth at the start of each line (outside strings), so only the
+// top-level keys of the file are taken for menu entries.
+static QList<int> lineDepths(const QStringList &lines) {
+    QList<int> depths;
+    int depth = 0;
+    for (const QString &line : lines) {
+        depths << depth;
+        if (line.trimmed().startsWith("//"))
+            continue;
+        bool inString = false;
+        for (int i = 0; i < line.size(); ++i) {
+            const QChar c = line[i];
+            if (inString) {
+                if (c == '\\') ++i;
+                else if (c == '"') inString = false;
+            } else if (c == '"') {
+                inString = true;
+            } else if (c == '{' || c == '[') {
+                ++depth;
+            } else if (c == '}' || c == ']') {
+                --depth;
+            }
+        }
+    }
+    return depths;
+}
+
+QString Store::menuFile() const {
+    return m_paths.config + "/omarchy/extensions/omarchy-menu.jsonc";
+}
+
+QVariant Store::listMenu() {
+    // Omarchy's own items, in the order its file lists them (one per line).
+    const QString defaults = readText(m_paths.omarchy + "/default/omarchy/omarchy-menu.jsonc");
+    const QJsonObject defaultItems = QJsonDocument::fromJson(stripJsonc(defaults).toUtf8()).object();
+    static const QRegularExpression key(R"re(^\s*"([a-z0-9][a-z0-9._-]*)"\s*:)re");
+    QStringList order;
+    const QStringList defaultLines = defaults.split('\n');
+    const QList<int> defaultDepths = lineDepths(defaultLines);
+    for (int i = 0; i < defaultLines.size(); ++i) {
+        const auto m = key.match(defaultLines[i]);
+        if (m.hasMatch() && defaultDepths[i] == 1 && !order.contains(m.captured(1)))
+            order << m.captured(1);
+    }
+
+    // The user's entries: the last one-line entry for an id is the one in
+    // force; an entry over several lines is theirs to edit by hand.
+    const QStringList lines = readText(menuFile()).split('\n');
+    QHash<QString, QJsonObject> user;
+    QSet<QString> multiLine;
+    QStringList userOrder;
+    const QList<int> depths = lineDepths(lines);
+    for (int i = 0; i < lines.size(); ++i) {
+        const QString &line = lines[i];
+        const auto m = key.match(line);
+        if (!m.hasMatch() || depths[i] != 1)
+            continue;
+        const QString id = m.captured(1);
+        if (!userOrder.contains(id))
+            userOrder << id;
+        const auto one = oneLineEntry(id).match(line);
+        if (one.hasMatch())
+            user.insert(id, QJsonDocument::fromJson(one.captured(2).toUtf8()).object());
+        else
+            multiLine.insert(id);
+    }
+    for (const QString &id : userOrder)
+        if (!order.contains(id))
+            order << id;
+
+    QVariantList out;
+    for (const QString &id : order) {
+        const QJsonObject d = defaultItems.value(id).toObject();
+        const QJsonObject u = user.value(id);
+        QVariantMap item;
+        item["id"] = id;
+        item["label"] = u.value("label").toString(d.value("label").toString(id));
+        item["icon"] = u.value("icon").toString(d.value("icon").toString());
+        item["depth"] = id.count('.');
+        item["parent"] = id.contains('.') ? id.section('.', 0, -2) : QString();
+        item["hidden"] = u.value("when").toString() == "false";
+        item["editable"] = !multiLine.contains(id);
+        item["custom"] = !defaultItems.contains(id);
+        out << item;
+    }
+    return out;
+}
+
+QString Store::setMenuHidden(const QString &id, bool hidden) {
+    static const QRegularExpression validId("^[a-z0-9][a-z0-9._-]*$");
+    if (!validId.match(id).hasMatch())
+        return tr("Unknown menu item %1").arg(id);
+    const QString file = menuFile();
+    QString text = readText(file);
+    if (text.trimmed().isEmpty())
+        text = "{\n}\n";
+    QStringList lines = text.split('\n');
+
+    static const QRegularExpression startsEntry(R"re(^\s*"([a-z0-9][a-z0-9._-]*)"\s*:)re");
+    QList<int> entries;
+    const QList<int> depths = lineDepths(lines);
+    for (int i = 0; i < lines.size(); ++i) {
+        const auto m = startsEntry.match(lines[i]);
+        if (!m.hasMatch() || m.captured(1) != id || depths[i] != 1)
+            continue;
+        if (!oneLineEntry(id).match(lines[i]).hasMatch())
+            return tr("“%1” is set over several lines in your menu file; change it there").arg(id);
+        entries << i;
+    }
+
+    // A condition the user wrote is kept aside while the item is hidden, and
+    // put back when it is shown again.
+    QMutexLocker lock(&m_stateLock);
+    QJsonObject state = managedState();
+    QJsonObject kept = state.value("menuWhen").toObject();
+
+    auto rewrite = [&](int i, QJsonObject entry) {
+        const auto m = oneLineEntry(id).match(lines[i]);
+        if (entry.isEmpty()) {
+            lines.removeAt(i);
+            return;
+        }
+        lines[i] = m.captured(1) + "\"" + id + "\": "
+                   + QString::fromUtf8(QJsonDocument(entry).toJson(QJsonDocument::Compact)) + ",";
+    };
+
+    if (hidden) {
+        if (entries.isEmpty()) {
+            // A new line straight after the opening brace; the menu ignores
+            // a trailing comma.
+            int brace = -1;
+            for (int i = 0; i < lines.size() && brace < 0; ++i)
+                if (lines[i].trimmed().startsWith('{'))
+                    brace = i;
+            if (brace < 0)
+                return tr("Your menu file isn't a JSON object; fix it by hand first");
+            lines.insert(brace + 1, "  \"" + id + "\": {\"when\": \"false\"},");
+        } else {
+            const int last = entries.last();
+            QJsonObject entry = QJsonDocument::fromJson(oneLineEntry(id).match(lines[last]).captured(2).toUtf8()).object();
+            const QString when = entry.value("when").toString();
+            if (!when.isEmpty() && when != "false")
+                kept.insert(id, when);
+            entry.insert("when", "false");
+            rewrite(last, entry);
+        }
+    } else {
+        // Every entry that hides it, from the bottom up so line numbers hold.
+        for (int k = entries.size() - 1; k >= 0; --k) {
+            const int i = entries[k];
+            QJsonObject entry = QJsonDocument::fromJson(oneLineEntry(id).match(lines[i]).captured(2).toUtf8()).object();
+            if (entry.value("when").toString() != "false")
+                continue;
+            if (kept.contains(id))
+                entry.insert("when", kept.value(id));
+            else
+                entry.remove("when");
+            rewrite(i, entry);
+        }
+        kept.remove(id);
+    }
+
+    const QString next = lines.join('\n');
+    if (!validMenuText(next))
+        return tr("Changing the menu file would break it, so nothing was changed");
+    // One backup a day keeps the hand-written version without piling up.
+    const QString backup = file + ".bak.omasettings-" + QDateTime::currentDateTime().toString("yyyyMMdd");
+    if (QFileInfo::exists(file) && !QFileInfo::exists(backup))
+        QFile::copy(file, backup);
+    QDir().mkpath(QFileInfo(file).absolutePath());
+    QSaveFile out(file);
+    const QByteArray data = next.toUtf8();
+    if (!out.open(QIODevice::WriteOnly) || out.write(data) != data.size() || !out.commit())
+        return tr("Could not write %1").arg(file);
+
+    state.insert("menuWhen", kept);
+    return applyState(state);
 }

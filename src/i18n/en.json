@@ -66,5 +66,17 @@
   "Reset all %n changes?": {
     "one": "Reset %n change?",
     "other": "Reset all %n changes?"
+  },
+  "%n hidden": {
+    "one": "%n hidden",
+    "other": "%n hidden"
+  },
+  "%n items inside": {
+    "one": "%n item inside",
+    "other": "%n items inside"
+  },
+  "Filter %n menu items": {
+    "one": "Filter %n menu item",
+    "other": "Filter %n menu items"
   }
 }

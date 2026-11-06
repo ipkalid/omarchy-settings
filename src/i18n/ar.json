@@ -58,6 +58,14 @@
     "many": "%n مفعّلًا",
     "other": "%n مفعّل"
   },
+  "%n hidden": {
+    "zero": "لا شيء مخفي",
+    "one": "عنصر واحد مخفي",
+    "two": "عنصران مخفيان",
+    "few": "%n عناصر مخفية",
+    "many": "%n عنصرًا مخفيًا",
+    "other": "%n عنصر مخفي"
+  },
   "%n hours": {
     "zero": "%n ساعة",
     "one": "ساعة واحدة",
@@ -65,6 +73,14 @@
     "few": "%n ساعات",
     "many": "%n ساعة",
     "other": "%n ساعة"
+  },
+  "%n items inside": {
+    "zero": "لا عناصر بداخله",
+    "one": "عنصر واحد بداخله",
+    "two": "عنصران بداخله",
+    "few": "%n عناصر بداخله",
+    "many": "%n عنصرًا بداخله",
+    "other": "%n عنصر بداخله"
   },
   "%n minutes": {
     "zero": "%n دقيقة",
@@ -150,6 +166,7 @@
   "Add a printer, or change one's options": "أضف طابعة أو غيّر خياراتها",
   "Add to the Bar": "إضافة إلى الشريط",
   "Add your own pictures to %1 to see them here.": "أضف صورك إلى %1 لتظهر هنا.",
+  "Added by you": "أضفته أنت",
   "Address": "العنوان",
   "Administrator": "المسؤول",
   "After %n seconds": {
@@ -225,6 +242,7 @@
   "Changes are undone after 15 seconds unless you keep them, in case the display goes dark.": "تُلغى التغييرات بعد 15 ثانية ما لم تحتفظ بها، تحسّبًا لانطفاء الشاشة.",
   "Change…": "تغيير…",
   "Changing it rebuilds the boot image in a terminal and asks for your password. You'll see it the next time the computer starts.": "تغييرها يعيد بناء صورة الإقلاع في طرفية ويطلب كلمة المرور. ستراها عند تشغيل الكمبيوتر في المرة القادمة.",
+  "Changing the menu file would break it, so nothing was changed": "تغيير ملف القائمة كان سيفسده، لذا لم يُغيَّر شيء",
   "Changing the time zone asks for your password.": "يتطلب تغيير المنطقة الزمنية كلمة المرور.",
   "Charge": "الشحن",
   "Charging": "قيد الشحن",
@@ -303,6 +321,7 @@
   "Edit Text…": "تحرير النص…",
   "Edit autostart.lua": "تحرير autostart.lua",
   "Edit bindings.lua": "تحرير bindings.lua",
+  "Edit the menu file": "تحرير ملف القائمة",
   "Email": "البريد الإلكتروني",
   "Email links": "روابط البريد",
   "Email on your git commits": "البريد الإلكتروني على إيداعات git",
@@ -320,6 +339,14 @@
   "Exports your settings, shortcuts, login items, and window rules to a file. Things that belong to this machine, like its name, time zone, and sound devices, stay behind.": "يصدّر إعداداتك واختصاراتك وعناصر الدخول وقواعد النوافذ إلى ملف. أما ما يخص هذا الجهاز، كاسمه ومنطقته الزمنية وأجهزة الصوت، فيبقى.",
   "Export…": "تصدير…",
   "Fast": "سريع",
+  "Filter %n menu items": {
+    "zero": "تصفية %n عنصر",
+    "one": "تصفية عنصر واحد",
+    "two": "تصفية عنصرين",
+    "few": "تصفية %n عناصر",
+    "many": "تصفية %n عنصرًا",
+    "other": "تصفية %n عنصر"
+  },
   "Filter %n plugins": {
     "zero": "تصفية %n إضافة",
     "one": "تصفية إضافة واحدة",
@@ -389,6 +416,9 @@
   "Hibernation": "السبات",
   "Hibernation is not set up": "السبات غير مُعد",
   "Hibernation is set up": "السبات مُعد",
+  "Hidden with %1": "مخفي مع %1",
+  "Hide items": "إخفاء العناصر",
+  "Hide the parts of the Omarchy menu you don't use. Hiding a section hides everything in it.": "أخفِ أجزاء قائمة Omarchy التي لا تستخدمها. إخفاء قسم يخفي كل ما فيه.",
   "Hide the pointer when idle": "إخفاء المؤشر عند الخمول",
   "High Performance": "أداء عالٍ",
   "Home Folder": "مجلد المنزل",
@@ -533,6 +563,7 @@
   "Off: sudo asks for your password": "متوقف: يطلب sudo كلمة المرور",
   "Omarchy": "Omarchy",
   "Omarchy %1": "Omarchy %1",
+  "Omarchy Menu": "قائمة Omarchy",
   "Omarchy and apps that follow it switch right away. Other apps switch the next time you log in.": "يتغير Omarchy والتطبيقات التي تتبعه فورًا، وتتغير التطبيقات الأخرى عند تسجيل الدخول التالي.",
   "Omarchy is up to date": "Omarchy محدّث",
   "Omarchy's About screen shows this next to your system details.": "تعرض شاشة «حول» في Omarchy هذا بجوار تفاصيل نظامك.",
@@ -563,6 +594,7 @@
   "Opens %1": "يفتح %1",
   "Opens at login": "يُفتح عند تسجيل الدخول",
   "Opens the CUPS page in your browser": "يفتح صفحة CUPS في متصفحك",
+  "Open…": "فتح…",
   "Other Networks": "شبكات أخرى",
   "Others see this name on your network. Changing it asks for your password.": "يرى الآخرون هذا الاسم على شبكتك. يتطلب تغييره كلمة المرور.",
   "Output": "الإخراج",
@@ -683,6 +715,7 @@
   "Set Up…": "إعداد…",
   "Set how fast the pointer moves, which way scrolling goes, and what taps and swipes do.": "حدّد سرعة المؤشر واتجاه التمرير ووظيفة النقرات والسحبات.",
   "Set how keys repeat, which layouts you type with, and what the special keys do.": "حدّد طريقة تكرار المفاتيح والتخطيطات التي تكتب بها ووظيفة المفاتيح الخاصة.",
+  "Set over several lines in your menu file; change it there": "معرّف على عدة أسطر في ملف القائمة؛ غيّره هناك",
   "Set time automatically": "ضبط الوقت تلقائيًا",
   "Set up": "مُعد",
   "Sets up a swap file and asks for your password": "ينشئ ملف تبديل ويطلب كلمة المرور",
@@ -696,6 +729,7 @@
   "Show Settings in the Omarchy menu": "إظهار الإعدادات في قائمة Omarchy",
   "Show Settings in the Omarchy menu, under Setup": "إظهار الإعدادات في قائمة Omarchy، ضمن «الإعداد»",
   "Show Suspend in the system menu": "إظهار «السكون» في قائمة النظام",
+  "Show items": "إظهار العناصر",
   "Show on every workspace": "الإظهار في كل مساحات العمل",
   "Show or hide these shortcuts": "إظهار هذه الاختصارات أو إخفاؤها",
   "Show the bar": "إظهار الشريط",
@@ -830,6 +864,7 @@
   "Unknown file %1": "ملف غير معروف: %1",
   "Unknown file type %1": "نوع ملف غير معروف: %1",
   "Unknown language %1": "لغة غير معروفة: %1",
+  "Unknown menu item %1": "عنصر قائمة غير معروف: %1",
   "Unknown option %1": "خيار غير معروف: %1",
   "Unknown plugin %1": "إضافة غير معروفة: %1",
   "Unknown printer %1": "طابعة غير معروفة: %1",
@@ -906,6 +941,8 @@
   "Your current config is kept as a backup beside the new one, so you can copy anything back.": "يُحفظ إعدادك الحالي نسخة احتياطية بجوار الجديد، لتنسخ منه ما تشاء.",
   "Your files, apps, and settings are deleted and Omarchy starts fresh. Back up anything you want to keep first. Type RESET to continue; a terminal then asks once more.": "تُحذف ملفاتك وتطبيقاتك وإعداداتك ويبدأ Omarchy من جديد. انسخ احتياطيًا ما تريد الاحتفاظ به أولًا. اكتب RESET للمتابعة، ثم تسألك طرفية مرة أخرى.",
   "Your login password unlocks the screen and approves changes to the system. Each of these opens a terminal to walk you through it.": "كلمة مرور تسجيل الدخول تفتح قفل الشاشة وتوافق على تغييرات النظام. يفتح كلٌّ من هذه الخيارات طرفية ترشدك خطوة بخطوة.",
+  "Your menu file isn't a JSON object; fix it by hand first": "ملف القائمة ليس كائن JSON؛ أصلحه يدويًا أولًا",
+  "Your own entries and anything more than hiding are in omarchy-menu.jsonc. A copy of it is kept the first time each day Settings changes it.": "إدخالاتك وأي شيء غير الإخفاء موجودة في omarchy-menu.jsonc. تُحفظ نسخة منه أول مرة يغيّره فيها «الإعدادات» كل يوم.",
   "Your password, faster ways to unlock, and keys for signing in to other machines.": "كلمة مرورك، وطرق أسرع لفتح القفل، ومفاتيح لتسجيل الدخول إلى أجهزة أخرى.",
   "Your system moves back to tested releases at the next update.": "يعود نظامك إلى الإصدارات المُختبَرة عند التحديث التالي.",
   "about update language region date time zone clock default apps browser terminal editor name login items startup web apps file types backup export import": "حول تحديث لغة منطقة تاريخ وقت ساعة تطبيقات افتراضية متصفح طرفية محرر اسم عناصر الدخول بدء التشغيل تطبيقات الويب أنواع الملفات نسخ احتياطي تصدير استيراد",
@@ -930,6 +967,7 @@
   "monitor resolution refresh rate scale night shift brightness rotation": "شاشة دقة معدل تحديث تحجيم ليلي سطوع تدوير",
   "mouse trackpad touchpad scroll speed tap click gestures": "فأرة لوحة لمس تمرير سرعة نقر إيماءات",
   "network internet wireless password": "شبكة إنترنت لاسلكي كلمة مرور",
+  "omarchy menu hide items sections launcher entries": "قائمة omarchy إخفاء عناصر أقسام مشغّل إدخالات",
   "on every workspace": "في كل مساحات العمل",
   "on workspace %1": "في مساحة العمل %1",
   "password fingerprint security key ssh encryption": "كلمة مرور بصمة مفتاح أمان تشفير",
@@ -942,5 +980,6 @@
   "ufw isn't installed": "ufw غير مثبّت",
   "volume output input microphone speakers headphones mute": "مستوى الصوت إخراج إدخال ميكروفون مكبرات سماعات كتم",
   "vpn wireguard openvpn private network tunnel": "vpn wireguard openvpn شبكة خاصة نفق",
-  "~/.config/tmux": "~/.config/tmux"
+  "~/.config/tmux": "~/.config/tmux",
+  "“%1” is set over several lines in your menu file; change it there": "«%1» معرّف على عدة أسطر في ملف القائمة؛ غيّره هناك"
 }

@@ -81,6 +81,8 @@ ApplicationWindow {
           keywords: qsTr("dock windows gaps layout tiling focus pointer") },
         { id: "bar", group: 1, title: qsTr("Bar"), glyph: "\u{F06EB}", show: true,
           keywords: qsTr("bar top panel widgets arrange order clock tray position") },
+        { id: "menu", group: 1, title: qsTr("Omarchy Menu"), glyph: "\u{F035C}", show: true,
+          keywords: qsTr("omarchy menu hide items sections launcher entries") },
         { id: "plugins", group: 1, title: qsTr("Plugins"), glyph: "\u{F0431}", show: true,
           keywords: qsTr("plugins extensions widgets enable disable update install") },
         { id: "displays", group: 1, title: qsTr("Displays"), glyph: "\u{F0379}", show: true,

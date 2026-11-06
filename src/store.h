@@ -116,6 +116,9 @@ private:
     QVariant listSystem(const QString &name);
     QString actSystem(const QString &action, const QVariantList &args);
     QString directBootProblem();
+    QString menuFile() const;
+    QVariant listMenu();
+    QString setMenuHidden(const QString &id, bool hidden);
     QString importSettings(const QJsonObject &doc);
 
 public:

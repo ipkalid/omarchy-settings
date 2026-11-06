@@ -899,7 +899,8 @@ QString Store::actMore(const QString &action, const QVariantList &args) {
         return importSettings(doc.object());
     }
 
-    if (action.startsWith("branding.") || action.startsWith("haptics.") || action.startsWith("restart."))
+    if (action.startsWith("branding.") || action.startsWith("haptics.") || action.startsWith("restart.")
+        || action.startsWith("menu."))
         return actSystem(action, args);
     return tr("Unknown action %1").arg(action);
 }

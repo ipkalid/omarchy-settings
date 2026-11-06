@@ -1,3 +1,4 @@
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -654,6 +655,65 @@ private slots:
         QVERIFY(sec.value("dockerSudoless").toBool());
         QVERIFY(!sec.value("passwordlessSudo").toBool());
         QVERIFY(sec.value("directBoot").toBool());
+    }
+
+    // ---- The Omarchy menu --------------------------------------------------------
+    void menuItemsHideAndShowWithoutLosingAnything() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/omarchy/default/omarchy/omarchy-menu.jsonc",
+                  "{\n  \"learn\": {\"label\":\"Learn\"},\n  \"learn.bash\": {\"label\":\"Bash\",\"action\":\"x\"},\n"
+                  "  \"about\": {\"label\":\"About\",\"action\":\"y\"}\n}\n");
+        const QString menu = dir.path() + "/config/omarchy/extensions/omarchy-menu.jsonc";
+        const QByteArray original =
+            "{\n  // mine\n  \"about\": {\"label\":\"Me\",\"when\":\"[[ -f ~/x ]]\"},\n"
+            "  \"mine\": {\n    \"label\": \"Mine\",\n    \"action\": \"z\"\n  },\n  \"learn\":{\"when\":\"false\"}\n}\n";
+        writeText(menu, original);
+        Store store(pathsIn(dir), sys.exec());
+
+        const QVariantList items = store.list("menu").toList();
+        QCOMPARE(items.size(), 4);
+        auto find = [&](const QString &id) {
+            for (const QVariant &i : store.list("menu").toList())
+                if (i.toMap().value("id") == id) return i.toMap();
+            return QVariantMap();
+        };
+        QVERIFY(find("learn").value("hidden").toBool());
+        QCOMPARE(find("about").value("label").toString(), QString("Me"));
+        QVERIFY(!find("mine").value("editable").toBool());
+        QVERIFY(find("mine").value("custom").toBool());
+        QCOMPARE(find("learn.bash").value("depth").toInt(), 1);
+
+        // Hiding a new item adds one line; showing it takes it away again.
+        QCOMPARE(store.act("menu.hide", {"learn.bash"}), QString());
+        QVERIFY(readText(menu).contains("\"learn.bash\": {\"when\": \"false\"},"));
+        QCOMPARE(store.act("menu.show", {"learn.bash"}), QString());
+        QCOMPARE(readText(menu).toUtf8(), original);
+
+        // Hiding an item the user customized keeps their label, and their own
+        // condition comes back when it is shown.
+        QCOMPARE(store.act("menu.hide", {"about"}), QString());
+        QVERIFY(find("about").value("hidden").toBool());
+        QCOMPARE(find("about").value("label").toString(), QString("Me"));
+        QCOMPARE(store.act("menu.show", {"about"}), QString());
+        QVERIFY(readText(menu).contains("[[ -f ~/x ]]"));
+        QVERIFY(!find("about").value("hidden").toBool());
+
+        // An entry over several lines is the user's to edit.
+        QVERIFY(store.act("menu.hide", {"mine"}).contains("several lines"));
+        QVERIFY(store.act("menu.hide", {"bad id!"}).contains("Unknown menu item"));
+        QVERIFY(readText(menu).contains("// mine"));
+        QVERIFY(QFileInfo::exists(menu + ".bak.omasettings-" + QDateTime::currentDateTime().toString("yyyyMMdd")));
+    }
+
+    void aBrokenMenuFileIsLeftAlone() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        const QString menu = dir.path() + "/config/omarchy/extensions/omarchy-menu.jsonc";
+        writeText(menu, "[1, 2]\n");
+        Store store(pathsIn(dir), sys.exec());
+        QVERIFY(!store.act("menu.hide", {"learn"}).isEmpty());
+        QCOMPARE(readText(menu), QString("[1, 2]\n"));
     }
 
     // ---- The window's backend -------------------------------------------------------------

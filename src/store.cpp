@@ -869,7 +869,7 @@ QStringList Store::listNames() const {
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
             "storage", "homeUsage", "snapshots", "managed",
-            "security", "system", "branding", "bootScreens"};
+            "security", "system", "branding", "bootScreens", "menu"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -1091,6 +1091,8 @@ QVariant Store::list(const QString &name) {
         return listMore(name);
     if (QStringList{"security", "system", "branding", "bootScreens"}.contains(name))
         return listSystem(name);
+    if (name == "menu")
+        return listMenu();
     if (name == "vpn")
         return listVpn();
     if (name == "plugins")
@@ -1277,7 +1279,7 @@ QString Store::act(const QString &action, const QVariantList &args) {
         static const QMap<QString, QString> files{
             {"bindings", "/hypr/bindings.lua"}, {"input", "/hypr/input.lua"}, {"looknfeel", "/hypr/looknfeel.lua"},
             {"monitors", "/hypr/monitors.lua"}, {"shell", "/omarchy/shell.json"}, {"managed", "/hypr/omasettings.lua"},
-            {"autostart", "/hypr/autostart.lua"}};
+            {"autostart", "/hypr/autostart.lua"}, {"menu", "/omarchy/extensions/omarchy-menu.jsonc"}};
         if (!files.contains(a0))
             return tr("Unknown file %1").arg(a0);
         return launch("omarchy-launch-editor", {m_paths.config + files.value(a0)});
