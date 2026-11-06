@@ -1,0 +1,34 @@
+{
+  "%n days": {
+    "one": "%n day",
+    "other": "%n days"
+  },
+  "%n hours": {
+    "one": "%n hour",
+    "other": "%n hours"
+  },
+  "%n minutes": {
+    "one": "%n minute",
+    "other": "%n minutes"
+  },
+  "After %n seconds": {
+    "one": "After %n second",
+    "other": "After %n seconds"
+  },
+  "Filter %n shortcuts": {
+    "one": "Filter %n shortcut",
+    "other": "Filter %n shortcuts"
+  },
+  "Going back to the previous settings in %n seconds.": {
+    "one": "Going back to the previous settings in %n second.",
+    "other": "Going back to the previous settings in %n seconds."
+  },
+  "%n connected": {
+    "one": "%n connected",
+    "other": "%n connected"
+  },
+  "%n displays": {
+    "one": "%n display",
+    "other": "%n displays"
+  }
+}

@@ -1,0 +1,31 @@
+pkgname=omasettings
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Settings for Omarchy: change Wi-Fi, sound, displays, keyboard, appearance, and more without editing config files'
+arch=('x86_64' 'aarch64')
+license=('MIT')
+depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'qt6-imageformats' 'hyprland')
+optdepends=(
+  'networkmanager: Wi-Fi'
+  'bluez-utils: Bluetooth'
+  'libpulse: sound devices and volume (pactl)'
+  'power-profiles-daemon: power modes'
+  'brightnessctl: laptop screen brightness'
+  'ttf-jetbrains-mono-nerd: icons'
+)
+makedepends=('gcc' 'make')
+source=()
+sha256sums=()
+
+build() {
+  cd "$startdir/.."
+  ./bin/build
+}
+
+package() {
+  cd "$startdir/.."
+  install -Dm755 build/omasettings "$pkgdir/usr/bin/omasettings"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$startdir/omasettings.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/omasettings.svg"
+  install -Dm644 "$startdir/omasettings.desktop" "$pkgdir/usr/share/applications/omasettings.desktop"
+}
