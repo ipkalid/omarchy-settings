@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QDateTime>
+#include <QHash>
 #include <QJsonObject>
 #include <QList>
 #include <QMutex>
@@ -83,6 +85,18 @@ private:
     QString shellSet(const QString &path, const QJsonValue &value);
 
     bool flag(const QString &relative) const;
+
+    // extras.cpp: VPN connections, shell plugins, the bar's layout.
+    QVariant listVpn();
+    QVariant listPlugins();
+    QVariant listPluginUpdates();
+    QVariant listBar();
+    QString actVpn(const QString &action, const QVariantList &args);
+    QString actPlugin(const QString &action, const QVariantList &args);
+    QString actBar(const QString &action, const QVariantList &args);
+    QString pluginDir(const QString &id) const;
+    QHash<QString, QJsonObject> manifests() const;
+    void waitForShellWrite(const QDateTime &before);
     QString monitorAction(const QString &action, const QVariantList &args);
     QString launchInTerminal(const QString &id);
 

@@ -29,6 +29,11 @@ ProcResult runProcess(const QString &program, const QStringList &args, int timeo
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert("LC_ALL", "C.UTF-8");
     env.insert("NO_COLOR", "1");
+    // Git (plugin updates) must never stop to ask for a password: there is
+    // no terminal to answer it.
+    env.insert("GIT_TERMINAL_PROMPT", "0");
+    if (!env.contains("GIT_SSH_COMMAND"))
+        env.insert("GIT_SSH_COMMAND", "ssh -oBatchMode=yes");
     process.setProcessEnvironment(env);
     process.setProcessChannelMode(QProcess::SeparateChannels);
     process.start(program, args);

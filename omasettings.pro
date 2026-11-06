@@ -17,6 +17,7 @@ SOURCES += \
     src/main.cpp \
     src/backend.cpp \
     src/cli.cpp \
+    src/extras.cpp \
     src/hyprconf.cpp \
     src/proc.cpp \
     src/store.cpp \

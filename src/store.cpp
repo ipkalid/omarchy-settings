@@ -623,7 +623,7 @@ void Store::build() {
         s.write = [this](const QVariant &v) { return runOk("omarchy-display-text-size", {QString::number(v.toInt())}, 30000); };
         add(s);
     }
-    add(commandSetting("appearance.barBackground", "appearance", "Bar background", strings({"opaque", "glassy", "none"}),
+    add(commandSetting("appearance.barBackground", "bar", "Bar background", strings({"opaque", "glassy", "none"}),
         [this] { return shellGet("bar.background", "opaque").toString(); },
         [this](const QString &v) { return runOk("omarchy-bar", {"background", v}); }));
 
@@ -632,13 +632,13 @@ void Store::build() {
     // ---- Desktop & Bar -----------------------------------------------------------------
     {
         Setting s;
-        s.id = "desktop.barVisible"; s.pane = "desktop"; s.type = "bool"; s.label = "Show the bar";
+        s.id = "desktop.barVisible"; s.pane = "bar"; s.type = "bool"; s.label = "Show the bar";
         s.read = [this] { return QVariant(!flag("bar-off")); };
         // omarchy toggle bar "on" turns the bar-off flag on, hiding the bar.
         s.write = [this](const QVariant &v) { return runOk("omarchy-toggle-bar", {v.toBool() ? "off" : "on"}); };
         add(s);
     }
-    add(commandSetting("desktop.barPosition", "desktop", "Bar position", strings({"top", "bottom", "left", "right"}),
+    add(commandSetting("desktop.barPosition", "bar", "Bar position", strings({"top", "bottom", "left", "right"}),
         [this] { return shellGet("bar.position", "top").toString(); },
         [this](const QString &v) { return runOk("omarchy-bar", {"position", v}); }));
     add(commandSetting("desktop.dockPosition", "desktop", "Dock position", strings({"bottom", "left", "right", "top"}),
@@ -864,7 +864,7 @@ void Store::build() {
 QStringList Store::listNames() const {
     return {"capabilities", "about", "battery", "updates", "wifi", "bluetooth", "sinks", "sources", "monitors",
             "themes", "backgrounds", "fonts", "languages", "timezones", "keyboardLayouts", "keybindings",
-            "powerProfiles"};
+            "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -1075,6 +1075,14 @@ QVariant Store::list(const QString &name) {
         return parseXkbLayouts(readFile("/usr/share/X11/xkb/rules/base.lst"));
     if (name == "keybindings")
         return parseKeybindings(output("omarchy-menu-keybindings", {"--print"}, 10000));
+    if (name == "vpn")
+        return listVpn();
+    if (name == "plugins")
+        return listPlugins();
+    if (name == "pluginUpdates")
+        return listPluginUpdates();
+    if (name == "bar")
+        return listBar();
     if (name == "powerProfiles") {
         QVariantList out;
         static const QRegularExpression row(R"(^\*?\s*([a-z-]+):\s*$)");
@@ -1102,6 +1110,9 @@ QString Store::launchInTerminal(const QString &id) {
         {"drivePassword", {"omarchy-drive-password"}},
         {"inputMethods", {"omarchy-setup-input"}},
         {"firmware", {"omarchy-update-firmware"}},
+        // VPN support, installed the way Omarchy installs packages.
+        {"installWireguard", {"omarchy-pkg-add", "wireguard-tools"}},
+        {"installOpenvpn", {"omarchy-pkg-add", "networkmanager-openvpn"}},
     };
     if (!commands.contains(id))
         return tr("Unknown command %1").arg(id);
@@ -1167,6 +1178,24 @@ QString Store::act(const QString &action, const QVariantList &args) {
     }
     if (action == "wifi.forget")
         return runOk("nmcli", {"connection", "delete", "id", a0}, 15000);
+    if (action == "wifi.connectHidden") {
+        // A network that doesn't broadcast its name never shows in a scan,
+        // so it is joined by name.
+        const QString password = args.value(1).toString();
+        if (a0.isEmpty() || a0.toUtf8().size() > 32)
+            return tr("A network name is 1 to 32 characters");
+        QStringList command{"--wait", "30", "device", "wifi", "connect", a0};
+        if (!password.isEmpty())
+            command << "password" << password;
+        command << "hidden" << "yes";
+        return runOk("nmcli", command, 45000);
+    }
+    if (action.startsWith("vpn."))
+        return actVpn(action, args);
+    if (action.startsWith("plugin."))
+        return actPlugin(action, args);
+    if (action.startsWith("bar."))
+        return actBar(action, args);
     if (action == "wifi.rescan") {
         run("nmcli", {"device", "wifi", "rescan"}, 15000);
         return {};

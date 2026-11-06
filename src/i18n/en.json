@@ -30,5 +30,25 @@
   "%n displays": {
     "one": "%n display",
     "other": "%n displays"
+  },
+  "%n enabled": {
+    "one": "%n enabled",
+    "other": "%n enabled"
+  },
+  "%n themes installed": {
+    "one": "%n theme installed",
+    "other": "%n themes installed"
+  },
+  "%n updates available": {
+    "one": "%n update available",
+    "other": "%n updates available"
+  },
+  "%n widgets": {
+    "one": "%n widget",
+    "other": "%n widgets"
+  },
+  "Filter %n plugins": {
+    "one": "Filter %n plugin",
+    "other": "Filter %n plugins"
   }
 }

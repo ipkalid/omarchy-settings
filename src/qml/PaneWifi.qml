@@ -98,6 +98,13 @@ SettingsPage {
             busy: page.working
             onClicked: backend.act("wifi.rescan", [], ["wifi"])
         }
+        ButtonRow {
+            label: qsTr("Join a hidden network")
+            sublabel: qsTr("Networks that don't broadcast their name never show up in a scan")
+            text: qsTr("Join Other…")
+            busy: backend.busy.indexOf("wifi.connectHidden") >= 0
+            onClicked: hiddenDialog.open()
+        }
     }
 
     OmaDialog {
@@ -113,6 +120,37 @@ SettingsPage {
             placeholderText: qsTr("Password")
             echoMode: TextInput.Password
             onAccepted: passwordDialog.accept()
+        }
+    }
+
+    OmaDialog {
+        id: hiddenDialog
+        title: qsTr("Join a hidden network")
+        acceptText: qsTr("Join")
+        readonly property bool secured: security.currentIndex > 0
+        onOpened: { hiddenName.text = ""; hiddenPassword.text = ""; security.currentIndex = 1; hiddenName.forceActiveFocus() }
+        onAccepted: backend.act("wifi.connectHidden", [hiddenName.text.trim(), secured ? hiddenPassword.text : ""], ["wifi"], "wifi")
+        OmaField {
+            id: hiddenName
+            Layout.fillWidth: true
+            placeholderText: qsTr("Network name (SSID)")
+            maximumLength: 32
+            onAccepted: hiddenDialog.secured ? hiddenPassword.forceActiveFocus() : hiddenDialog.accept()
+        }
+        ChoiceBox {
+            id: security
+            Layout.fillWidth: true
+            maxWidth: 1000
+            model: [qsTr("No password"), qsTr("WPA, WPA2, or WPA3 Personal")]
+            Accessible.name: qsTr("Security")
+        }
+        OmaField {
+            id: hiddenPassword
+            visible: hiddenDialog.secured
+            Layout.fillWidth: true
+            placeholderText: qsTr("Password")
+            echoMode: TextInput.Password
+            onAccepted: hiddenDialog.accept()
         }
     }
 

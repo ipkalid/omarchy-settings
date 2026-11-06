@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file alias="Main.qml">Main.qml</file>
+        <file alias="qml/AppearanceThemes.qml">qml/AppearanceThemes.qml</file>
         <file alias="qml/ButtonRow.qml">qml/ButtonRow.qml</file>
         <file alias="qml/ChoiceBox.qml">qml/ChoiceBox.qml</file>
         <file alias="qml/ChoiceRow.qml">qml/ChoiceRow.qml</file>
@@ -20,6 +21,7 @@
         <file alias="qml/OmaToggle.qml">qml/OmaToggle.qml</file>
         <file alias="qml/OmaToolTip.qml">qml/OmaToolTip.qml</file>
         <file alias="qml/PaneAppearance.qml">qml/PaneAppearance.qml</file>
+        <file alias="qml/PaneBar.qml">qml/PaneBar.qml</file>
         <file alias="qml/PaneBluetooth.qml">qml/PaneBluetooth.qml</file>
         <file alias="qml/PaneDesktop.qml">qml/PaneDesktop.qml</file>
         <file alias="qml/PaneDisplays.qml">qml/PaneDisplays.qml</file>
@@ -28,10 +30,12 @@
         <file alias="qml/PaneKeyboard.qml">qml/PaneKeyboard.qml</file>
         <file alias="qml/PaneLock.qml">qml/PaneLock.qml</file>
         <file alias="qml/PaneNotifications.qml">qml/PaneNotifications.qml</file>
+        <file alias="qml/PanePlugins.qml">qml/PanePlugins.qml</file>
         <file alias="qml/PanePointer.qml">qml/PanePointer.qml</file>
         <file alias="qml/PanePower.qml">qml/PanePower.qml</file>
         <file alias="qml/PaneSecurity.qml">qml/PaneSecurity.qml</file>
         <file alias="qml/PaneSound.qml">qml/PaneSound.qml</file>
+        <file alias="qml/PaneVpn.qml">qml/PaneVpn.qml</file>
         <file alias="qml/PaneWallpaper.qml">qml/PaneWallpaper.qml</file>
         <file alias="qml/PaneWifi.qml">qml/PaneWifi.qml</file>
         <file alias="qml/SettingRow.qml">qml/SettingRow.qml</file>

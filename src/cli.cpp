@@ -30,8 +30,8 @@ static const char *usage =
     "       omasettings data <list> [--json]\n"
     "       omasettings skill install [--dir <path>]\n"
     "\n"
-    "Panes: wifi bluetooth sound power general appearance wallpaper desktop\n"
-    "       displays notifications lock security keyboard pointer\n";
+    "Panes: wifi bluetooth vpn power general appearance desktop bar plugins\n"
+    "       displays wallpaper notifications sound lock security keyboard pointer\n";
 
 bool isCliCommand(const QStringList &args) {
     const QString command = args.value(1);

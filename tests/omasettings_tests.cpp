@@ -301,6 +301,124 @@ private slots:
         QVERIFY(store.act("background.set", {"/etc/passwd"}).contains("not in the current theme"));
     }
 
+    // ---- Hidden Wi-Fi, VPN, plugins, the bar ----------------------------------------
+    void hiddenNetworksAreJoinedByName() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("wifi.connectHidden", {"Secret Lab", "hunter22"}), QString());
+        QVERIFY(sys.calls.contains("nmcli --wait 30 device wifi connect Secret Lab password hunter22 hidden yes"));
+        QCOMPARE(store.act("wifi.connectHidden", {"Open Lab", ""}), QString());
+        QVERIFY(sys.calls.contains("nmcli --wait 30 device wifi connect Open Lab hidden yes"));
+        QVERIFY(store.act("wifi.connectHidden", {"", ""}).contains("1 to 32"));
+        QVERIFY(store.act("wifi.connectHidden", {QString(33, 'x'), ""}).contains("1 to 32"));
+    }
+
+    void vpnConnectionsAreListedAndChecked() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        const QString uuid = "0b1c2d3e-4f50-6172-8394-a5b6c7d8e9f0";
+        sys.answer("nmcli -t -f NAME,UUID,TYPE,DEVICE,ACTIVE connection show",
+                   ("Home:x:802-11-wireless:wlan0:yes\nwork-wg:" + uuid + ":wireguard:work-wg:yes\n"
+                    "Office:11111111-2222-3333-4444-555555555555:vpn::no\n").toUtf8());
+        sys.answer("nmcli -g vpn.service-type connection show uuid 11111111-2222-3333-4444-555555555555",
+                   "org.freedesktop.NetworkManager.openvpn");
+        Store store(pathsIn(dir), sys.exec());
+        const QVariantList c = store.list("vpn").toMap().value("connections").toList();
+        QCOMPARE(c.size(), 2);
+        QCOMPARE(c[0].toMap().value("kind").toString(), QString("wireguard"));
+        QVERIFY(c[0].toMap().value("active").toBool());
+        QCOMPARE(c[1].toMap().value("kind").toString(), QString("openvpn"));
+
+        QCOMPARE(store.act("vpn.connect", {uuid}), QString());
+        QVERIFY(sys.calls.contains("nmcli --wait 30 connection up uuid " + uuid));
+        QVERIFY(store.act("vpn.delete", {"; rm -rf ~"}).contains("Unknown VPN"));
+        QCOMPARE(store.act("vpn.credentials", {uuid, "me", "pw"}), QString());
+        QVERIFY(sys.calls.contains("nmcli connection modify uuid " + uuid + " +vpn.data username=me"));
+        QVERIFY(sys.calls.contains("nmcli connection modify uuid " + uuid + " +vpn.data password-flags=0 vpn.secrets password=pw"));
+        QVERIFY(store.act("vpn.credentials", {uuid, "a,b", ""}).contains("commas"));
+    }
+
+    void vpnImportsThePickedFile() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        const QString conf = dir.path() + "/work.conf";
+        writeText(conf, "[Interface]\n");
+        sys.answers.insert("omarchy-file-select --title Choose a VPN configuration --extensions conf",
+                           ProcResult{true, 0, conf.toUtf8() + "\n", {}});
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("vpn.import", {"wireguard"}), QString());
+        QVERIFY(sys.calls.contains("nmcli connection import type wireguard file " + conf));
+        // Closing the chooser without a file is not an error, and imports nothing.
+        sys.calls.clear();
+        sys.answers.insert("omarchy-file-select --title Choose a VPN configuration --extensions ovpn conf", ProcResult{true, 1, {}, {}});
+        QCOMPARE(store.act("vpn.import", {"openvpn"}), QString());
+        QVERIFY(!sys.calls.join("|").contains("connection import"));
+        QVERIFY(store.act("vpn.import", {"pptp"}).contains("Unknown VPN type"));
+    }
+
+    void pluginActionsGoThroughOmarchy() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("plugin.disable", {"omarchy.weather"}), QString());
+        QVERIFY(sys.calls.contains("omarchy-plugin-disable omarchy.weather"));
+        QCOMPARE(store.act("plugin.update", {"someone.thing"}), QString());
+        QVERIFY(sys.calls.contains("omarchy-plugin-update someone.thing --yes"));
+        QVERIFY(store.act("plugin.remove", {"../../etc"}).contains("Unknown plugin"));
+        QVERIFY(store.act("plugin.add", {"file:///etc"}).contains("git URL"));
+        QCOMPARE(store.act("plugin.add", {"https://github.com/someone/plugin"}), QString());
+        QVERIFY(sys.calls.contains("omarchy-plugin-add https://github.com/someone/plugin --enable --yes"));
+    }
+
+    void pluginsReadTheirManifests() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/config/omarchy/plugins/me.clock/manifest.json",
+                  R"({"id":"me.clock","version":"2.1.0","description":"A clock"})");
+        QDir().mkpath(dir.path() + "/config/omarchy/plugins/me.clock/.git");
+        sys.answer("omarchy-plugin-list --json",
+                   R"([{"id":"me.clock","name":"Clock","kinds":["bar-widget"],"enabled":true,"firstParty":false}])");
+        Store store(pathsIn(dir), sys.exec());
+        const QVariantMap p = store.list("plugins").toList().value(0).toMap();
+        QCOMPARE(p.value("version").toString(), QString("2.1.0"));
+        QCOMPARE(p.value("description").toString(), QString("A clock"));
+        QVERIFY(p.value("git").toBool());
+        QVERIFY(p.value("removable").toBool());
+    }
+
+    void barLayoutListsSectionsAndWhatIsLeft() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/config/omarchy/shell.json",
+                  R"({"bar":{"layout":{"left":["omarchy.workspaces"],"right":[{"id":"omarchy.audio"},{"id":"omarchy.network"}]}}})");
+        sys.answer("omarchy-plugin-list --json",
+                   R"([{"id":"omarchy.audio","name":"Audio","kinds":["bar-widget"]},{"id":"omarchy.weather","name":"Weather","kinds":["bar-widget"]},{"id":"omarchy.osd","name":"OSD","kinds":["service"]}])");
+        Store store(pathsIn(dir), sys.exec());
+        const QVariantMap bar = store.list("bar").toMap();
+        const QVariantList right = bar.value("sections").toMap().value("right").toList();
+        QCOMPARE(right.size(), 2);
+        QCOMPARE(right[0].toMap().value("name").toString(), QString("Audio"));
+        QCOMPARE(right[1].toMap().value("index").toInt(), 1);
+        QCOMPARE(bar.value("sections").toMap().value("left").toList().value(0).toMap().value("id").toString(), QString("omarchy.workspaces"));
+        const QVariantList available = bar.value("available").toList();
+        QCOMPARE(available.size(), 1);
+        QCOMPARE(available[0].toMap().value("id").toString(), QString("omarchy.weather"));
+    }
+
+    void barChangesUseTheShellsCommands() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("bar.move", {"omarchy.audio", "right", 2, "left", 0}), QString());
+        QVERIFY(sys.calls.contains("omarchy-bar move omarchy.audio --from-section right --from-index 2 --section left --index 0"));
+        QCOMPARE(store.act("bar.add", {"omarchy.weather", "centerEnd"}), QString());
+        QVERIFY(sys.calls.contains("omarchy-plugin-enable omarchy.weather --section centerEnd"));
+        QCOMPARE(store.act("bar.remove", {"omarchy.weather"}), QString());
+        QVERIFY(sys.calls.contains("omarchy-plugin-disable omarchy.weather"));
+        QVERIFY(store.act("bar.move", {"omarchy.audio", "right", 0, "middle", 0}).contains("section"));
+    }
+
     // ---- The window's backend -------------------------------------------------------------
     void backendShowsChangesAndUndoesThem() {
         QTemporaryDir dir;
