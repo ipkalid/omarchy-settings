@@ -31,13 +31,14 @@ static const char *usage =
     "       omasettings act <action> [args...]   (an argument starting with { is JSON)\n"
     "       omasettings export <file>  |  omasettings import <file>\n"
     "       omasettings skill install [--dir <path>]\n"
+    "       omasettings icon [--print --color <#rrggbb> [--rounding <px>]]\n"
     "\n"
     "Panes: wifi bluetooth vpn power general appearance desktop bar plugins\n"
     "       displays wallpaper notifications sound lock security keyboard pointer\n";
 
 bool isCliCommand(const QStringList &args) {
     const QString command = args.value(1);
-    return QStringList{"list", "get", "set", "reset", "data", "act", "export", "import", "skill", "help", "--help", "-h", "--version"}.contains(command);
+    return QStringList{"list", "get", "set", "reset", "data", "act", "export", "import", "icon", "skill", "help", "--help", "-h", "--version"}.contains(command);
 }
 
 static QString plain(const QVariant &v) {
@@ -128,6 +129,21 @@ int runCli(const QStringList &all, Store &store) {
     }
     if (command == "--version") {
         out() << "omasettings 0.1.0\n";
+        return 0;
+    }
+    if (command == "icon") {
+        // --print draws a fixed-color icon to stdout (the package's default);
+        // otherwise the icon is drawn in the current theme's colors.
+        if (args.contains("--print")) {
+            const QString color = args.value(args.indexOf("--color") + 1, "#a9b1d6");
+            const double rounding = args.contains("--rounding") ? args.value(args.indexOf("--rounding") + 1).toDouble() : 0;
+            out() << Store::iconSvg(color, rounding);
+            return 0;
+        }
+        const QString error = store.writeThemedIcon();
+        if (!error.isEmpty())
+            return fail(json, error);
+        out() << store.iconPath() << "\n";
         return 0;
     }
     if (command == "skill") {

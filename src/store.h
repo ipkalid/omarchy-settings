@@ -16,6 +16,7 @@ struct Paths {
     QString config;  // ~/.config
     QString state;   // ~/.local/state
     QString omarchy; // $OMARCHY_PATH, Omarchy's read-only install
+    QString data;    // ~/.local/share
     bool hyprland = true; // whether a Hyprland session is there to reload
 
     static Paths system();
@@ -119,6 +120,15 @@ private:
     QString menuFile() const;
     QVariant listMenu();
     QString setMenuHidden(const QString &id, bool hidden);
+
+public:
+    // The app icon, drawn like Omarchy's own menu entries in the theme's colors.
+    static QString iconSvg(const QString &foreground, double rounding);
+    QString iconPath() const;
+    QString writeThemedIcon();
+    QString ensureIconHook();
+
+private:
     QString importSettings(const QJsonObject &doc);
 
 public:

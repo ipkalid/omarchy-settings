@@ -53,7 +53,12 @@ int main(int argc, char *argv[]) {
     app.installTranslator(&translator);
 
     Theme theme;
-    Backend backend(std::make_shared<Store>());
+    auto store = std::make_shared<Store>();
+    // The app icon follows the theme, like Omarchy's own menu entries: draw
+    // it now, and make sure theme switches redraw it while we are closed.
+    store->writeThemedIcon();
+    store->ensureIconHook();
+    Backend backend(store);
 
     // `omasettings open keyboard` opens on a pane.
     QString pane = args.value(1) == "open" ? args.value(2) : QString();

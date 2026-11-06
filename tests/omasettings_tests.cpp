@@ -716,6 +716,36 @@ private slots:
         QCOMPARE(readText(menu), QString("[1, 2]\n"));
     }
 
+    // ---- The app icon ----------------------------------------------------------------
+    void iconFollowsTheThemeAndHooksThemeChanges() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        sys.answer("hyprctl -j getoption decoration:rounding", R"({"int":6})");
+        writeText(dir.path() + "/state/omarchy/current/theme/colors.toml", "foreground = \"#112233\"\n");
+        Paths paths = pathsIn(dir);
+        paths.data = dir.path() + "/data";
+        Store store(paths, sys.exec());
+        QCOMPARE(store.writeThemedIcon(), QString());
+        const QString svg = readText(dir.path() + "/data/icons/hicolor/scalable/apps/omasettings.svg");
+        QVERIFY(svg.contains(R"(fill="#112233" fill-opacity="0.07")"));
+        QVERIFY(svg.contains(R"(fill="#112233" fill-opacity="0.8")"));
+        QVERIFY(svg.contains(R"(rx="64.0")"));
+        // The hook goes in through Omarchy's own installer, once.
+        QCOMPARE(store.ensureIconHook(), QString());
+        QVERIFY(sys.calls.join("|").contains("omarchy-hook-install theme-set "));
+        writeText(dir.path() + "/config/omarchy/hooks/theme-set.d/omasettings-icon", "x");
+        sys.calls.clear();
+        QCOMPARE(store.ensureIconHook(), QString());
+        QVERIFY(!sys.calls.join("|").contains("omarchy-hook-install"));
+        // A foreground that isn't a plain hex color never reaches the file:
+        // the default color is drawn instead, or nothing at all.
+        writeText(dir.path() + "/state/omarchy/current/theme/colors.toml", "foreground = \"red\\\" onload\"\n");
+        store.writeThemedIcon();
+        QVERIFY(!readText(dir.path() + "/data/icons/hicolor/scalable/apps/omasettings.svg").contains("onload"));
+        writeText(dir.path() + "/state/omarchy/current/theme/colors.toml", "foreground = \"red\"\n");
+        QVERIFY(store.writeThemedIcon().contains("isn't a color"));
+    }
+
     // ---- The window's backend -------------------------------------------------------------
     void backendShowsChangesAndUndoesThem() {
         QTemporaryDir dir;

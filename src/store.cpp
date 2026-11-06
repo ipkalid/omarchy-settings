@@ -29,6 +29,7 @@ Paths Paths::system() {
     const QString home = QDir::homePath();
     p.config = qEnvironmentVariableIsEmpty("XDG_CONFIG_HOME") ? home + "/.config" : qEnvironmentVariable("XDG_CONFIG_HOME");
     p.state = qEnvironmentVariableIsEmpty("XDG_STATE_HOME") ? home + "/.local/state" : qEnvironmentVariable("XDG_STATE_HOME");
+    p.data = qEnvironmentVariableIsEmpty("XDG_DATA_HOME") ? home + "/.local/share" : qEnvironmentVariable("XDG_DATA_HOME");
     p.omarchy = qEnvironmentVariableIsEmpty("OMARCHY_PATH") ? "/usr/share/omarchy" : qEnvironmentVariable("OMARCHY_PATH");
     p.hyprland = !qEnvironmentVariableIsEmpty("HYPRLAND_INSTANCE_SIGNATURE");
     return p;

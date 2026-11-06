@@ -10,6 +10,8 @@
 #include <QJsonObject>
 #include <QSaveFile>
 #include <QFile>
+#include <QTemporaryDir>
+#include "theme.h"
 #include <QDir>
 #include <QFileInfo>
 #include <QSet>
@@ -407,4 +409,74 @@ QString Store::setMenuHidden(const QString &id, bool hidden) {
 
     state.insert("menuWhen", kept);
     return applyState(state);
+}
+
+// --- The app's icon ------------------------------------------------------------------
+//
+// Launchers like Keystroke draw Omarchy's own entries as a Nerd Font glyph
+// in the theme's text color on a faint tile of the same color, and an app's
+// icon as-is. So the icon is drawn the same way, from the same font's
+// "tune" glyph, in the current theme's colors, and drawn again whenever the
+// theme changes.
+
+// md-tune (U+F062E) from JetBrainsMono Nerd Font, moved to the origin and
+// flipped to SVG's y-down; it is 750 font units square.
+static const char *tuneGlyph = "M0 584V666H250V584ZM0 84V166H416V84ZM416 750V666H750V584H416V500H334V750ZM166 250V334H0V416H166V500H250V250ZM750 416V334H334V416ZM500 250H584V166H750V84H584V0H500Z";
+
+QString Store::iconSvg(const QString &foreground, double rounding) {
+    // The glyph is set at 72% of the icon's size, as Keystroke sets its
+    // glyphs against the space it gives an app icon.
+    const double scale = 0.72 * 256 / 1000, size = 750 * scale, offset = (256 - size) / 2;
+    const double radius = qBound(0.0, rounding, 9.0) * 256 / 24;
+    return QStringLiteral(
+               "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 256 256\" width=\"256\" height=\"256\">\n"
+               "  <rect width=\"256\" height=\"256\" rx=\"%1\" fill=\"%2\" fill-opacity=\"0.07\"/>\n"
+               "  <path transform=\"translate(%3 %3) scale(%4)\" fill=\"%2\" fill-opacity=\"0.8\" d=\"%5\"/>\n"
+               "</svg>\n")
+        .arg(radius, 0, 'f', 1).arg(foreground).arg(offset, 0, 'f', 2).arg(scale, 0, 'f', 5).arg(QString::fromLatin1(tuneGlyph));
+}
+
+QString Store::iconPath() const {
+    return m_paths.data + "/icons/hicolor/scalable/apps/omasettings.svg";
+}
+
+// The icon in the current theme's text color and window rounding, in the
+// user's icon folder, which wins over the packaged one.
+QString Store::writeThemedIcon() {
+    const QVariantMap colors = Theme::readColors(m_paths.state + "/omarchy/current/theme/colors.toml");
+    const QString foreground = colors.value("foreground", "#a9b1d6").toString();
+    static const QRegularExpression hex("^#[0-9a-fA-F]{6}$");
+    if (!hex.match(foreground).hasMatch())
+        return tr("The theme's foreground color isn't a color");
+    int rounding = 0;
+    if (m_paths.hyprland)
+        rounding = QJsonDocument::fromJson(run("hyprctl", {"-j", "getoption", "decoration:rounding"}, 2000).out)
+                       .object().value("int").toInt(0);
+    const QString svg = iconSvg(foreground, rounding);
+    if (readText(iconPath()) == svg)
+        return {};
+    QDir().mkpath(QFileInfo(iconPath()).absolutePath());
+    QSaveFile out(iconPath());
+    if (!out.open(QIODevice::WriteOnly) || out.write(svg.toUtf8()) < 0 || !out.commit())
+        return tr("Could not write %1").arg(iconPath());
+    return {};
+}
+
+// A theme-set hook so the icon follows theme changes made anywhere, not only
+// while Settings is open. Installed through `omarchy hook install`.
+QString Store::ensureIconHook() {
+    const QString hook = m_paths.config + "/omarchy/hooks/theme-set.d/omasettings-icon";
+    if (QFileInfo::exists(hook))
+        return {};
+    QTemporaryDir dir;
+    const QString script = dir.filePath("omasettings-icon");
+    QFile file(script);
+    if (!file.open(QIODevice::WriteOnly))
+        return tr("Could not write %1").arg(script);
+    file.write("#!/bin/bash\n"
+               "# Draws the Settings app icon in the new theme's colors (installed by Settings).\n"
+               "command -v omasettings >/dev/null && omasettings icon >/dev/null 2>&1\n"
+               "exit 0\n");
+    file.close();
+    return runOk("omarchy-hook-install", {"theme-set", script}, 10000);
 }
