@@ -21,6 +21,7 @@ SOURCES += \
     src/extras.cpp \
     src/features.cpp \
     src/system.cpp \
+    src/software.cpp \
     src/hyprconf.cpp \
     src/proc.cpp \
     src/store.cpp \

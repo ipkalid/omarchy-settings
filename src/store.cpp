@@ -871,7 +871,7 @@ QStringList Store::listNames() const {
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
             "storage", "homeUsage", "snapshots", "managed",
-            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom"};
+            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom", "software"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -1097,6 +1097,8 @@ QVariant Store::list(const QString &name) {
         return listMenu();
     if (name == "menuCustom")
         return listMenuCustom();
+    if (name == "software")
+        return listSoftware();
     if (name.startsWith("defaults:"))
         return defaultsFor(name.section(':', 1));
     if (name == "vpn")
@@ -1280,6 +1282,13 @@ QString Store::act(const QString &action, const QVariantList &args) {
 
     if (action == "launch")
         return launchInTerminal(a0);
+
+    if (action == "software.run" || action == "software.drop") {
+        QStringList command;
+        if (const QString error = softwareCommand(action, a0, command); !error.isEmpty())
+            return error;
+        return launch(command.first(), command.mid(1));
+    }
 
     if (action == "edit") {
         static const QMap<QString, QString> files{

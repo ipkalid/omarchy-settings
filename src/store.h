@@ -129,6 +129,10 @@ private:
     QString editMenu(const QStringList &hide, const QStringList &show, QJsonObject &kept, QStringList &skipped);
     QString menuAction(const QString &action, const QString &id);
     QVariant listMenuCustom();
+    QJsonObject defaultMenuItems() const;
+    // software.cpp: the apps and tools Omarchy's Install and Remove menus offer.
+    QList<QVariantMap> softwareItems(bool evaluate);
+    QVariant listSoftware();
     QString rewriteMenu(const std::function<QString(QStringList &)> &change);
     QString menuItemAction(const QString &action, const QVariantMap &item);
 
@@ -146,6 +150,8 @@ public:
     static QString normalizeKeys(const QString &keys);
     // The command a terminal launch id stands for, or {} if it isn't one.
     QStringList terminalCommand(const QString &id);
+    // What software.run and software.drop start, or an error.
+    QString softwareCommand(const QString &action, const QString &arg, QStringList &command);
 
 private:
     QString monitorAction(const QString &action, const QVariantList &args);

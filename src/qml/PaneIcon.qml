@@ -5,10 +5,12 @@ Text {
     property string glyph
     property color tint: ui.fg
     property int size: ui.icon
+    // Omarchy's menu draws some brand icons from its own "omarchy" font.
+    property string family: ""
 
     text: glyph
     color: tint
-    font.family: ui.iconFont
+    font.family: family.length > 0 ? family : ui.iconFont
     font.pixelSize: size
     horizontalAlignment: Text.AlignHCenter
     verticalAlignment: Text.AlignVCenter

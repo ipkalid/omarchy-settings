@@ -16,6 +16,7 @@ left included.
 | Bluetooth, VPN | Pairing; WireGuard and OpenVPN connections (import, sign in, install support) |
 | Power | Power mode now, on the adapter, and on battery; hibernation |
 | General | About, updates and update channel, language, time zone and clock, default apps and file types, login items, web apps, storage and snapshots, changes and backup |
+| Apps | Everything Omarchy's Install and Remove menus offer (browsers, AI apps, services, editors, terminals, games, dev environments, dictation, package pickers), with what's installed, so those menus can stay hidden |
 | Appearance | Theme gallery, installing and removing themes, corners, transparency, animations, text size, font |
 | Desktop & Dock, Bar, Plugins | Dock and pinned apps, window layout and gaps, window rules, focus; the bar's widgets and their order; shell plugins and updates |
 | Displays, Wallpaper | Resolution, refresh, scale, rotation, Night Shift and its schedule; wallpapers and adding your own |

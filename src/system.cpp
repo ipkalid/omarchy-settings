@@ -389,6 +389,13 @@ QString Store::menuFile() const {
     return m_paths.config + "/omarchy/extensions/omarchy-menu.jsonc";
 }
 
+// Omarchy's own menu as shipped, keyed by item id. Read-only: it belongs to
+// the omarchy package.
+QJsonObject Store::defaultMenuItems() const {
+    const QString defaults = readText(m_paths.omarchy + "/default/omarchy/omarchy-menu.jsonc");
+    return QJsonDocument::fromJson(stripJsonc(defaults).toUtf8()).object();
+}
+
 QVariant Store::listMenu() {
     // Omarchy's own items, in the order its file lists them (one per line).
     const QString defaults = readText(m_paths.omarchy + "/default/omarchy/omarchy-menu.jsonc");

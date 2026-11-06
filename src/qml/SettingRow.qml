@@ -9,6 +9,7 @@ Item {
     property string label
     property string sublabel
     property string glyph
+    property string glyphFamily: ""
     property color tint: ui.fg
     property bool busy: false
     property bool dimmed: false
@@ -50,6 +51,7 @@ Item {
         PaneIcon {
             visible: row.glyph.length > 0
             glyph: row.glyph
+            family: row.glyphFamily
             tint: row.tint
             Layout.preferredWidth: ui.s(18)
         }

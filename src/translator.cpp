@@ -79,9 +79,14 @@ QLocale Translator::formatLocale(const QString &language) {
     return QLocale(language);
 }
 
-QString Translator::translate(const char *, const char *sourceText, const char *, int n) const {
+QString Translator::translate(const char *, const char *sourceText, const char *disambiguation, int n) const {
+    // A word used two ways (a heading "Installed", a status "Installed") is
+    // told apart with qsTr's second argument: "Installed|status" in the
+    // catalog, falling back to the plain word.
+    const QString source = QString::fromUtf8(sourceText);
+    const QString specific = disambiguation && *disambiguation ? source + "|" + QString::fromUtf8(disambiguation) : QString();
+    const QJsonValue value = m_strings.value(!specific.isEmpty() && m_strings.contains(specific) ? specific : source);
     // A null string tells Qt there is no translation, so it shows the English.
-    const QJsonValue value = m_strings.value(QString::fromUtf8(sourceText));
     if (value.isString())
         return value.toString();
     if (value.isObject()) {

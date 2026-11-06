@@ -75,6 +75,8 @@ ApplicationWindow {
           keywords: qsTr("about update language region date time zone clock default apps browser terminal editor name login items startup web apps file types backup export import") },
         { id: "storage", group: 1, title: qsTr("Storage"), glyph: "\u{F02CA}", show: true,
           keywords: qsTr("storage disk space free full folders snapshots snapper package cache") },
+        { id: "software", group: 1, title: qsTr("Apps"), glyph: "\u{F003B}", show: true,
+          keywords: qsTr("apps install remove uninstall software packages aur browser editor terminal gaming steam development ai dictation") },
         { id: "appearance", group: 1, title: qsTr("Appearance"), glyph: "\u{F03D8}", show: true,
           keywords: qsTr("theme dark light color font text size corners transparency animations") },
         { id: "fonts", group: 1, title: qsTr("Fonts"), glyph: "\u{F06D6}", show: true,

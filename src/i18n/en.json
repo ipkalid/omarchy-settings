@@ -23,6 +23,10 @@
     "one": "%n hour",
     "other": "%n hours"
   },
+  "%n installed": {
+    "one": "%n installed",
+    "other": "%n installed"
+  },
   "%n items in hidden sections still show up in search": {
     "one": "%n item in a hidden section still shows up in search",
     "other": "%n items in hidden sections still show up in search"
@@ -62,6 +66,10 @@
   "After %n seconds": {
     "one": "After %n second",
     "other": "After %n seconds"
+  },
+  "Filter %n apps": {
+    "one": "Filter %n app",
+    "other": "Filter %n apps"
   },
   "Filter %n menu items": {
     "one": "Filter %n menu item",

@@ -57,7 +57,7 @@ SettingsPage {
             delegate: SettingRow {
                 required property var modelData
                 label: modelData.name
-                sublabel: modelData.installed ? qsTr("Installed") : ""
+                sublabel: modelData.installed ? qsTr("Installed", "status") : ""
                 OmaButton {
                     text: modelData.installed ? qsTr("Use") : qsTr("Install…")
                     selected: modelData.installed && backend.values["appearance.font"] === modelData.family

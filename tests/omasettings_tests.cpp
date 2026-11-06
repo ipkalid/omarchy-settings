@@ -35,10 +35,16 @@ struct FakeSystem {
             for (auto it = answers.begin(); it != answers.end(); ++it)
                 if (call == it.key())
                     return it.value();
+            for (auto it = prefixAnswers.begin(); it != prefixAnswers.end(); ++it)
+                if (call.startsWith(it.key()))
+                    return it.value();
             return ProcResult{true, 0, {}, {}};
         };
     }
     void answer(const QString &call, const QByteArray &out, int code = 0) { answers.insert(call, ProcResult{true, code, out, {}}); }
+    // For calls whose arguments are generated, such as a script.
+    QHash<QString, ProcResult> prefixAnswers;
+    void answerPrefix(const QString &prefix, const QByteArray &out) { prefixAnswers.insert(prefix, ProcResult{true, 0, out, {}}); }
 };
 
 static QString readText(const QString &path) {
@@ -836,6 +842,97 @@ private slots:
         QVERIFY(readText(menu).contains("\"hi-there\": {"));
     }
 
+    void theAppsPaneListsWhatTheMenuInstallsAndRemoves() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/omarchy/default/omarchy/omarchy-menu.jsonc",
+                  "{\n"
+                  "  // Omarchy's menu\n"
+                  "  \"install.package\": {\"label\":\"Package\",\"action\":\"omarchy-pkg-install\"},\n"
+                  "  \"install.browser\": {\"label\":\"Browser\"},\n"
+                  "  \"install.browser.zen\": {\"label\":\"Zen\",\"icon\":\"Z\",\"action\":\"omarchy-install-browser zen\",\"disabled\":\"omarchy-pkg-present zen-browser-bin\"},\n"
+                  "  \"remove.browser.zen\": {\"label\":\"Zen\",\"action\":\"omarchy-remove-browser zen\",\"when\":\"omarchy-pkg-present zen-browser-bin\"},\n"
+                  "  \"install.editor.vscode\": {\"label\":\"VSCode\",\"action\":\"x\",\"disabled\":\"omarchy-pkg-present visual-studio-code-bin\"},\n"
+                  "  \"install.editor.zed\": {\"label\":\"Zed\",\"action\":\"y\",\"disabled\":\"omarchy-pkg-present zed\"},\n"
+                  "  \"install.gaming.heroic\": {\"label\":\"Heroic\",\"action\":\"h\",\"when\":\"omarchy-hw-x86\"},\n"
+                  "  \"install.development.javascript\": {\"label\":\"JavaScript\"},\n"
+                  "  \"install.development.javascript.node\": {\"label\":\"Node.js\",\"action\":\"n\"},\n"
+                  "  \"remove.development.javascript.node\": {\"label\":\"Node.js\",\"action\":\"rn\"},\n"
+                  "  \"setup.default.dictation.voxtype\": {\"label\":\"Voxtype\",\"action\":\"omarchy-default-dictation voxtype\"},\n"
+                  "  \"remove.dictation.voxtype\": {\"label\":\"Voxtype\",\"action\":\"rv\",\"when\":\"omarchy-pkg-present voxtype-bin\"},\n"
+                  "  \"remove.service.ssh-agent\": {\"label\":\"SSH Agent\",\"action\":\"s\"},\n"
+                  "  \"install.style.theme\": {\"label\":\"Theme\",\"action\":\"t\"}\n"
+                  "}\n");
+        Store store(pathsIn(dir), sys.exec());
+        auto items = [&]() {
+            QHash<QString, QVariantMap> byKey;
+            for (const QVariant &v : store.list("software").toList())
+                byKey.insert(v.toMap().value("key").toString(), v.toMap());
+            return byKey;
+        };
+        QHash<QString, QVariantMap> all = items();
+        // Apps, tools, and dictation; not the SSH agent switch or themes.
+        QCOMPARE(QSet<QString>(all.keyBegin(), all.keyEnd()),
+                 (QSet<QString>{"package", "browser.zen", "editor.vscode", "editor.zed", "gaming.heroic",
+                                "development.javascript.node", "dictation.voxtype"}));
+        QCOMPARE(all["browser.zen"].value("removeId").toString(), QString("remove.browser.zen"));
+        QCOMPARE(all["development.javascript.node"].value("label").toString(), QString("Node.js (JavaScript)"));
+        QCOMPARE(all["dictation.voxtype"].value("installId").toString(), QString("setup.default.dictation.voxtype"));
+        QCOMPARE(all["package"].value("category").toString(), QString("tools"));
+        QVERIFY(!all["package"].value("known").toBool());
+        // Without a removal in the menu, the package it checks for can go.
+        QCOMPARE(all["editor.zed"].value("package").toString(), QString("zed"));
+        QVERIFY(all["editor.zed"].value("dropRemove").toBool());
+        QVERIFY(!all["browser.zen"].value("dropRemove").toBool());
+
+        // The menu's conditions decide what's installed and available.
+        sys.answerPrefix("bash -c", "");
+        all = items();
+        QVERIFY(!all["browser.zen"].value("installed").toBool());
+        QVERIFY(!all["gaming.heroic"].value("available").toBool());
+        sys.prefixAnswers.clear();
+        sys.answerPrefix("bash -c", "i:browser.zen\na:gaming.heroic\n");
+        all = items();
+        QVERIFY(all["browser.zen"].value("installed").toBool());
+        QVERIFY(all["gaming.heroic"].value("available").toBool());
+        QVERIFY(!all["editor.zed"].value("installed").toBool());
+    }
+
+    void appsAreInstalledAndRemovedOnlyTheMenusWay() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/omarchy/default/omarchy/omarchy-menu.jsonc",
+                  "{\n"
+                  "  \"install.browser.zen\": {\"label\":\"Zen\",\"action\":\"omarchy-install-browser zen\",\"disabled\":\"omarchy-pkg-present zen-browser-bin\"},\n"
+                  "  \"remove.browser.zen\": {\"label\":\"Zen\",\"action\":\"omarchy-remove-browser zen\"},\n"
+                  "  \"install.terminal.kitty\": {\"label\":\"Kitty\",\"action\":\"k\",\"disabled\":\"omarchy-pkg-present kitty\"},\n"
+                  "  \"install.terminal.foot\": {\"label\":\"Foot\",\"action\":\"f\",\"disabled\":\"omarchy-pkg-present foot\"},\n"
+                  "  \"install.browser\": {\"label\":\"Browser\"},\n"
+                  "  \"learn.arch\": {\"label\":\"Arch\",\"action\":\"xdg-open https://wiki.archlinux.org\"}\n"
+                  "}\n");
+        // Kitty is the terminal in use.
+        sys.answer("omarchy-default-terminal", "kitty\n");
+        Store store(pathsIn(dir), sys.exec());
+        QStringList command;
+        QCOMPARE(store.softwareCommand("software.run", "install.browser.zen", command), QString());
+        QCOMPARE(command, (QStringList{"bash", "-c", "omarchy-install-browser zen"}));
+        command.clear();
+        QCOMPARE(store.softwareCommand("software.run", "remove.browser.zen", command), QString());
+        QCOMPARE(command.last(), QString("omarchy-remove-browser zen"));
+        // Only install and remove items, and only ones that do something.
+        QVERIFY(!store.softwareCommand("software.run", "learn.arch", command).isEmpty());
+        QVERIFY(!store.softwareCommand("software.run", "install.browser", command).isEmpty());
+        QVERIFY(!store.softwareCommand("software.run", "install.nothing", command).isEmpty());
+
+        command.clear();
+        QCOMPARE(store.softwareCommand("software.drop", "terminal.foot", command), QString());
+        QCOMPARE(command, (QStringList{"omarchy-launch-floating-terminal-with-presentation", "omarchy-pkg-drop foot"}));
+        // Not one the menu can remove itself, and never the terminal in use.
+        QVERIFY(!store.softwareCommand("software.drop", "browser.zen", command).isEmpty());
+        QVERIFY(!store.softwareCommand("software.drop", "nope", command).isEmpty());
+        QVERIFY(store.softwareCommand("software.drop", "terminal.kitty", command).contains("default terminal"));
+    }
+
     void aBrokenMenuFileIsLeftAlone() {
         QTemporaryDir dir;
         FakeSystem sys;
@@ -1047,6 +1144,16 @@ private slots:
         Translator translator(dir.path() + "/language", dir.path());
         QCOMPARE(translator.translate("Main", "%n hours", nullptr, 2), QString("t"));
         QCOMPARE(translator.translate("Main", "%n hours", nullptr, 11), QString("m"));
+    }
+
+    void translatorTellsAWordsUsesApart() {
+        QTemporaryDir dir;
+        writeText(dir.path() + "/language", "ar\n");
+        writeText(dir.path() + "/ar.json", R"({"Installed": "heading", "Installed|status": "status", "Open": "open"})");
+        Translator translator(dir.path() + "/language", dir.path());
+        QCOMPARE(translator.translate("Main", "Installed", nullptr, -1), QString("heading"));
+        QCOMPARE(translator.translate("Main", "Installed", "status", -1), QString("status"));
+        QCOMPARE(translator.translate("Main", "Open", "verb", -1), QString("open"));
     }
 
     void shippedCatalogsAreValidJson() {

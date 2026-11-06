@@ -45,6 +45,7 @@
         <file alias="qml/PanePower.qml">qml/PanePower.qml</file>
         <file alias="qml/PanePrinters.qml">qml/PanePrinters.qml</file>
         <file alias="qml/PaneSecurity.qml">qml/PaneSecurity.qml</file>
+        <file alias="qml/PaneSoftware.qml">qml/PaneSoftware.qml</file>
         <file alias="qml/PaneSound.qml">qml/PaneSound.qml</file>
         <file alias="qml/PaneStorage.qml">qml/PaneStorage.qml</file>
         <file alias="qml/PaneVpn.qml">qml/PaneVpn.qml</file>
