@@ -868,7 +868,8 @@ QStringList Store::listNames() const {
             "themes", "backgrounds", "fonts", "languages", "timezones", "keyboardLayouts", "keybindings",
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
-            "storage", "homeUsage", "snapshots", "managed"};
+            "storage", "homeUsage", "snapshots", "managed",
+            "security", "system", "branding", "bootScreens"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -1088,6 +1089,8 @@ QVariant Store::list(const QString &name) {
                                   "snapshots", "managed"};
     if (more.contains(name))
         return listMore(name);
+    if (QStringList{"security", "system", "branding", "bootScreens"}.contains(name))
+        return listSystem(name);
     if (name == "vpn")
         return listVpn();
     if (name == "plugins")
@@ -1140,8 +1143,12 @@ QString Store::launchInTerminal(const QString &id) {
             return tr("Unknown channel %1").arg(channel);
         return launch("omarchy-launch-floating-terminal-with-presentation", {"omarchy-channel-set", channel});
     }
-    if (!commands.contains(id))
-        return tr("Unknown command %1").arg(id);
+    if (!commands.contains(id)) {
+        const QStringList command = terminalCommand(id);
+        if (command.isEmpty())
+            return tr("Unknown command %1").arg(id);
+        return launch("omarchy-launch-floating-terminal-with-presentation", command);
+    }
     return launch("omarchy-launch-floating-terminal-with-presentation", commands.value(id));
 }
 

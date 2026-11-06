@@ -5,7 +5,7 @@ import QtQuick.Layouts
 SettingsPage {
     id: page
     pane: "general"
-    lists: ["about"]
+    lists: ["about", "branding"]
 
     readonly property var about: backend.lists.about || ({})
     function gigabytes(bytes) {
@@ -83,5 +83,11 @@ SettingsPage {
             text: qsTr("Open")
             onClicked: backend.act("about.open", [])
         }
+    }
+
+    BrandingGroup {
+        which: "about"
+        title: qsTr("About Screen Art")
+        footer: qsTr("Omarchy's About screen shows this next to your system details.")
     }
 }

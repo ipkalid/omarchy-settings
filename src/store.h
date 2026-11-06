@@ -110,10 +110,18 @@ private:
     QString setMenuEntry(bool on);
     QString updateState(const std::function<QString(QJsonObject &)> &change);
     QJsonObject exportSettings();
+
+    // system.cpp: branding, default tools, security setup, troubleshooting.
+    void buildSystem();
+    QVariant listSystem(const QString &name);
+    QString actSystem(const QString &action, const QVariantList &args);
+    QString directBootProblem();
     QString importSettings(const QJsonObject &doc);
 
 public:
     static QString normalizeKeys(const QString &keys);
+    // The command a terminal launch id stands for, or {} if it isn't one.
+    QStringList terminalCommand(const QString &id);
 
 private:
     QString monitorAction(const QString &action, const QVariantList &args);

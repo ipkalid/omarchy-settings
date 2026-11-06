@@ -5,7 +5,7 @@ import QtQuick.Layouts
 SettingsPage {
     id: page
     pane: "general"
-    lists: ["about"]
+    lists: ["about", "system"]
 
     readonly property var about: backend.lists.about || ({})
     readonly property var updates: backend.lists.updates || ({})
@@ -83,6 +83,19 @@ SettingsPage {
     }
 
     SettingsGroup {
+        ButtonRow {
+            visible: (backend.lists.system || {}).themeExtras === true
+            label: qsTr("Themes you installed")
+            sublabel: qsTr("Get the latest versions from where they came from")
+            text: qsTr("Update Themes")
+            onClicked: backend.act("launch", ["themeUpdate"])
+        }
+        ButtonRow {
+            label: qsTr("Clock")
+            sublabel: qsTr("If the time is off, sync it with the internet again")
+            text: qsTr("Fix the Time")
+            onClicked: backend.act("launch", ["timeSync"])
+        }
         ButtonRow {
             label: qsTr("Firmware")
             sublabel: qsTr("Updates for your computer's hardware, from fwupd")

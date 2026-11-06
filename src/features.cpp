@@ -152,6 +152,7 @@ QString Store::setMenuEntry(bool on) {
 }
 
 void Store::buildMore() {
+    buildSystem();
     {
         Setting s;
         s.id = "network.dns"; s.pane = "wifi"; s.type = "choice"; s.label = "DNS servers";
@@ -898,13 +899,15 @@ QString Store::actMore(const QString &action, const QVariantList &args) {
         return importSettings(doc.object());
     }
 
+    if (action.startsWith("branding.") || action.startsWith("haptics.") || action.startsWith("restart."))
+        return actSystem(action, args);
     return tr("Unknown action %1").arg(action);
 }
 
 // Settings that belong to this machine rather than to the person: they stay
 // behind when settings move to another computer.
 static bool machineSpecific(const QString &id) {
-    static const QStringList ids{"general.hostname", "general.timezone", "general.autoTime", "network.dns", "wifi.band",
+    static const QStringList ids{"security.gitName", "security.gitEmail", "general.dictation", "general.hostname", "general.timezone", "general.autoTime", "network.dns", "wifi.band",
                                  "wifi.enabled", "bluetooth.enabled", "display.brightness", "keyboard.backlight",
                                  "power.profile", "pointer.touchpad", "pointer.touchscreen", "lock.stayAwake"};
     return ids.contains(id) || id.startsWith("sound.");

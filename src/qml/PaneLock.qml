@@ -8,6 +8,7 @@ SettingsPage {
     tagline: backend.values["lock.stayAwake"] === true ? qsTr("Staying awake") : backend.values["lock.lockAfter"] !== undefined ? qsTr("Locks after %1").arg(page.idleText(backend.values["lock.lockAfter"])) : ""
     glyph: "\u{F033E}"
     description: qsTr("Decide when the screensaver starts and the screen locks while you are away.")
+    lists: ["branding"]
 
     readonly property var idleOptions: {
         const _ = translator.language
@@ -50,6 +51,21 @@ SettingsPage {
             label: qsTr("Lock the screen now")
             text: qsTr("Lock")
             onClicked: backend.act("system.lock", [])
+        }
+    }
+
+    BrandingGroup {
+        which: "screensaver"
+        title: qsTr("Screensaver Art")
+        footer: qsTr("The screensaver draws this text. Make it from a picture, or write your own.")
+    }
+
+    SettingsGroup {
+        NavRow {
+            label: qsTr("Boot and Unlock Screen")
+            sublabel: qsTr("Where you type the disk password when the computer starts")
+            glyph: "\u{F0341}"
+            onOpen: win.openSub("LockBootScreen", qsTr("Boot and Unlock Screen"))
         }
     }
 }

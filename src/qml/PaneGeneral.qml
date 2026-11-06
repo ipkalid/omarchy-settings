@@ -62,6 +62,12 @@ SettingsPage {
 
     SettingsGroup {
         NavRow {
+            label: qsTr("Troubleshooting")
+            sublabel: qsTr("Restart parts of the desktop, reset configs, kernel, start over")
+            glyph: "\u{F0BC6}"
+            onOpen: win.openSub("GeneralTroubleshooting", qsTr("Troubleshooting"))
+        }
+        NavRow {
             label: qsTr("Changes & Backup")
             sublabel: qsTr("What Settings changed, export and import, and how to open Settings")
             glyph: "\u{F006F}"

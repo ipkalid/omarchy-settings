@@ -7,7 +7,9 @@ SettingsPage {
     tagline: win.caps.touchpad ? qsTr("Mouse and trackpad") : qsTr("Mouse")
     glyph: "\u{F037D}"
     description: qsTr("Set how fast the pointer moves, which way scrolling goes, and what taps and swipes do.")
-    lists: ["power"]
+    lists: ["power", "system"]
+    // What was picked in this session; the haptics tool has no way to ask.
+    property string haptics: ""
 
     function times(v) { return qsTr("%1×").arg(v.toLocaleString(Qt.locale(), 'f', 1)) }
 
@@ -60,6 +62,23 @@ SettingsPage {
         ToggleRow { setting: "trackpad.disableWhileTyping"; label: qsTr("Ignore the trackpad while typing") }
         ToggleRow { setting: "trackpad.threeFingerDrag"; label: qsTr("Three-finger drag") }
         ToggleRow { setting: "trackpad.swipeWorkspaces"; label: qsTr("Swipe between workspaces") }
+    }
+
+    SettingsGroup {
+        visible: (backend.lists.system || {}).haptics === true
+        title: qsTr("Trackpad Click")
+        SettingRow {
+            label: qsTr("Click strength")
+            Repeater {
+                model: [{ v: "low", t: qsTr("Light") }, { v: "mid", t: qsTr("Medium") }, { v: "high", t: qsTr("Firm") }]
+                delegate: OmaButton {
+                    required property var modelData
+                    text: modelData.t
+                    selected: page.haptics === modelData.v
+                    onClicked: { page.haptics = modelData.v; backend.act("haptics.set", [modelData.v]) }
+                }
+            }
+        }
     }
 
     SettingsGroup {

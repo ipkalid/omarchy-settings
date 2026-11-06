@@ -41,6 +41,31 @@ SettingsPage {
     }
 
     SettingsGroup {
+        title: qsTr("Tools")
+        footer: qsTr("The coding agent opens with Omarchy's agent shortcut; dictation types what you say. Choosing one that isn't installed installs it in a terminal.")
+        ChoiceRow {
+            setting: "general.agent"
+            label: qsTr("Coding agent")
+            menuWidth: Math.round(220 * ui.scale)
+            options: [
+                { value: "pi", text: "Pi" }, { value: "omp", text: "Oh My Pi" }, { value: "opencode", text: "OpenCode" },
+                { value: "ori", text: "Ori" }, { value: "claude", text: "Claude Code" }, { value: "codex", text: "Codex" },
+                { value: "grok", text: "Grok" }, { value: "openclaw", text: "OpenClaw" }, { value: "agy", text: "Agy" },
+                { value: "hermes", text: "Hermes" }, { value: "copilot", text: "Copilot" }, { value: "crush", text: "Crush" },
+                { value: "cursor-agent", text: "Cursor Agent" }, { value: "muse", text: "Muse" }, { value: "kimi", text: "Kimi" },
+                { value: "qwen", text: "Qwen" }, { value: "dsh", text: "dsh" }, { value: "mcode", text: "mcode" },
+                { value: "kiro-cli", text: "Kiro" }, { value: "freebuff", text: "Freebuff" }, { value: "kilo", text: "Kilo" },
+                { value: "devin", text: "Devin" }, { value: "amp", text: "Amp" }, { value: "commandcode", text: "Command Code" }
+            ]
+        }
+        ChoiceRow {
+            setting: "general.dictation"
+            label: qsTr("Dictation")
+            options: [{ value: "", text: qsTr("None") }, { value: "superwhisper", text: "Superwhisper" }, { value: "voxtype", text: "Voxtype" }]
+        }
+    }
+
+    SettingsGroup {
         title: qsTr("Open Files With")
         footer: qsTr("The app that opens each kind of file when you double-click it or open it from another app.")
         Repeater {

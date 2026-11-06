@@ -19,6 +19,7 @@ SOURCES += \
     src/cli.cpp \
     src/extras.cpp \
     src/features.cpp \
+    src/system.cpp \
     src/hyprconf.cpp \
     src/proc.cpp \
     src/store.cpp \

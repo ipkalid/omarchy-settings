@@ -596,6 +596,66 @@ private slots:
         QCOMPARE(store.list("managed").toList().size(), 0);
     }
 
+    // ---- Branding, tools, security setup, troubleshooting ----------------------
+    void terminalCommandsOnlyTakeKnownArguments() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        sys.answer("omarchy-kernel list", "linux\nlinux-omarchy\n");
+        sys.answer("omarchy-plymouth-list", "nord\ntokyo-night\n");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.terminalCommand("kernel:linux"), (QStringList{"omarchy-kernel", "set", "linux"}));
+        QVERIFY(store.terminalCommand("kernel:linux; reboot").isEmpty());
+        QCOMPARE(store.terminalCommand("bootScreen:nord"), (QStringList{"omarchy-plymouth-set-by-theme", "nord"}));
+        QVERIFY(store.terminalCommand("bootScreen:../../etc").isEmpty());
+        QCOMPARE(store.terminalCommand("sshdRemove"), (QStringList{"omarchy-remove-security-sshd"}));
+        QCOMPARE(store.terminalCommand("sudoPasswordlessOff"), (QStringList{"omarchy-sudo-passwordless", "--disable"}));
+        QVERIFY(store.terminalCommand("rm").isEmpty());
+        QVERIFY(store.act("launch", {"kernel:evil"}).contains("Unknown command"));
+    }
+
+    void gitIdentityGoesThroughOmarchy() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.write("security.gitName", "Ada Lovelace"), QString());
+        QVERIFY(sys.calls.contains("omarchy-setup-git --name Ada Lovelace"));
+        QCOMPARE(store.write("security.gitEmail", "ada@example.com"), QString());
+        QVERIFY(sys.calls.contains("omarchy-setup-git --email ada@example.com"));
+        QVERIFY(store.write("security.gitEmail", "not an email").contains("email"));
+        QVERIFY(store.write("security.gitName", "  ").contains("Enter"));
+    }
+
+    void brandingHapticsAndAgentsAreChecked() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("branding.reset", {"screensaver"}), QString());
+        QVERIFY(sys.calls.contains("omarchy-branding-screensaver reset"));
+        QVERIFY(store.act("branding.reset", {"../etc"}).contains("Unknown branding"));
+        QVERIFY(store.act("haptics.set", {"max"}).contains("Unknown strength"));
+        QCOMPARE(store.write("general.agent", "codex"), QString());
+        QVERIFY(sys.calls.contains("omarchy-default-agent codex"));
+        QVERIFY(store.write("general.agent", "rm -rf").contains("not one of"));
+    }
+
+    void securityStatusIsReadBack() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        sys.answer("systemctl is-enabled sshd", "enabled");
+        sys.answers.insert("omarchy-pkg-present fprintd", ProcResult{true, 1, {}, {}});
+        sys.answers.insert("omarchy-sudo-docker --configured", ProcResult{true, 1, {}, {}});
+        sys.answers.insert("omarchy-sudo-passwordless --active", ProcResult{true, 1, {}, {}});
+        sys.answer("omarchy-boot-direct --number", "0003");
+        Store store(pathsIn(dir), sys.exec());
+        const QVariantMap sec = store.list("security").toMap();
+        QVERIFY(sec.value("sshd").toBool());
+        QVERIFY(!sec.value("fingerprint").toBool());
+        QVERIFY(sec.value("fido2").toBool());
+        QVERIFY(sec.value("dockerSudoless").toBool());
+        QVERIFY(!sec.value("passwordlessSudo").toBool());
+        QVERIFY(sec.value("directBoot").toBool());
+    }
+
     // ---- The window's backend -------------------------------------------------------------
     void backendShowsChangesAndUndoesThem() {
         QTemporaryDir dir;

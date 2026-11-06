@@ -2,6 +2,7 @@
     <qresource prefix="/">
         <file alias="Main.qml">Main.qml</file>
         <file alias="qml/AppearanceThemes.qml">qml/AppearanceThemes.qml</file>
+        <file alias="qml/BrandingGroup.qml">qml/BrandingGroup.qml</file>
         <file alias="qml/ButtonRow.qml">qml/ButtonRow.qml</file>
         <file alias="qml/ChoiceBox.qml">qml/ChoiceBox.qml</file>
         <file alias="qml/ChoiceRow.qml">qml/ChoiceRow.qml</file>
@@ -12,11 +13,13 @@
         <file alias="qml/GeneralLanguage.qml">qml/GeneralLanguage.qml</file>
         <file alias="qml/GeneralLoginItems.qml">qml/GeneralLoginItems.qml</file>
         <file alias="qml/GeneralSettingsApp.qml">qml/GeneralSettingsApp.qml</file>
+        <file alias="qml/GeneralTroubleshooting.qml">qml/GeneralTroubleshooting.qml</file>
         <file alias="qml/GeneralUpdate.qml">qml/GeneralUpdate.qml</file>
         <file alias="qml/GeneralWebApps.qml">qml/GeneralWebApps.qml</file>
         <file alias="qml/HelpOverlay.qml">qml/HelpOverlay.qml</file>
         <file alias="qml/InfoRow.qml">qml/InfoRow.qml</file>
         <file alias="qml/KeyboardShortcuts.qml">qml/KeyboardShortcuts.qml</file>
+        <file alias="qml/LockBootScreen.qml">qml/LockBootScreen.qml</file>
         <file alias="qml/NavRow.qml">qml/NavRow.qml</file>
         <file alias="qml/OmaButton.qml">qml/OmaButton.qml</file>
         <file alias="qml/OmaDialog.qml">qml/OmaDialog.qml</file>
