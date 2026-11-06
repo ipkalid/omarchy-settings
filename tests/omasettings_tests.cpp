@@ -772,6 +772,45 @@ private slots:
         QCOMPARE(readText(menu), QString("[1, 2]\n"));
     }
 
+    // ---- The last menu items: clock, laptop screen, fonts, reminders, ... --------------
+    void menuLeftoversBehaveLikeTheMenu() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        // Toggles that only flip run only when the state differs.
+        QCOMPARE(store.write("display.laptopScreen", true), QString());
+        QVERIFY(!sys.calls.join("|").contains("omarchy-hyprland-monitor-internal toggle"));
+        QCOMPARE(store.write("display.laptopScreen", false), QString());
+        QVERIFY(sys.calls.contains("omarchy-hyprland-monitor-internal toggle"));
+        QCOMPARE(store.write("display.mirror", true), QString());
+        QVERIFY(sys.calls.contains("omarchy-hyprland-monitor-internal-mirror toggle"));
+        sys.answer("omarchy-bar get omarchy.power showPercentage", "true");
+        sys.calls.clear();
+        QCOMPARE(store.write("bar.batteryPercentage", true), QString());
+        QVERIFY(!sys.calls.join("|").contains("togglePercentage"));
+        QCOMPARE(store.write("desktop.oneWindowRatio", true), QString());
+        QVERIFY(sys.calls.contains("omarchy-hyprland-toggle single-window-aspect-ratio on"));
+        // Every clock style the menu offers.
+        QCOMPARE(store.write("general.clockFormat", "yyyy-MM-dd HH:mm"), QString());
+        QCOMPARE(store.write("general.clockVerticalFormat", "HH\nmm"), QString());
+        QVERIFY(sys.calls.contains("omarchy-bar set omarchy.clock verticalFormat HH\nmm"));
+        // Fonts and terminals only from the menu's own list.
+        QCOMPARE(store.terminalCommand("font:iosevka"),
+                 (QStringList{"omarchy-install-font", "Iosevka", "ttf-iosevka-nerd", "Iosevka Nerd Font Mono"}));
+        QVERIFY(store.terminalCommand("font:../evil").isEmpty());
+        QCOMPARE(store.terminalCommand("hybridGpu"), (QStringList{"omarchy-toggle-hybrid-gpu"}));
+        // Reminders, panels, and plugin copies are checked.
+        QCOMPARE(store.act("reminder.set", {30, "Tea"}), QString());
+        QVERIFY(sys.calls.contains("omarchy-reminder 30 Tea"));
+        QVERIFY(store.act("reminder.set", {5000, ""}).contains("24 hours"));
+        QVERIFY(store.act("summon", {"omarchy.anything"}).contains("Unknown panel"));
+        QCOMPARE(store.act("summon", {"omarchy.wifiqr"}), QString());
+        QVERIFY(sys.calls.contains("omarchy-shell shell summon omarchy.wifiqr"));
+        QVERIFY(store.act("plugin.clone", {"someone.widget"}).contains("Omarchy's own"));
+        QCOMPARE(store.act("plugin.clone", {"omarchy.clock"}), QString());
+        QVERIFY(sys.calls.contains("omarchy-plugin-clone omarchy.clock"));
+    }
+
     // ---- The app icon ----------------------------------------------------------------
     void iconFollowsTheThemeAndHooksThemeChanges() {
         QTemporaryDir dir;

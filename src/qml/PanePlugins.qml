@@ -49,6 +49,14 @@ SettingsPage {
             onClicked: backend.act("plugin.update", [prow.plugin.id], ["plugins", "pluginUpdates"])
         }
         OmaButton {
+            visible: !!prow.plugin.firstParty
+            glyph: "\u{F018F}"
+            bordered: false
+            tooltip: qsTr("Make your own copy to change")
+            anchors.verticalCenter: parent.verticalCenter
+            onClicked: backend.act("plugin.clone", [prow.plugin.id], ["plugins", "bar"])
+        }
+        OmaButton {
             visible: !!prow.plugin.removable
             glyph: "\u{F01B4}"
             bordered: false

@@ -57,6 +57,51 @@ void Store::buildSystem() {
         s.write = [this](const QVariant &v) { return launch("omarchy-default-dictation", {v.toString()}); };
         add(s);
     }
+    {
+        Setting s;
+        s.id = "desktop.oneWindowRatio"; s.pane = "desktop"; s.type = "bool"; s.label = "Keep a lone window from stretching";
+        s.read = [this] { return QVariant(flag("hypr/single-window-aspect-ratio.lua")); };
+        s.write = [this](const QVariant &v) {
+            return runOk("omarchy-hyprland-toggle", {"single-window-aspect-ratio", v.toBool() ? "on" : "off"});
+        };
+        add(s);
+    }
+    {
+        Setting s;
+        s.id = "bar.batteryPercentage"; s.pane = "bar"; s.type = "bool"; s.label = "Show battery percentage";
+        s.read = [this] { return QVariant(output("omarchy-bar", {"get", "omarchy.power", "showPercentage"}) == "true"); };
+        s.write = [this](const QVariant &v) {
+            if ((output("omarchy-bar", {"get", "omarchy.power", "showPercentage"}) == "true") == v.toBool())
+                return QString();
+            return runOk("omarchy-shell", {"omarchy.power", "togglePercentage"});
+        };
+        add(s);
+    }
+    // The laptop's own screen: off or mirrored, by Omarchy's toggles, which
+    // only flip, so they run only when the state differs.
+    for (const QString &which : {QStringLiteral("disable"), QStringLiteral("mirror")}) {
+        Setting s;
+        s.id = which == "disable" ? "display.laptopScreen" : "display.mirror"; s.pane = "displays"; s.type = "bool";
+        s.label = which == "disable" ? "Use the laptop's screen" : "Mirror the laptop's screen";
+        const QString toggle = "hypr/internal-monitor-" + which + ".lua";
+        const QString command = which == "disable" ? "omarchy-hyprland-monitor-internal" : "omarchy-hyprland-monitor-internal-mirror";
+        const bool inverted = which == "disable";
+        s.read = [this, toggle, inverted] { return QVariant(flag(toggle) != inverted); };
+        s.write = [this, toggle, inverted, command](const QVariant &v) {
+            if ((flag(toggle) != inverted) == v.toBool())
+                return QString();
+            return runOk(command, {"toggle"}, 15000);
+        };
+        add(s);
+    }
+    {
+        Setting s;
+        s.id = "general.clockVerticalFormat"; s.pane = "general"; s.type = "choice"; s.label = "Clock in a side bar";
+        s.choices = asVariants({"HH\n—\nmm", "h\n—\nmm\nAP", "dd\nMMM\n'W'ww\n''yy", "HH\nmm"});
+        s.read = [this] { return QVariant(output("omarchy-bar", {"get", "omarchy.clock", "verticalFormat"})); };
+        s.write = [this](const QVariant &v) { return runOk("omarchy-bar", {"set", "omarchy.clock", "verticalFormat", v.toString()}); };
+        add(s);
+    }
     for (const QString &field : {QStringLiteral("name"), QStringLiteral("email")}) {
         Setting s;
         s.id = field == "name" ? "security.gitName" : "security.gitEmail"; s.pane = "security"; s.type = "text";
@@ -88,6 +133,20 @@ QString Store::directBootProblem() {
     return {};
 }
 
+// The six Nerd Fonts Omarchy's menu offers to install: name, package, and
+// the family it switches to.
+static const QList<QStringList> &fontCatalog() {
+    static const QList<QStringList> fonts{
+        {"cascadia", "Cascadia Mono", "ttf-cascadia-mono-nerd", "CaskaydiaMono Nerd Font"},
+        {"meslo", "Meslo LG Mono", "ttf-meslo-nerd", "MesloLGL Nerd Font"},
+        {"fira", "Fira Code", "ttf-firacode-nerd", "FiraCode Nerd Font"},
+        {"victor", "Victor Code", "ttf-victor-mono-nerd", "VictorMono Nerd Font"},
+        {"bitstream", "Bitstream Vera Code", "ttf-bitstream-vera-mono-nerd", "BitstromWera Nerd Font"},
+        {"iosevka", "Iosevka", "ttf-iosevka-nerd", "Iosevka Nerd Font Mono"},
+    };
+    return fonts;
+}
+
 QVariant Store::listSystem(const QString &name) {
     if (name == "security") {
         return QVariantMap{
@@ -110,6 +169,23 @@ QVariant Store::listSystem(const QString &name) {
             {"themeExtras", run("omarchy-theme-extras", {}).ok()},
             {"kernel", output("omarchy-kernel", {"get"})},
             {"kernels", output("omarchy-kernel", {"list"}).split('\n', Qt::SkipEmptyParts)}};
+    }
+    if (name == "hardware") {
+        return QVariantMap{
+            {"laptop", run("omarchy-hw-laptop", {}).ok()},
+            {"hybridGpu", run("omarchy-hw-hybrid-gpu", {}).ok()},
+            {"hybridMode", readText("/etc/supergfxd.conf").contains("\"mode\": \"Hybrid\"")},
+            {"wifiConnected", run("omarchy-network-wifi-connected", {}).ok()},
+            {"sshAgent", run("systemctl", {"--user", "-q", "is-enabled", "gcr-ssh-agent.socket"}).ok()}};
+    }
+    if (name == "reminders")
+        return QJsonDocument::fromJson(run("omarchy-reminder", {"show", "--json"}).out).object().toVariantMap();
+    if (name == "fontCatalog") {
+        const QStringList installed = output("omarchy-font-list", {}, 10000).split('\n');
+        QVariantList out;
+        for (const QStringList &f : fontCatalog())
+            out << QVariantMap{{"key", f[0]}, {"name", f[1]}, {"family", f[3]}, {"installed", installed.contains(f[3])}};
+        return out;
     }
     if (name == "branding") {
         return QVariantMap{{"about", readText(m_paths.config + "/omarchy/branding/about.txt")},
@@ -157,6 +233,38 @@ QString Store::actSystem(const QString &action, const QVariantList &args) {
     }
     if (action == "menu.hide" || action == "menu.show" || action == "menu.hideInside" || action == "menu.showAll")
         return menuAction(action, a0);
+    if (action == "reminder.set") {
+        const int minutes = a0.toInt();
+        const QString message = args.value(1).toString().trimmed();
+        if (minutes < 1 || minutes > 1440)
+            return tr("Reminders are 1 minute to 24 hours away");
+        if (message.contains('\n'))
+            return tr("Keep the message on one line");
+        QStringList command{QString::number(minutes)};
+        if (!message.isEmpty())
+            command << message;
+        return runOk("omarchy-reminder", command, 10000);
+    }
+    if (action == "reminder.clear")
+        return runOk("omarchy-reminder", {"clear"}, 10000);
+    if (action == "summon") {
+        // Omarchy's own panels for these: they draw live results.
+        static const QStringList panels{"omarchy.speedtest", "omarchy.disk-speedtest", "omarchy.wifiqr"};
+        if (!panels.contains(a0))
+            return tr("Unknown panel %1").arg(a0);
+        return runOk("omarchy-shell", {"shell", "summon", a0}, 5000);
+    }
+    if (action == "plugin.clone") {
+        static const QRegularExpression validId("^omarchy\\.[a-z0-9._-]+$");
+        if (!validId.match(a0).hasMatch())
+            return tr("Only Omarchy's own plugins can be copied");
+        return runOk("omarchy-plugin-clone", {a0}, 30000);
+    }
+    if (action == "xcompose.edit") {
+        // A fixed command line: the editor, then the compose daemon picks
+        // up the changes.
+        return launch("bash", {"-c", "omarchy-launch-config-editor ~/.XCompose && omarchy-restart-xcompose"});
+    }
     if (action == "restart.shell")
         return launch("omarchy-restart-shell", {});
     if (action == "restart.nightLight")
@@ -191,6 +299,8 @@ QStringList Store::terminalCommand(const QString &id) {
         {"refreshTmux", {"omarchy-refresh-tmux"}},
         {"plymouthReset", {"omarchy-plymouth-reset"}},
         {"factoryReset", {"omarchy-system-factory-reset"}},
+        {"hybridGpu", {"omarchy-toggle-hybrid-gpu"}},
+        {"sshAgentRemove", {"omarchy-remove-service-ssh-agent"}},
     };
     if (commands.contains(id))
         return commands.value(id);
@@ -199,6 +309,10 @@ QStringList Store::terminalCommand(const QString &id) {
         return {"omarchy-kernel", "set", value};
     if (kind == "bootScreen" && output("omarchy-plymouth-list", {}, 10000).split('\n').contains(value))
         return {"omarchy-plymouth-set-by-theme", value};
+    if (kind == "font")
+        for (const QStringList &f : fontCatalog())
+            if (f[0] == value)
+                return {"omarchy-install-font", f[1], f[2], f[3]};
     return {};
 }
 

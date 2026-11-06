@@ -570,7 +570,8 @@ void Store::build() {
         add(s);
     }
     add(commandSetting("general.clockFormat", "general", "Clock in the bar",
-        strings({"dddd HH:mm", "HH:mm", "h:mm AP", "dddd h:mm AP", "ddd d MMM HH:mm", "ddd d MMM h:mm AP"}),
+        strings({"dddd HH:mm", "dddd h:mm AP", "dddd HH:mm:ss", "dddd h:mm:ss AP", "HH:mm", "h:mm AP",
+                 "ddd d MMM HH:mm", "ddd d MMM h:mm AP", "d MMMM 'W'ww yyyy", "yyyy-MM-dd HH:mm"}),
         [this] { return output("omarchy-bar", {"get", "omarchy.clock", "format"}); },
         [this](const QString &v) { return runOk("omarchy-bar", {"set", "omarchy.clock", "format", v}); }));
     add(commandSetting("general.browser", "general", "Web browser",
@@ -870,7 +871,7 @@ QStringList Store::listNames() const {
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
             "storage", "homeUsage", "snapshots", "managed",
-            "security", "system", "branding", "bootScreens", "menu"};
+            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -1090,7 +1091,7 @@ QVariant Store::list(const QString &name) {
                                   "snapshots", "managed"};
     if (more.contains(name))
         return listMore(name);
-    if (QStringList{"security", "system", "branding", "bootScreens"}.contains(name))
+    if (QStringList{"security", "system", "branding", "bootScreens", "hardware", "reminders", "fontCatalog"}.contains(name))
         return listSystem(name);
     if (name == "menu")
         return listMenu();
@@ -1228,7 +1229,7 @@ QString Store::act(const QString &action, const QVariantList &args) {
     }
     if (action.startsWith("vpn."))
         return actVpn(action, args);
-    if (action.startsWith("plugin."))
+    if (action.startsWith("plugin.") && action != "plugin.clone")
         return actPlugin(action, args);
     if (action.startsWith("bar."))
         return actBar(action, args);
@@ -1280,7 +1281,8 @@ QString Store::act(const QString &action, const QVariantList &args) {
         static const QMap<QString, QString> files{
             {"bindings", "/hypr/bindings.lua"}, {"input", "/hypr/input.lua"}, {"looknfeel", "/hypr/looknfeel.lua"},
             {"monitors", "/hypr/monitors.lua"}, {"shell", "/omarchy/shell.json"}, {"managed", "/hypr/omasettings.lua"},
-            {"autostart", "/hypr/autostart.lua"}, {"menu", "/omarchy/extensions/omarchy-menu.jsonc"}};
+            {"autostart", "/hypr/autostart.lua"}, {"menu", "/omarchy/extensions/omarchy-menu.jsonc"},
+            {"hyprland", "/hypr/hyprland.lua"}, {"hyprsunset", "/hypr/hyprsunset.conf"}};
         if (!files.contains(a0))
             return tr("Unknown file %1").arg(a0);
         return launch("omarchy-launch-editor", {m_paths.config + files.value(a0)});

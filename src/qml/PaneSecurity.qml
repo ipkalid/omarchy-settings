@@ -12,11 +12,12 @@ SettingsPage {
     tagline: qsTr("Passwords and keys")
     glyph: "\u{F0237}"
     description: qsTr("Your password, faster ways to unlock, and keys for signing in to other machines.")
-    lists: ["security"]
+    lists: ["security", "hardware"]
     // Setup happens in a terminal; check back for when it is done.
     pollMs: 5000
 
     readonly property var sec: backend.lists.security || ({})
+    readonly property var hw: backend.lists.hardware || ({})
     function status(on) { return on ? qsTr("Set up") : qsTr("Not set up") }
 
     // A thing that is set up or not, with the command to do each.
@@ -82,12 +83,14 @@ SettingsPage {
             setup: "sshdSetup"
             remove: "sshdRemove"
         }
-        ButtonRow {
+        SetupRow {
             label: qsTr("SSH agent")
-            sublabel: qsTr("Remember your SSH key passphrase for the session")
+            sublabel: page.hw.sshAgent ? qsTr("On: your SSH key passphrase is remembered for the session")
+                                       : qsTr("Remember your SSH key passphrase for the session")
             glyph: "\u{F0306}"
-            text: qsTr("Set Up…")
-            onClicked: backend.act("launch", ["sshAgent"])
+            on: page.hw.sshAgent === true
+            setup: "sshAgent"
+            remove: "sshAgentRemove"
         }
     }
 

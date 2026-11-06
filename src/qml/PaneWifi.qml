@@ -70,6 +70,19 @@ SettingsPage {
                 { value: "Custom", text: qsTr("Custom…") }
             ]
         }
+        ButtonRow {
+            label: qsTr("Share this network")
+            sublabel: qsTr("A QR code a phone can scan to join")
+            glyph: "\u{F0432}"
+            text: qsTr("Show Code")
+            onClicked: backend.act("summon", ["omarchy.wifiqr"])
+        }
+        ButtonRow {
+            label: qsTr("Internet speed")
+            glyph: "\u{F04C5}"
+            text: qsTr("Test…")
+            onClicked: backend.act("summon", ["omarchy.speedtest"])
+        }
         ChoiceRow {
             setting: "wifi.band"
             label: qsTr("Wi-Fi band")

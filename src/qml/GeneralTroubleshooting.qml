@@ -34,6 +34,29 @@ SettingsPage {
     }
 
     SettingsGroup {
+        title: qsTr("Edit by Hand")
+        footer: qsTr("Opens a config file in your editor. Hyprland applies its files as soon as you save.")
+        Repeater {
+            model: [
+                { label: "hyprland.lua", detail: qsTr("Hyprland's main file"), file: "hyprland" },
+                { label: "bindings.lua", detail: qsTr("Keyboard shortcuts"), file: "bindings" },
+                { label: "input.lua", detail: qsTr("Keyboard and mouse"), file: "input" },
+                { label: "looknfeel.lua", detail: qsTr("Gaps, borders, and animations"), file: "looknfeel" },
+                { label: "monitors.lua", detail: qsTr("Displays"), file: "monitors" },
+                { label: "autostart.lua", detail: qsTr("Programs started at login"), file: "autostart" },
+                { label: "hyprsunset.conf", detail: qsTr("Night Shift"), file: "hyprsunset" }
+            ]
+            delegate: ButtonRow {
+                required property var modelData
+                label: modelData.label
+                sublabel: modelData.detail
+                text: qsTr("Open…")
+                onClicked: backend.act("edit", [modelData.file])
+            }
+        }
+    }
+
+    SettingsGroup {
         title: qsTr("Reset to Omarchy's Defaults")
         footer: qsTr("Puts a config back the way Omarchy ships it, after saving yours as a backup beside it. Settings' own changes come back on their own.")
         Repeater {

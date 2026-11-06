@@ -93,6 +93,11 @@ SettingsPage {
         SliderRow { setting: "desktop.gapsOuter"; label: qsTr("Gap at screen edges"); to: 60; format: page.pixels }
         SliderRow { setting: "desktop.borderSize"; label: qsTr("Window border"); to: 10; format: page.pixels }
         ToggleRow { setting: "desktop.dimInactive"; label: qsTr("Dim inactive windows") }
+        ToggleRow {
+            setting: "desktop.oneWindowRatio"
+            label: qsTr("Keep a lone window from stretching")
+            sublabel: qsTr("A single window on a wide screen stays a comfortable shape instead of filling it")
+        }
     }
 
     SettingsGroup {

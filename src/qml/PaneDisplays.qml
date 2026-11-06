@@ -8,7 +8,7 @@ SettingsPage {
     title: qsTr("Displays")
     tagline: page.monitors.length > 0 ? qsTr("%n displays", "", page.monitors.filter(m => !m.disabled).length) : ""
     glyph: "\u{F0379}"
-    lists: ["monitors"]
+    lists: ["monitors", "hardware"]
 
     readonly property var monitors: backend.lists.monitors || []
     property string selectedName: ""
@@ -230,6 +230,27 @@ SettingsPage {
             label: qsTr("Night Shift")
             sublabel: qsTr("Warmer colors that are easier on the eyes at night")
             glyph: "\u{F0594}"
+        }
+    }
+
+    SettingsGroup {
+        visible: (backend.lists.hardware || {}).laptop === true
+        title: qsTr("Laptop Screen")
+        footer: qsTr("With another display connected, the laptop's own screen can turn off or show the same picture.")
+        ToggleRow { setting: "display.laptopScreen"; label: qsTr("Use the laptop's screen") }
+        ToggleRow { setting: "display.mirror"; label: qsTr("Mirror the laptop's screen") }
+    }
+
+    SettingsGroup {
+        visible: (backend.lists.hardware || {}).hybridGpu === true
+        title: qsTr("Graphics")
+        footer: qsTr("Hybrid uses the dedicated graphics card when an app needs it; integrated saves power. Switching opens a terminal and needs a restart.")
+        ButtonRow {
+            label: qsTr("Graphics mode")
+            sublabel: (backend.lists.hardware || {}).hybridMode ? qsTr("Hybrid") : qsTr("Integrated only")
+            glyph: "\u{F08AE}"
+            text: (backend.lists.hardware || {}).hybridMode ? qsTr("Use Integrated Only…") : qsTr("Use Hybrid…")
+            onClicked: backend.act("launch", ["hybridGpu"], ["hardware"])
         }
     }
 

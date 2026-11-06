@@ -9,7 +9,7 @@ SettingsPage {
     tagline: page.current
     glyph: "\u{F03D8}"
     description: qsTr("Choose a theme for the whole desktop, and how windows and text look.")
-    lists: ["themes", "fonts"]
+    lists: ["themes", "fonts", "fontCatalog"]
 
     readonly property var themes: backend.lists.themes || []
     readonly property string current: backend.values["appearance.theme"] || ""
@@ -102,6 +102,26 @@ SettingsPage {
             sublabel: qsTr("Used by terminals and the bar")
             menuWidth: 260
             options: (backend.lists.fonts || []).map(f => ({ value: f, text: f }))
+        }
+    }
+
+    SettingsGroup {
+        title: qsTr("More Fonts")
+        footer: qsTr("Coding fonts Omarchy offers. Installing one opens a terminal and switches to it when done.")
+        Repeater {
+            model: backend.lists.fontCatalog || []
+            delegate: SettingRow {
+                required property var modelData
+                label: modelData.name
+                sublabel: modelData.installed ? qsTr("Installed") : ""
+                OmaButton {
+                    text: modelData.installed ? qsTr("Use") : qsTr("Install…")
+                    selected: modelData.installed && backend.values["appearance.font"] === modelData.family
+                    enabled: !(modelData.installed && backend.values["appearance.font"] === modelData.family)
+                    onClicked: modelData.installed ? backend.set("appearance.font", modelData.family)
+                                                   : backend.act("launch", ["font:" + modelData.key], ["fontCatalog", "fonts"])
+                }
+            }
         }
     }
 }

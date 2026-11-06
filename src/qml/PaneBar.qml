@@ -11,7 +11,7 @@ SettingsPage {
     tagline: qsTr("%n widgets", "", page.placedCount)
     glyph: "\u{F06EB}"
     description: qsTr("Choose what the bar shows and arrange it. Changes appear on the bar right away.")
-    lists: ["bar"]
+    lists: ["bar", "hardware"]
 
     readonly property var bar: backend.lists.bar || ({})
     readonly property var sections: bar.sections || ({})
@@ -35,6 +35,11 @@ SettingsPage {
                 { value: "top", text: qsTr("Top") }, { value: "bottom", text: qsTr("Bottom") },
                 { value: "left", text: qsTr("Left") }, { value: "right", text: qsTr("Right") }
             ]
+        }
+        ToggleRow {
+            visible: (backend.lists.hardware || {}).laptop === true
+            setting: "bar.batteryPercentage"
+            label: qsTr("Show battery percentage")
         }
         ChoiceRow {
             setting: "appearance.barBackground"

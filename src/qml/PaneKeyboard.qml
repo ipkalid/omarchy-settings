@@ -111,6 +111,12 @@ SettingsPage {
 
     SettingsGroup {
         title: qsTr("Special Keys")
+        ButtonRow {
+            label: qsTr("Compose sequences")
+            sublabel: qsTr("Your own Compose shortcuts, in ~/.XCompose")
+            text: qsTr("Edit…")
+            onClicked: backend.act("xcompose.edit", [])
+        }
         footer: qsTr("The Compose key types characters like é and ß from short sequences: Compose, then e and '.")
         ChoiceRow {
             setting: "keyboard.capsLock"

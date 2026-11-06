@@ -67,6 +67,16 @@ SettingsPage {
     }
 
     SettingsGroup {
+        ButtonRow {
+            label: qsTr("Disk speed")
+            sublabel: qsTr("How fast your disk reads and writes")
+            glyph: "\u{F04C5}"
+            text: qsTr("Test…")
+            onClicked: backend.act("summon", ["omarchy.disk-speedtest"])
+        }
+    }
+
+    SettingsGroup {
         title: qsTr("Home Folder")
         footer: qsTr("Folders over 50 MB. Adding them up can take a minute on a big disk.")
         ButtonRow {
