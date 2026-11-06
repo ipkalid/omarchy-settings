@@ -37,6 +37,22 @@ ready, and Settings is then in the app launcher (Super + Space). After
 `omarchy plugin update ipkalid.settings`, it is rebuilt the same way. If a
 build tool is missing, a notification offers to add it in a terminal.
 
+### Requirements
+
+Omarchy with shell plugins (Quattro). Building needs `gcc`, `make`, and Qt 6
+(`qt6-base`, `qt6-declarative`, `qt6-wayland`, `qt6-imageformats`); Omarchy
+has them already, and the plugin offers to add any that are missing. Panes
+use the tools Omarchy ships for them and say so when one is missing:
+NetworkManager for Wi-Fi, `bluez-utils` for Bluetooth, `pactl` for sound,
+`power-profiles-daemon` for power modes, `brightnessctl` for laptop
+brightness, `ufw` for the firewall, and CUPS for printers.
+
+Settings changes your own config files (under `~/.config`) only when you
+change a setting, keeps a backup before rewriting one, and lists everything
+it changed under General › Changes & Backup. On first start it adds a small
+theme hook (`~/.config/omarchy/hooks/theme-set.d/omasettings-icon`) that
+redraws its icon in the new theme's colors.
+
 The plugin does nothing else in the shell. If the Arch package from
 `bin/install` is installed, the plugin leaves it be.
 
