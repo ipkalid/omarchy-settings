@@ -16,13 +16,19 @@ SettingsPage {
 
     function choose(b) { backend.act("background.set", [b.path], ["backgrounds"]) }
 
-    // The current wallpaper, large, with the way to the next one.
-    RowLayout {
+    // The current wallpaper, large, with the way to the next one; in a
+    // narrow window the buttons go under it.
+    GridLayout {
+        id: hero
         Layout.fillWidth: true
-        spacing: ui.s(18)
+        readonly property bool narrow: width < Math.round(520 * ui.scale)
+        columns: narrow ? 1 : 2
+        columnSpacing: ui.s(18)
+        rowSpacing: ui.s(12)
         Rectangle {
+            Layout.fillWidth: hero.narrow
             Layout.preferredWidth: Math.round(260 * ui.scale)
-            Layout.preferredHeight: Math.round(160 * ui.scale)
+            Layout.preferredHeight: Math.round(width * 0.615)
             radius: theme.radius
             color: ui.normalFill
             border.color: ui.normalBorder
@@ -42,12 +48,16 @@ SettingsPage {
             Text {
                 text: qsTr("From the %1 theme").arg(backend.values["appearance.theme"] || "")
                 visible: (backend.values["appearance.theme"] || "").length > 0
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignLeft
                 color: ui.muted
                 font.family: ui.font
                 font.pixelSize: ui.small
+                elide: Text.ElideRight
                 textFormat: Text.PlainText
             }
-            Row {
+            Flow {
+                Layout.fillWidth: true
                 spacing: ui.s(8)
                 OmaButton {
                     text: qsTr("Next Wallpaper")
@@ -80,7 +90,7 @@ SettingsPage {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.margins: 12
-                columns: Math.max(2, Math.floor(width / 160))
+                columns: Math.max(1, Math.floor(width / Math.round(130 * ui.scale)))
                 columnSpacing: 10
                 rowSpacing: 10
                 Repeater {

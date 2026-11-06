@@ -49,6 +49,7 @@ ColumnLayout {
             // Spacing letters apart breaks up joined scripts like Arabic.
             font.letterSpacing: Qt.application.layoutDirection === Qt.RightToLeft ? 0 : 0.5
             Layout.fillWidth: !group.collapsible
+            elide: Text.ElideRight
             textFormat: Text.PlainText
         }
         Text {

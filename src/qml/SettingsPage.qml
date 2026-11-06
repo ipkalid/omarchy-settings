@@ -56,7 +56,7 @@ ScrollView {
 
     ColumnLayout {
       id: outer
-      width: Math.min(page.availableWidth - ui.s(56), Math.round(640 * ui.scale))
+      width: Math.min(page.availableWidth - (page.availableWidth < ui.s(500) ? ui.s(28) : ui.s(56)), Math.round(640 * ui.scale))
       x: (page.availableWidth - width) / 2
       spacing: ui.s(18)
 

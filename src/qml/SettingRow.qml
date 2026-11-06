@@ -30,6 +30,13 @@ Item {
     implicitHeight: Math.max(ui.rowHeight, content.implicitHeight + ui.s(10))
     opacity: dimmed ? 0.45 : 1
 
+    // When the row is too narrow for its label beside the controls, the
+    // controls move to a line of their own under the label, rather than
+    // squeezing the label to a few letters or drawing over it.
+    readonly property int textIndent: glyph.length > 0 ? ui.s(18) + ui.s(12) : 0
+    readonly property bool stacked: (label.length > 0 || sublabel.length > 0) && controls.implicitWidth > 0
+        && width - ui.s(20) - textIndent - ui.s(12) - controls.implicitWidth < ui.s(140)
+
     Rectangle {
         anchors.fill: parent
         radius: theme.radius
@@ -39,58 +46,83 @@ Item {
         border.color: ui.accent
     }
 
-    RowLayout {
+    ColumnLayout {
         id: content
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
         // Inset like the shell's panel rows, so a highlighted row's fill
         // never crowds its text.
         anchors.leftMargin: ui.s(10)
         anchors.rightMargin: ui.s(10)
-        spacing: ui.s(12)
+        spacing: ui.s(6)
 
-        PaneIcon {
-            visible: row.glyph.length > 0
-            glyph: row.glyph
-            family: row.glyphFamily
-            tint: row.tint
-            Layout.preferredWidth: ui.s(18)
-        }
-
-        ColumnLayout {
+        RowLayout {
             Layout.fillWidth: true
-            spacing: ui.s(2)
-            Text {
-                text: row.label
-                horizontalAlignment: Text.AlignLeft
-                color: ui.fg
-                font.family: ui.font
-                font.pixelSize: ui.body
-                elide: Text.ElideRight
-                Layout.fillWidth: true
-                textFormat: Text.PlainText
+            spacing: ui.s(12)
+
+            PaneIcon {
+                visible: row.glyph.length > 0
+                glyph: row.glyph
+                family: row.glyphFamily
+                tint: row.tint
+                Layout.preferredWidth: ui.s(18)
             }
-            Text {
-                visible: row.sublabel.length > 0
-                text: row.sublabel
-                horizontalAlignment: Text.AlignLeft
-                color: ui.muted2
-                font.family: ui.font
-                font.pixelSize: ui.caption
-                wrapMode: Text.Wrap
+
+            ColumnLayout {
                 Layout.fillWidth: true
-                textFormat: Text.PlainText
+                spacing: ui.s(2)
+                Text {
+                    text: row.label
+                    horizontalAlignment: Text.AlignLeft
+                    color: ui.fg
+                    font.family: ui.font
+                    font.pixelSize: ui.body
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                    textFormat: Text.PlainText
+                }
+                Text {
+                    visible: row.sublabel.length > 0
+                    text: row.sublabel
+                    horizontalAlignment: Text.AlignLeft
+                    color: ui.muted2
+                    font.family: ui.font
+                    font.pixelSize: ui.caption
+                    wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                    Layout.fillWidth: true
+                    textFormat: Text.PlainText
+                }
+            }
+
+            Spinner {
+                running: row.busy
+            }
+
+            Item {
+                id: inlineSlot
+                visible: !row.stacked
+                implicitWidth: controls.implicitWidth
+                implicitHeight: controls.implicitHeight
+                Layout.alignment: Qt.AlignVCenter
             }
         }
 
-        Spinner {
-            running: row.busy
+        Item {
+            id: stackedSlot
+            visible: row.stacked
+            Layout.fillWidth: true
+            Layout.leftMargin: row.textIndent
+            implicitHeight: controls.implicitHeight
         }
+    }
 
-        Row {
-            id: controls
-            spacing: ui.s(8)
-            Layout.alignment: Qt.AlignVCenter
-        }
+    Row {
+        id: controls
+        parent: row.stacked ? stackedSlot : inlineSlot
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: ui.s(8)
     }
 
     HoverHandler { id: hover; cursorShape: row.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor }

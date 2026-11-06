@@ -20,15 +20,21 @@ SettingsPage {
     Timer { id: stopWatching; interval: 180000; onTriggered: page.watching = false }
 
     readonly property var items: backend.lists.software || []
-    readonly property string query: filter.text.trim().toLowerCase()
+    // The page's own filter, or else the sidebar's search when it names apps
+    // (not when it found the pane by a word like "install").
+    function matches(item, q) { return (item.label + " " + item.key + " " + (item.package || "")).toLowerCase().indexOf(q) >= 0 }
+    readonly property string sidebarQuery: win.needle.length > 1
+        && items.some(i => i.category !== "tools" && matches(i, win.needle)) ? win.needle : ""
+    readonly property string query: filter.text.trim().toLowerCase() || sidebarQuery
     property bool installedOnly: false
     function shown(item) {
         if (page.installedOnly && !item.installed) return false
-        return query.length === 0 || (item.label + " " + item.key + " " + (item.package || "")).toLowerCase().indexOf(query) >= 0
+        return query.length === 0 || matches(item, query)
     }
     readonly property var categories: [
         { id: "browser", title: qsTr("Browsers") },
         { id: "ai", title: qsTr("AI") },
+        { id: "agent", title: qsTr("Coding Agents") },
         { id: "service", title: qsTr("Services") },
         { id: "editor", title: qsTr("Editors") },
         { id: "terminal", title: qsTr("Terminals") },
@@ -82,9 +88,11 @@ SettingsPage {
                 if (item.defaultKind === "terminal") return qsTr("Installed · your terminal")
                 if (item.defaultKind === "editor") return qsTr("Installed · your editor")
                 if (item.defaultKind === "browser") return qsTr("Installed · your browser")
+                if (item.defaultKind === "agent") return qsTr("Installed · your coding agent")
                 return qsTr("Installed", "status")
             }
             if (item.category === "dictation") return qsTr("Installing it makes it your dictation")
+            if (item.category === "agent") return qsTr("Installing it makes it your coding agent")
             return known ? qsTr("Not installed", "status") : ""
         }
 

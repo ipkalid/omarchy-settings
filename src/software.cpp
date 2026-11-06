@@ -21,12 +21,24 @@ static QString tr(const char *text) { return QCoreApplication::translate("Store"
 namespace {
 
 // Sections of Install and Remove listed as apps, in the order shown.
-const QStringList categories{"browser", "ai", "service", "editor", "terminal", "gaming", "development", "dictation"};
+const QStringList categories{"browser", "ai", "agent", "service", "editor", "terminal", "gaming", "development", "dictation"};
 // Leaves at the top of Install and Remove that open a picker or a tool.
 const QStringList tools{"package", "aur", "tui", "windows", "preinstalls"};
 
 QString shellQuote(const QString &s) {
     return "'" + QString(s).replace("'", "'\\''") + "'";
+}
+
+// Whether a coding agent is installed, the way omarchy-default-agent itself
+// decides it before offering to install one: its definitions (everything
+// above that check) are read from the script and its agent_present asked.
+// When the script no longer has that check, nothing is run and the agent
+// counts as not installed.
+QString agentPresent(const QString &name) {
+    return QStringLiteral(
+               "src=$(awk '/^if \\[\\[ \\$installing == \"false\" \\]\\] && ! agent_present/{found=1; exit} {print} "
+               "END{exit !found}' \"$(command -v omarchy-default-agent)\") && set -- %1 && eval \"$src\" && agent_present")
+        .arg(shellQuote(name));
 }
 
 // The names a default-app setting uses for an item ("code" for VSCode).
@@ -46,8 +58,8 @@ QList<QVariantMap> Store::softwareItems(bool evaluate) {
     auto hasAction = [&](const QString &id) { return !entry(id).value("action").toString().isEmpty(); };
 
     // Each item by its key: the path under install./remove. ("browser.zen"),
-    // or "dictation.voxtype", whose install lives under Setup's default
-    // dictation, which installs it when it's missing.
+    // or "dictation.voxtype" and "agent.claude", whose installs live under
+    // Setup's default dictation and agent, which install what's missing.
     QMap<QString, QPair<QString, QString>> found;  // key -> install id, remove id
     for (auto it = menu.begin(); it != menu.end(); ++it) {
         const QString id = it.key();
@@ -62,6 +74,8 @@ QList<QVariantMap> Store::softwareItems(bool evaluate) {
             install = false;
         } else if (id.startsWith("setup.default.dictation.")) {
             key = "dictation." + id.mid(24);
+        } else if (id.startsWith("setup.default.agent.")) {
+            key = "agent." + id.mid(20);
         } else {
             continue;
         }
@@ -76,6 +90,7 @@ QList<QVariantMap> Store::softwareItems(bool evaluate) {
     const QString terminal = read("general.terminal").toString().toLower();
     const QString editor = read("general.editor").toString().toLower();
     const QString browser = evaluate ? read("general.browser").toString().toLower() : QString();
+    const QString agent = evaluate ? read("general.agent").toString().toLower() : QString();
     static const QRegularExpression pkgPresent(R"(^omarchy-pkg-present ([a-z0-9@._+-]+)$)");
 
     QList<QVariantMap> items;
@@ -104,6 +119,9 @@ QList<QVariantMap> Store::softwareItems(bool evaluate) {
         for (const QString &c : {in.value("disabled").toString(), out.value("when").toString()})
             if (!c.isEmpty())
                 installedIf << c;
+        // The agent menu marks only the default; the script knows the rest.
+        if (category == "agent")
+            installedIf = QStringList{agentPresent(name)};
         const auto pkg = pkgPresent.match(in.value("disabled").toString().trimmed());
         const QString package = pkg.hasMatch() ? pkg.captured(1) : QString();
 
@@ -117,6 +135,8 @@ QList<QVariantMap> Store::softwareItems(bool evaluate) {
             defaultKind = "editor";
         } else if (category == "browser" && !browser.isEmpty() && defaultNames(name).contains(browser)) {
             defaultKind = "browser";
+        } else if (category == "agent" && !agent.isEmpty() && name == agent) {
+            defaultKind = "agent";
         }
 
         QVariantMap item{{"key", key}, {"category", category}, {"label", label},
@@ -175,8 +195,9 @@ QVariant Store::listSoftware() {
 QString Store::softwareCommand(const QString &action, const QString &arg, QStringList &command) {
     if (action == "software.run") {
         // Only an action from Omarchy's shipped menu, under Install, Remove,
-        // or the default dictation, which installs what it picks.
-        if (!arg.startsWith("install.") && !arg.startsWith("remove.") && !arg.startsWith("setup.default.dictation."))
+        // or the default dictation or agent, which install what they pick.
+        if (!arg.startsWith("install.") && !arg.startsWith("remove.") && !arg.startsWith("setup.default.dictation.")
+            && !arg.startsWith("setup.default.agent."))
             return tr("Unknown menu item %1").arg(arg);
         const QString run = defaultMenuItems().value(arg).toObject().value("action").toString();
         if (run.isEmpty())

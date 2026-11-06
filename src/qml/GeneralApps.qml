@@ -3,12 +3,19 @@ import QtQuick
 SettingsPage {
     id: page
     pane: "general"
-    lists: ["fileTypes"]
+    lists: ["fileTypes", "software"]
 
     readonly property var typeNames: ({
         images: qsTr("Pictures"), videos: qsTr("Videos"), music: qsTr("Music"), pdf: qsTr("PDFs"),
         text: qsTr("Text files"), folders: qsTr("Folders"), archives: qsTr("Archives"), email: qsTr("Email links")
     })
+
+    // Only what's installed, as the Apps pane finds it; Apps installs more.
+    readonly property var installed: (backend.lists.software || []).filter(i => i.installed)
+    function installedIn(category) {
+        return installed.filter(i => i.category === category)
+                        .map(i => ({ value: i.key.slice(category.length + 1), text: i.label }))
+    }
 
     SettingsGroup {
         footer: qsTr("Choosing an app that isn't installed opens a terminal to install it first.")
@@ -42,26 +49,23 @@ SettingsPage {
 
     SettingsGroup {
         title: qsTr("Tools")
-        footer: qsTr("The coding agent opens with Omarchy's agent shortcut; dictation types what you say. Choosing one that isn't installed installs it in a terminal.")
+        footer: qsTr("The coding agent opens with Omarchy's agent shortcut; dictation types what you say. Only installed ones are listed.")
         ChoiceRow {
             setting: "general.agent"
             label: qsTr("Coding agent")
             menuWidth: Math.round(220 * ui.scale)
-            options: [
-                { value: "pi", text: "Pi" }, { value: "omp", text: "Oh My Pi" }, { value: "opencode", text: "OpenCode" },
-                { value: "ori", text: "Ori" }, { value: "claude", text: "Claude Code" }, { value: "codex", text: "Codex" },
-                { value: "grok", text: "Grok" }, { value: "openclaw", text: "OpenClaw" }, { value: "agy", text: "Agy" },
-                { value: "hermes", text: "Hermes" }, { value: "copilot", text: "Copilot" }, { value: "crush", text: "Crush" },
-                { value: "cursor-agent", text: "Cursor Agent" }, { value: "muse", text: "Muse" }, { value: "kimi", text: "Kimi" },
-                { value: "qwen", text: "Qwen" }, { value: "dsh", text: "dsh" }, { value: "mcode", text: "mcode" },
-                { value: "kiro-cli", text: "Kiro" }, { value: "freebuff", text: "Freebuff" }, { value: "kilo", text: "Kilo" },
-                { value: "devin", text: "Devin" }, { value: "amp", text: "Amp" }, { value: "commandcode", text: "Command Code" }
-            ]
+            options: page.installedIn("agent")
         }
         ChoiceRow {
             setting: "general.dictation"
             label: qsTr("Dictation")
-            options: [{ value: "", text: qsTr("None") }, { value: "superwhisper", text: "Superwhisper" }, { value: "voxtype", text: "Voxtype" }]
+            options: page.installedIn("dictation")
+        }
+        NavRow {
+            label: qsTr("Install more")
+            glyph: "\u{F003B}"
+            detail: qsTr("Apps")
+            onOpen: win.go("software")
         }
     }
 

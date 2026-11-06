@@ -861,6 +861,8 @@ private slots:
                   "  \"setup.default.dictation.voxtype\": {\"label\":\"Voxtype\",\"action\":\"omarchy-default-dictation voxtype\"},\n"
                   "  \"remove.dictation.voxtype\": {\"label\":\"Voxtype\",\"action\":\"rv\",\"when\":\"omarchy-pkg-present voxtype-bin\"},\n"
                   "  \"remove.service.ssh-agent\": {\"label\":\"SSH Agent\",\"action\":\"s\"},\n"
+                  "  \"setup.default.agent\": {\"label\":\"Agent\"},\n"
+                  "  \"setup.default.agent.claude\": {\"label\":\"Claude\",\"action\":\"omarchy-default-agent claude\"},\n"
                   "  \"install.style.theme\": {\"label\":\"Theme\",\"action\":\"t\"}\n"
                   "}\n");
         Store store(pathsIn(dir), sys.exec());
@@ -871,10 +873,15 @@ private slots:
             return byKey;
         };
         QHash<QString, QVariantMap> all = items();
-        // Apps, tools, and dictation; not the SSH agent switch or themes.
+        // Apps, tools, dictation, and coding agents; not the SSH agent
+        // switch or themes.
         QCOMPARE(QSet<QString>(all.keyBegin(), all.keyEnd()),
                  (QSet<QString>{"package", "browser.zen", "editor.vscode", "editor.zed", "gaming.heroic",
-                                "development.javascript.node", "dictation.voxtype"}));
+                                "development.javascript.node", "dictation.voxtype", "agent.claude"}));
+        QCOMPARE(all["agent.claude"].value("installId").toString(), QString("setup.default.agent.claude"));
+        QCOMPARE(all["agent.claude"].value("category").toString(), QString("agent"));
+        // The agent menu has no installed check; omarchy-default-agent's own is used.
+        QVERIFY(all["agent.claude"].value("known").toBool());
         QCOMPARE(all["browser.zen"].value("removeId").toString(), QString("remove.browser.zen"));
         QCOMPARE(all["development.javascript.node"].value("label").toString(), QString("Node.js (JavaScript)"));
         QCOMPARE(all["dictation.voxtype"].value("installId").toString(), QString("setup.default.dictation.voxtype"));
@@ -891,9 +898,10 @@ private slots:
         QVERIFY(!all["browser.zen"].value("installed").toBool());
         QVERIFY(!all["gaming.heroic"].value("available").toBool());
         sys.prefixAnswers.clear();
-        sys.answerPrefix("bash -c", "i:browser.zen\na:gaming.heroic\n");
+        sys.answerPrefix("bash -c", "i:browser.zen\na:gaming.heroic\ni:agent.claude\n");
         all = items();
         QVERIFY(all["browser.zen"].value("installed").toBool());
+        QVERIFY(all["agent.claude"].value("installed").toBool());
         QVERIFY(all["gaming.heroic"].value("available").toBool());
         QVERIFY(!all["editor.zed"].value("installed").toBool());
     }
@@ -905,6 +913,7 @@ private slots:
                   "{\n"
                   "  \"install.browser.zen\": {\"label\":\"Zen\",\"action\":\"omarchy-install-browser zen\",\"disabled\":\"omarchy-pkg-present zen-browser-bin\"},\n"
                   "  \"remove.browser.zen\": {\"label\":\"Zen\",\"action\":\"omarchy-remove-browser zen\"},\n"
+                  "  \"setup.default.agent.codex\": {\"label\":\"Codex\",\"action\":\"omarchy-default-agent codex\"},\n"
                   "  \"install.terminal.kitty\": {\"label\":\"Kitty\",\"action\":\"k\",\"disabled\":\"omarchy-pkg-present kitty\"},\n"
                   "  \"install.terminal.foot\": {\"label\":\"Foot\",\"action\":\"f\",\"disabled\":\"omarchy-pkg-present foot\"},\n"
                   "  \"install.browser\": {\"label\":\"Browser\"},\n"
@@ -919,6 +928,9 @@ private slots:
         command.clear();
         QCOMPARE(store.softwareCommand("software.run", "remove.browser.zen", command), QString());
         QCOMPARE(command.last(), QString("omarchy-remove-browser zen"));
+        command.clear();
+        QCOMPARE(store.softwareCommand("software.run", "setup.default.agent.codex", command), QString());
+        QCOMPARE(command.last(), QString("omarchy-default-agent codex"));
         // Only install and remove items, and only ones that do something.
         QVERIFY(!store.softwareCommand("software.run", "learn.arch", command).isEmpty());
         QVERIFY(!store.softwareCommand("software.run", "install.browser", command).isEmpty());

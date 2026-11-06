@@ -76,7 +76,7 @@ ApplicationWindow {
         { id: "storage", group: 1, title: qsTr("Storage"), glyph: "\u{F02CA}", show: true,
           keywords: qsTr("storage disk space free full folders snapshots snapper package cache") },
         { id: "software", group: 1, title: qsTr("Apps"), glyph: "\u{F003B}", show: true,
-          keywords: qsTr("apps install remove uninstall software packages aur browser editor terminal gaming steam development ai dictation") },
+          keywords: qsTr("apps install remove uninstall software packages aur browser editor terminal gaming steam development ai coding agents dictation") },
         { id: "appearance", group: 1, title: qsTr("Appearance"), glyph: "\u{F03D8}", show: true,
           keywords: qsTr("theme dark light color font text size corners transparency animations") },
         { id: "fonts", group: 1, title: qsTr("Fonts"), glyph: "\u{F06D6}", show: true,
@@ -113,6 +113,40 @@ ApplicationWindow {
 
     function paneById(id) { return panes.find(p => p.id === id) }
 
+    // The pages inside panes, so searching finds them too: "agent" lists
+    // General › Default Apps under General, and opens it.
+    readonly property var subPages: [
+        { pane: "general", page: "GeneralAbout", title: qsTr("About"), glyph: "\u{F02FC}",
+          keywords: qsTr("computer name hostname model processor memory graphics disk version"), settings: ["general.hostname"] },
+        { pane: "general", page: "GeneralUpdate", title: qsTr("Software Update"), glyph: "\u{F06B0}",
+          keywords: qsTr("update upgrade channel firmware themes clock sync") },
+        { pane: "general", page: "GeneralLanguage", title: qsTr("Language & Region"), glyph: "\u{F05CA}",
+          keywords: qsTr("language region keyboard input methods"), settings: ["general.language"] },
+        { pane: "general", page: "GeneralDateTime", title: qsTr("Date & Time"), glyph: "\u{F0954}",
+          keywords: qsTr("date time zone clock 24-hour automatic"),
+          settings: ["general.timezone", "general.autoTime", "general.clockFormat", "general.clockVerticalFormat"] },
+        { pane: "general", page: "GeneralLoginItems", title: qsTr("Login Items"), glyph: "\u{F0463}",
+          keywords: qsTr("startup autostart login apps commands") },
+        { pane: "general", page: "GeneralWebApps", title: qsTr("Web Apps"), glyph: "\u{F059F}",
+          keywords: qsTr("web apps websites sites") },
+        { pane: "general", page: "GeneralApps", title: qsTr("Default Apps"), glyph: "\u{F003B}",
+          keywords: qsTr("default browser terminal editor coding agent dictation file types open with"),
+          settings: ["general.browser", "general.terminal", "general.editor", "general.agent", "general.dictation"] },
+        { pane: "general", page: "GeneralTroubleshooting", title: qsTr("Troubleshooting"), glyph: "\u{F0BC6}",
+          keywords: qsTr("restart reset refresh configs kernel start over") },
+        { pane: "general", page: "GeneralSettingsApp", title: qsTr("Changes & Backup"), glyph: "\u{F006F}",
+          keywords: qsTr("changes backup export import reset settings shortcut"),
+          settings: ["integration.menuPlace", "integration.menuEntry"] },
+        { pane: "appearance", page: "AppearanceThemes", title: qsTr("Themes"), glyph: "\u{F03D8}",
+          keywords: qsTr("themes install remove git gallery") },
+        { pane: "desktop", page: "DesktopRules", title: qsTr("Window Rules"), glyph: "\u{F05B2}",
+          keywords: qsTr("window rules floating workspace size app") },
+        { pane: "lock", page: "LockBootScreen", title: qsTr("Boot and Unlock Screen"), glyph: "\u{F0341}",
+          keywords: qsTr("boot disk password unlock encryption plymouth") },
+        { pane: "keyboard", page: "KeyboardShortcuts", title: qsTr("Keyboard Shortcuts"), glyph: "\u{F030C}",
+          keywords: qsTr("shortcuts keybindings bindings hotkeys keys") },
+    ]
+
     // Labels of every setting by pane, in the current language, so searching
     // for "repeat" or "night" finds the pane that has it.
     readonly property var settingLabels: {
@@ -124,11 +158,40 @@ ApplicationWindow {
     }
 
     property string query: ""
-    readonly property var visiblePanes: {
-        const q = query.trim().toLowerCase()
-        return panes.filter(p => p.show && (q.length === 0 ||
-            (p.title + " " + p.keywords + " " + (settingLabels[p.id] || "")).toLowerCase().indexOf(q) >= 0))
+    readonly property string needle: query.trim().toLowerCase()
+    function found(text) { return text.toLowerCase().indexOf(needle) >= 0 }
+    function labelsOf(ids) {
+        return (ids || []).map(id => { const s = backend.index.find(x => x.id === id); return s ? qsTranslate("Setting", s.label) + " " + s.label : "" }).join(" ")
     }
+    // What the Apps pane offers, once someone searches, so "steam" finds it.
+    onNeedleChanged: if (needle.length > 1 && !backend.lists.software) backend.load("software")
+    readonly property var apps: (backend.lists.software || []).filter(i => i.category !== "tools")
+
+    // The sidebar: every pane, or while searching, the panes that match and
+    // under each the pages and apps inside it that do.
+    readonly property var visiblePanes: {
+        const _ = translator.language
+        const out = []
+        for (const p of panes) {
+            if (!p.show) continue
+            if (needle.length === 0) { out.push(p); continue }
+            const subs = subPages.filter(sp => sp.pane === p.id && found(sp.title + " " + sp.keywords + " " + labelsOf(sp.settings)))
+                .map(sp => ({ id: p.id, group: p.group, title: sp.title, glyph: sp.glyph, page: sp.page }))
+            const items = needle.length < 2 || p.id !== "software" ? []
+                : apps.filter(a => found(a.label + " " + a.key + " " + (a.package || ""))).slice(0, 8)
+                      .map(a => ({ id: p.id, group: p.group, title: a.label, glyph: a.icon, glyphFamily: a.iconFont, page: "" , item: true }))
+            if (found(p.title + " " + p.keywords + " " + (settingLabels[p.id] || "")) || subs.length > 0 || items.length > 0)
+                out.push(p)
+            for (const x of subs.concat(items)) out.push(x)
+        }
+        return out
+    }
+    // Opens a pane, or a page inside one, from the sidebar.
+    function open(entry) {
+        if (entry.page) { subParams = {}; go(entry.id, entry.page, entry.title) }
+        else go(entry.id)
+    }
+    function isNested(entry) { return !!entry.page || !!entry.item }
 
     // Where we are: a pane, and optionally a page inside it (General > About).
     property string pane: "wifi"
@@ -225,7 +288,8 @@ ApplicationWindow {
             // ---- Sidebar ------------------------------------------------------
             Rectangle {
                 Layout.fillHeight: true
-                Layout.preferredWidth: ui.s(220)
+                // Narrower in a narrow window, so the page keeps its room.
+                Layout.preferredWidth: Math.round(Math.min(ui.s(220), Math.max(ui.s(150), win.width * 0.28)))
                 color: ui.bg
 
                 ColumnLayout {
@@ -250,7 +314,7 @@ ApplicationWindow {
                             Keys.onDownPressed: sidebar.forceActiveFocus()
                             Keys.onReturnPressed: {
                                 if (win.visiblePanes.length > 0) {
-                                    win.go(win.visiblePanes[0].id)
+                                    win.open(win.visiblePanes[0])
                                     sidebar.forceActiveFocus()
                                 }
                             }
@@ -274,7 +338,10 @@ ApplicationWindow {
                         clip: true
                         focus: true
                         model: win.visiblePanes
-                        currentIndex: win.visiblePanes.findIndex(p => p.id === win.pane)
+                        currentIndex: {
+                            const atSub = win.visiblePanes.findIndex(p => !!p.page && p.id === win.pane && p.page === win.sub)
+                            return atSub >= 0 ? atSub : win.visiblePanes.findIndex(p => !win.isNested(p) && p.id === win.pane)
+                        }
                         keyNavigationEnabled: false
                         boundsBehavior: Flickable.StopAtBounds
 
@@ -282,7 +349,7 @@ ApplicationWindow {
                             const n = win.visiblePanes.length
                             if (n === 0) return
                             const i = Math.max(0, Math.min(n - 1, (currentIndex < 0 ? 0 : currentIndex + delta)))
-                            win.go(win.visiblePanes[i].id)
+                            win.open(win.visiblePanes[i])
                         }
                         Keys.onDownPressed: step(1)
                         Keys.onUpPressed: step(-1)
@@ -292,7 +359,9 @@ ApplicationWindow {
                             id: item
                             required property var modelData
                             required property int index
-                            readonly property bool selected: modelData.id === win.pane
+                            readonly property bool selected: index === sidebar.currentIndex
+                            // A page or app inside the pane above, found by search.
+                            readonly property bool nested: win.isNested(modelData)
                             // A hairline between groups, as in the shell's menus.
                             readonly property bool gap: index > 0 && win.visiblePanes[index - 1].group !== modelData.group
                             width: ListView.view.width
@@ -318,27 +387,29 @@ ApplicationWindow {
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.leftMargin: ui.s(10)
+                                    anchors.leftMargin: item.nested ? ui.s(30) : ui.s(10)
                                     anchors.rightMargin: ui.s(10)
                                     spacing: ui.s(10)
                                     PaneIcon {
-                                        glyph: item.modelData.glyph
-                                        tint: item.selected ? ui.accent : ui.fg
+                                        glyph: item.modelData.glyph || ""
+                                        family: item.modelData.glyphFamily || ""
+                                        size: item.nested ? ui.small : ui.icon
+                                        tint: item.selected ? ui.accent : item.nested ? ui.muted : ui.fg
                                         Layout.preferredWidth: ui.s(18)
                                     }
                                     Text {
                                         Layout.fillWidth: true
                                         text: item.modelData.title
                                         horizontalAlignment: Text.AlignLeft
-                                        color: item.selected ? ui.accent : ui.fg
+                                        color: item.selected ? ui.accent : item.nested ? ui.muted : ui.fg
                                         font.family: ui.font
-                                        font.pixelSize: ui.body
+                                        font.pixelSize: item.nested ? ui.small : ui.body
                                         elide: Text.ElideRight
                                         textFormat: Text.PlainText
                                     }
                                 }
                                 HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
-                                TapHandler { onTapped: { win.go(item.modelData.id); sidebar.forceActiveFocus() } }
+                                TapHandler { onTapped: { win.open(item.modelData); sidebar.forceActiveFocus() } }
                             }
                         }
                     }
