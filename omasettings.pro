@@ -17,6 +17,7 @@ HEADERS += \
 SOURCES += \
     src/main.cpp \
     src/backend.cpp \
+    src/appimages.cpp \
     src/cli.cpp \
     src/extras.cpp \
     src/features.cpp \

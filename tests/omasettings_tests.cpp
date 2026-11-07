@@ -1,3 +1,4 @@
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -59,6 +60,40 @@ static void writeText(const QString &path, const QByteArray &data) {
     f.write(data);
 }
 
+// A minimal ELF64 file: an AppImage's magic and a .upd_info section, which
+// is all Settings reads of one.
+static QByteArray fakeElf(const QByteArray &updateInfo, bool appImage = true) {
+    const QByteArray names = QByteArray("\0.shstrtab\0.upd_info\0", 21);
+    QByteArray file(64, '\0');
+    file.replace(0, 4, "\x7f" "ELF");
+    file[4] = 2; // 64-bit
+    file[5] = 1; // little-endian
+    file[6] = 1;
+    if (appImage)
+        file.replace(8, 3, QByteArray("AI\x02", 3));
+    const quint64 namesAt = file.size();
+    file += names;
+    const quint64 infoAt = file.size();
+    file += updateInfo + QByteArray(1, '\0');
+    while (file.size() % 8)
+        file += '\0';
+    const quint64 tableAt = file.size();
+    auto put16 = [&](int at, quint16 v) { qToLittleEndian(v, reinterpret_cast<uchar *>(file.data()) + at); };
+    put16(0x3A, 64);
+    put16(0x3C, 3);
+    put16(0x3E, 1);
+    qToLittleEndian(tableAt, reinterpret_cast<uchar *>(file.data()) + 0x28);
+    auto section = [&](quint32 name, quint64 offset, quint64 size) {
+        QByteArray s(64, '\0');
+        qToLittleEndian(name, reinterpret_cast<uchar *>(s.data()));
+        qToLittleEndian(offset, reinterpret_cast<uchar *>(s.data()) + 0x18);
+        qToLittleEndian(size, reinterpret_cast<uchar *>(s.data()) + 0x20);
+        return s;
+    };
+    file += section(0, 0, 0) + section(1, namesAt, names.size()) + section(11, infoAt, updateInfo.size() + 1);
+    return file;
+}
+
 class OmasettingsTests : public QObject {
     Q_OBJECT
 
@@ -67,6 +102,8 @@ class OmasettingsTests : public QObject {
         p.config = dir.path() + "/config";
         p.state = dir.path() + "/state";
         p.omarchy = dir.path() + "/omarchy";
+        p.home = dir.path() + "/home";
+        p.downloads = dir.path() + "/home/Downloads";
         p.hyprland = true;
         return p;
     }
@@ -915,6 +952,152 @@ private slots:
         QVERIFY(all["agent.claude"].value("installed").toBool());
         QVERIFY(all["gaming.heroic"].value("available").toBool());
         QVERIFY(!all["editor.zed"].value("installed").toBool());
+    }
+
+    void appImagesAreFoundByTheirHeaders() {
+        QTemporaryDir dir;
+        const QString image = dir.path() + "/a.AppImage", plain = dir.path() + "/plain";
+        writeText(image, fakeElf("gh-releases-zsync|kem-a|AppManager|latest|*x86_64.AppImage.zsync"));
+        writeText(plain, fakeElf("", false));
+        QVERIFY(Store::isAppImage(image));
+        QVERIFY(!Store::isAppImage(plain));
+        QCOMPARE(Store::appImageUpdateInfo(image), QString("gh-releases-zsync|kem-a|AppManager|latest|*x86_64.AppImage.zsync"));
+        QCOMPARE(Store::appImageUpdateInfo(plain), QString());
+    }
+
+    void appImagesAreListedFromTheLauncherApplicationsAndDownloads() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths paths = pathsIn(dir);
+        paths.data = dir.path() + "/data";
+        const QString launched = dir.path() + "/elsewhere/Tool.AppImage";
+        writeText(launched, fakeElf("zsync|https://example.com/tool.zsync"));
+        writeText(paths.data + "/applications/tool.desktop",
+                  "[Desktop Entry]\nName=Tool\nExec=\"" + launched.toUtf8() + "\" %U\nIcon=tool\nX-AppImage-Version=1.2\n");
+        writeText(paths.data + "/icons/hicolor/256x256/apps/tool.png", "png");
+        writeText(paths.home + "/Applications/Loose.AppImage", fakeElf(""));
+        writeText(paths.home + "/Applications/notes.txt", "not an app");
+        writeText(paths.downloads + "/Fresh.AppImage", fakeElf(""));
+        Store store(paths, sys.exec());
+        QHash<QString, QVariantMap> byName;
+        for (const QVariant &v : store.list("appimages").toList())
+            byName.insert(v.toMap().value("name").toString(), v.toMap());
+        QCOMPARE(QSet<QString>(byName.keyBegin(), byName.keyEnd()), (QSet<QString>{"Tool", "Loose", "Fresh"}));
+        QCOMPARE(byName["Tool"].value("icon").toString(), paths.data + "/icons/hicolor/256x256/apps/tool.png");
+        QCOMPARE(byName["Tool"].value("version").toString(), QString("1.2"));
+        QCOMPARE(byName["Tool"].value("updateKind").toString(), QString("zsync"));
+        QVERIFY(byName["Tool"].value("integrated").toBool());
+        QCOMPARE(byName["Tool"].value("location").toString(), QString("elsewhere"));
+        QVERIFY(!byName["Loose"].value("integrated").toBool());
+        QCOMPARE(byName["Loose"].value("location").toString(), QString("applications"));
+        QCOMPARE(byName["Fresh"].value("location").toString(), QString("downloads"));
+    }
+
+    void anAddedAppImageMovesToApplicationsAndTheLauncher() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths paths = pathsIn(dir);
+        paths.data = dir.path() + "/data";
+        const QString from = paths.downloads + "/Fresh-1.0.AppImage";
+        writeText(from, fakeElf(""));
+        writeText(paths.downloads + "/fake.AppImage", "not one");
+        Store store(paths, sys.exec());
+        QVERIFY(!store.act("appimage.add", {paths.downloads + "/fake.AppImage"}).isEmpty());
+        QCOMPARE(store.act("appimage.add", {from}), QString());
+        const QString to = paths.home + "/Applications/Fresh-1.0.AppImage";
+        QVERIFY(!QFileInfo::exists(from));
+        QVERIFY(QFileInfo(to).isExecutable());
+        // Nothing could be extracted here, so the name is the file's.
+        const QString entry = readText(paths.data + "/applications/appimage-fresh-1.0.desktop");
+        QVERIFY(entry.contains("Name=Fresh-1.0\n"));
+        QVERIFY(entry.contains("Exec=\"" + to + "\" %U"));
+        QVERIFY(entry.contains("X-Omasettings-AppImage=true"));
+        // Adding it again is refused rather than overwriting it.
+        writeText(from, fakeElf(""));
+        QVERIFY(!store.act("appimage.add", {from}).isEmpty());
+
+        // Removing it trashes it and takes it out of the launcher.
+        QCOMPARE(store.act("appimage.remove", {to}), QString());
+        QVERIFY(sys.calls.contains("gio trash " + to));
+        QVERIFY(!QFileInfo::exists(paths.data + "/applications/appimage-fresh-1.0.desktop"));
+        QVERIFY(!store.act("appimage.remove", {dir.path() + "/nowhere.AppImage"}).isEmpty());
+    }
+
+    void aDownloadedVersionIsMatchedToTheOneAddedAndReplacesIt() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths paths = pathsIn(dir);
+        paths.data = dir.path() + "/data";
+        const QString tool = paths.home + "/Applications/tool-1.0-x86_64.AppImage";
+        writeText(tool, fakeElf("gh-releases-zsync|Me|tool|latest|tool-*.zsync"));
+        writeText(paths.data + "/applications/appimage-tool-1.0-x86_64.desktop",
+                  "[Desktop Entry]\nName=Tool\nExec=\"" + tool.toUtf8() + "\" %U\nX-AppImage-Version=1.0\nX-Omasettings-AppImage=true\n");
+        writeText(paths.home + "/Applications/Other-1.0.AppImage", fakeElf(""));
+        // By who publishes it, whatever the file is called.
+        writeText(paths.downloads + "/Tool_v1.2_amd64.AppImage", fakeElf("gh-releases-zsync|me|tool|latest|tool-*.zsync"));
+        // The same name, but someone else's project: not a version of it.
+        writeText(paths.downloads + "/tool-2.0-x86_64.AppImage", fakeElf("gh-releases-zsync|fork|tool|latest|tool-*.zsync"));
+        // No update information: by the name without version and architecture.
+        writeText(paths.downloads + "/Other-0.9-linux-x86_64.AppImage", fakeElf(""));
+        Store store(paths, sys.exec());
+        QHash<QString, QVariantMap> byFile;
+        for (const QVariant &v : store.list("appimages").toList())
+            byFile.insert(QFileInfo(v.toMap().value("path").toString()).fileName(), v.toMap());
+        QCOMPARE(byFile["Tool_v1.2_amd64.AppImage"].value("replaces").toString(), tool);
+        QCOMPARE(byFile["Tool_v1.2_amd64.AppImage"].value("compare").toString(), QString("newer"));
+        QCOMPARE(byFile["Tool_v1.2_amd64.AppImage"].value("replacesVersion").toString(), QString("1.0"));
+        QVERIFY(!byFile["tool-2.0-x86_64.AppImage"].contains("replaces"));
+        QCOMPARE(byFile["Other-0.9-linux-x86_64.AppImage"].value("replaces").toString(), paths.home + "/Applications/Other-1.0.AppImage");
+        QCOMPARE(byFile["Other-0.9-linux-x86_64.AppImage"].value("compare").toString(), QString("older"));
+
+        QVERIFY(!store.act("appimage.replace", {paths.downloads + "/tool-2.0-x86_64.AppImage"}).isEmpty());
+        QCOMPARE(store.act("appimage.replace", {paths.downloads + "/Tool_v1.2_amd64.AppImage"}), QString());
+        // The old one went to the trash; the new one has its name and a launcher entry.
+        QVERIFY(sys.calls.contains("gio trash " + tool));
+        const QString fresh = paths.home + "/Applications/Tool_v1.2_amd64.AppImage";
+        QVERIFY(QFileInfo(fresh).isExecutable());
+        QVERIFY(!QFileInfo::exists(paths.downloads + "/Tool_v1.2_amd64.AppImage"));
+        QVERIFY(!QFileInfo::exists(paths.data + "/applications/appimage-tool-1.0-x86_64.desktop"));
+        QVERIFY(readText(paths.data + "/applications/appimage-tool_v1.2_amd64.desktop").contains("Exec=\"" + fresh + "\" %U"));
+    }
+
+    void appImageUpdatesAreFoundByTheReleasesChecksum() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths paths = pathsIn(dir);
+        paths.data = dir.path() + "/data";
+        const QString image = paths.home + "/Applications/Tool.AppImage";
+        const QByteArray bytes = fakeElf("gh-releases-zsync|me|tool|latest|Tool-*-x86_64.AppImage.zsync");
+        writeText(image, bytes);
+        const QString sha1 = QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha1).toHex());
+        sys.answer("curl -fsSL --max-time 20 -H Accept: application/vnd.github+json https://api.github.com/repos/me/tool/releases/latest",
+                   "{\"assets\": [{\"name\": \"Tool-2.0-x86_64.AppImage\", \"browser_download_url\": \"https://github.com/me/tool/releases/download/v2/Tool-2.0-x86_64.AppImage\"},"
+                   " {\"name\": \"Tool-2.0-x86_64.AppImage.zsync\", \"browser_download_url\": \"https://github.com/me/tool/releases/download/v2/Tool-2.0-x86_64.AppImage.zsync\"}]}");
+        const QString zsync = "curl -fsSL --max-time 20 -r 0-4095 https://github.com/me/tool/releases/download/v2/Tool-2.0-x86_64.AppImage.zsync";
+        sys.answer(zsync, "zsync: 0.6.2\nFilename: Tool-2.0-x86_64.AppImage\nURL: Tool-2.0-x86_64.AppImage\nSHA-1: 0123abcd\n\n" "\x01\x02" "binary");
+        Store store(paths, sys.exec());
+        QStringList command;
+        // Without a check yet (from the command line), it checks first.
+        QCOMPARE(store.appImageUpdateCommand(image, command), QString());
+        command.clear();
+
+        QVariantMap found = store.list("appimageUpdates").toMap().value(image).toMap();
+        QCOMPARE(found.value("status").toString(), QString("available"));
+        QCOMPARE(found.value("url").toString(), QString("https://github.com/me/tool/releases/download/v2/Tool-2.0-x86_64.AppImage"));
+        QCOMPARE(store.appImageUpdateCommand(image, command), QString());
+        QCOMPARE(command.first(), QString("omarchy-launch-floating-terminal-with-presentation"));
+        QVERIFY(command.last().contains("sha1sum -c"));
+        QVERIFY(command.last().contains("'0123abcd  " + paths.home + "/Applications/.Tool.AppImage.part'"));
+
+        // The same checksum as the file here: up to date.
+        sys.answer(zsync, "SHA-1: " + sha1.toUtf8() + "\nURL: Tool-2.0-x86_64.AppImage\n\n");
+        found = store.list("appimageUpdates").toMap().value(image).toMap();
+        QCOMPARE(found.value("status").toString(), QString("current"));
+        QVERIFY(!store.appImageUpdateCommand(image, command).isEmpty());
+
+        // GitHub out of reach.
+        sys.answer("curl -fsSL --max-time 20 -H Accept: application/vnd.github+json https://api.github.com/repos/me/tool/releases/latest", "", 22);
+        QCOMPARE(store.list("appimageUpdates").toMap().value(image).toMap().value("status").toString(), QString("unreachable"));
     }
 
     void defaultAppsOfferWhatIsInstalled() {

@@ -17,6 +17,8 @@ struct Paths {
     QString state;   // ~/.local/state
     QString omarchy; // $OMARCHY_PATH, Omarchy's read-only install
     QString data;    // ~/.local/share
+    QString home;    // ~, where ~/Applications is
+    QString downloads; // the Downloads folder
     bool hyprland = true; // whether a Hyprland session is there to reload
 
     static Paths system();
@@ -75,6 +77,9 @@ public:
     static QVariantList parseKeybindings(const QString &text);
     static QVariantList parseXkbLayouts(const QString &baseLst);
     static int parsePercent(const QString &text);
+    // Whether a file is an AppImage, and the update information it carries.
+    static bool isAppImage(const QString &path);
+    static QString appImageUpdateInfo(const QString &path);
 
 private:
     ProcResult run(const QString &program, const QStringList &args, int timeoutMs = 5000) const;
@@ -135,6 +140,15 @@ private:
     QVariant listSoftware();
     // Which of the default browser, terminal, and editor choices are installed.
     QVariant listDefaultApps();
+    // appimages.cpp: AppImages in the launcher, ~/Applications, and Downloads.
+    QList<QVariantMap> appImageItems() const;
+    QVariant listAppImages();
+    QVariant listAppImageUpdates();
+    QString actAppImage(const QString &action, const QVariantList &args);
+    QString integrateAppImage(const QString &path);
+    QString replaceAppImage(const QString &download);
+    QString resolveIcon(const QString &icon) const;
+    QString appImagesDir() const;
     QString rewriteMenu(const std::function<QString(QStringList &)> &change);
     QString menuItemAction(const QString &action, const QVariantMap &item);
 
@@ -154,6 +168,8 @@ public:
     QStringList terminalCommand(const QString &id);
     // What software.run and software.drop start, or an error.
     QString softwareCommand(const QString &action, const QString &arg, QStringList &command);
+    // The terminal command that downloads and swaps in a found update.
+    QString appImageUpdateCommand(const QString &path, QStringList &command);
 
 private:
     QString monitorAction(const QString &action, const QVariantList &args);
@@ -169,4 +185,7 @@ private:
     std::function<bool(const QString &, const QStringList &)> m_launch;
     QList<Setting> m_settings;
     mutable QMutex m_stateLock;
+    // The last update check's findings, for appimage.update.
+    QMutex m_appImageLock;
+    QHash<QString, QVariantMap> m_appImageUpdates;
 };

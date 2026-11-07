@@ -30,6 +30,8 @@ Paths Paths::system() {
     p.config = qEnvironmentVariableIsEmpty("XDG_CONFIG_HOME") ? home + "/.config" : qEnvironmentVariable("XDG_CONFIG_HOME");
     p.state = qEnvironmentVariableIsEmpty("XDG_STATE_HOME") ? home + "/.local/state" : qEnvironmentVariable("XDG_STATE_HOME");
     p.data = qEnvironmentVariableIsEmpty("XDG_DATA_HOME") ? home + "/.local/share" : qEnvironmentVariable("XDG_DATA_HOME");
+    p.home = home;
+    p.downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     p.omarchy = qEnvironmentVariableIsEmpty("OMARCHY_PATH") ? "/usr/share/omarchy" : qEnvironmentVariable("OMARCHY_PATH");
     p.hyprland = !qEnvironmentVariableIsEmpty("HYPRLAND_INSTANCE_SIGNATURE");
     return p;
@@ -871,7 +873,7 @@ QStringList Store::listNames() const {
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
             "storage", "homeUsage", "snapshots", "managed",
-            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom", "software", "defaultApps"};
+            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom", "software", "defaultApps", "appimages", "appimageUpdates"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -1101,6 +1103,10 @@ QVariant Store::list(const QString &name) {
         return listSoftware();
     if (name == "defaultApps")
         return listDefaultApps();
+    if (name == "appimages")
+        return listAppImages();
+    if (name == "appimageUpdates")
+        return listAppImageUpdates();
     if (name.startsWith("defaults:"))
         return defaultsFor(name.section(':', 1));
     if (name == "vpn")
@@ -1284,6 +1290,9 @@ QString Store::act(const QString &action, const QVariantList &args) {
 
     if (action == "launch")
         return launchInTerminal(a0);
+
+    if (action.startsWith("appimage."))
+        return actAppImage(action, args);
 
     if (action == "software.run" || action == "software.drop") {
         QStringList command;

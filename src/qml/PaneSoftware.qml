@@ -12,7 +12,7 @@ SettingsPage {
     tagline: qsTr("%n installed", "", page.items.filter(i => i.installed && i.category !== "tools").length)
     glyph: "\u{F003B}"
     description: qsTr("Install and remove the apps and tools Omarchy offers, even with the menu's Install and Remove hidden.")
-    lists: ["software"]
+    lists: ["software", "appimages"]
     // Installs finish in a terminal after the click; look again for a while.
     pollMs: watching ? 6000 : 0
 
@@ -24,7 +24,8 @@ SettingsPage {
     // (not when it found the pane by a word like "install").
     function matches(item, q) { return (item.label + " " + item.key + " " + (item.package || "")).toLowerCase().indexOf(q) >= 0 }
     readonly property string sidebarQuery: win.needle.length > 1
-        && items.some(i => i.category !== "tools" && matches(i, win.needle)) ? win.needle : ""
+        && (items.some(i => i.category !== "tools" && matches(i, win.needle))
+            || appImages.some(a => imageMatches(a, win.needle))) ? win.needle : ""
     readonly property string query: filter.text.trim().toLowerCase() || sidebarQuery
     property bool installedOnly: false
     function shown(item) {
@@ -53,7 +54,7 @@ SettingsPage {
 
     // Which groups are open. Categories start closed so the page reads as a
     // list of them; filtering opens everything so matches show.
-    property var openGroups: ({ "tools": true })
+    property var openGroups: ({ "tools": true, "appimages": true })
     readonly property bool searching: query.length > 0 || installedOnly || win.query.trim().length > 1
     function isOpen(id) { return searching || !!openGroups[id] }
     function toggleGroup(id) {
@@ -62,10 +63,103 @@ SettingsPage {
         openGroups = next
     }
 
+    // AppImages: added ones (in the launcher or ~/Applications), and ones
+    // lying in Downloads. An update check's result holds until the file
+    // changes, as it does when an update finishes.
+    readonly property var appImages: backend.lists.appimages || []
+    readonly property var appImageChecks: backend.lists.appimageUpdates || ({})
+    readonly property bool checkingImages: backend.busy.indexOf("list:appimageUpdates") >= 0
+    function imageMatches(a, q) {
+        const file = a.path.split("/").pop().replace(/\.appimage$/i, "")
+        return (a.name + " " + file).toLowerCase().indexOf(q) >= 0
+    }
+    function imageUpdate(a) {
+        const u = appImageChecks[a.path]
+        return u && u.modified === a.modified ? u : ({})
+    }
+    readonly property var addedImages: appImages.filter(a => a.location !== "downloads" && (query.length === 0 || imageMatches(a, query)))
+    readonly property var downloadedImages: appImages.filter(a => a.location === "downloads" && !installedOnly && (query.length === 0 || imageMatches(a, query)))
+    readonly property int imageUpdates: appImages.filter(a => imageUpdate(a).status === "available").length
+
     function run(id) {
         backend.act("software.run", [id], ["software"])
         page.watching = true
         stopWatching.restart()
+    }
+
+    component AppImageRow: SettingRow {
+        id: irow
+        property var image
+        readonly property var update: page.imageUpdate(image)
+        readonly property bool loose: image.location === "downloads"
+        // Another version of one already added: replacing beats adding a second copy.
+        readonly property bool another: loose && !!image.replaces
+        readonly property bool replaceable: another && (image.compare === "newer" || image.compare === "unknown")
+        label: image.name
+        iconSource: image.icon ? "file://" + image.icon : ""
+        glyph: image.icon ? "" : "\u{F03D7}"
+        busy: page.checkingImages && !!image.updateKind
+        sublabel: {
+            if (another) {
+                if (image.compare === "newer")
+                    return qsTr("Newer version of %1 (%2 → %3)").arg(image.replacesName, image.replacesVersion, image.version)
+                if (image.compare === "same")
+                    return qsTr("The same version as your %1 (%2)").arg(image.replacesName, image.version)
+                if (image.compare === "older")
+                    return qsTr("Older than your %1 (%2)").arg(image.replacesName, image.replacesVersion)
+                return qsTr("Another copy of %1").arg(image.replacesName)
+            }
+            if (loose) return qsTr("In Downloads")
+            if (update.status === "available") return qsTr("Update available · %1").arg(update.file)
+            const parts = []
+            if (image.version) parts.push(qsTr("Version %1").arg(image.version))
+            if (!image.integrated) parts.push(qsTr("Not in the app launcher"))
+            else if (update.status === "current") parts.push(qsTr("Up to date"))
+            else if (update.status === "unreachable") parts.push(qsTr("Couldn't check for updates"))
+            else if (!image.updateKind) parts.push(qsTr("No update information; it may update itself"))
+            return parts.join(" · ")
+        }
+
+        OmaButton {
+            visible: irow.replaceable
+            text: qsTr("Replace")
+            highlighted: irow.image.compare === "newer"
+            anchors.verticalCenter: parent.verticalCenter
+            onClicked: { replaceDialog.image = irow.image; replaceDialog.open() }
+        }
+        OmaButton {
+            visible: irow.loose && !irow.another
+            text: qsTr("Add")
+            anchors.verticalCenter: parent.verticalCenter
+            onClicked: backend.act("appimage.add", [irow.image.path], ["appimages"])
+        }
+        OmaButton {
+            visible: !irow.loose && irow.update.status === "available"
+            text: qsTr("Update…")
+            highlighted: true
+            anchors.verticalCenter: parent.verticalCenter
+            onClicked: {
+                backend.act("appimage.update", [irow.image.path], [])
+                page.watching = true
+                stopWatching.restart()
+            }
+        }
+        OmaButton {
+            visible: !irow.loose && !irow.image.integrated
+            text: qsTr("Add to Launcher")
+            anchors.verticalCenter: parent.verticalCenter
+            onClicked: backend.act("appimage.integrate", [irow.image.path], ["appimages"])
+        }
+        OmaButton {
+            visible: !irow.loose
+            text: qsTr("Remove…")
+            bordered: false
+            anchors.verticalCenter: parent.verticalCenter
+            onClicked: {
+                removeDialog.item = { appimage: true, label: irow.image.name, path: irow.image.path, key: "" }
+                removeDialog.open()
+            }
+        }
     }
 
     component AppRow: SettingRow {
@@ -148,6 +242,48 @@ SettingsPage {
         }
     }
 
+    SettingsGroup {
+        visible: page.query.length === 0 || page.addedImages.length > 0
+        title: qsTr("AppImages")
+        footer: qsTr("Added AppImages move to ~/Applications and show in the app launcher with their own icon. Updates come from where their makers publish them and are checked against the published checksum.")
+        collapsible: true
+        collapsed: !page.isOpen("appimages")
+        summary: qsTr("%n added", "", page.appImages.filter(a => a.location !== "downloads").length)
+        onToggle: page.toggleGroup("appimages")
+        SettingRow {
+            visible: page.query.length === 0
+            label: page.checkingImages ? qsTr("Checking for updates…")
+                   : page.imageUpdates > 0 ? qsTr("%n updates available", "", page.imageUpdates)
+                   : qsTr("Add an AppImage, or look for updates")
+            glyph: "\u{F0D9C}"
+            OmaButton {
+                text: qsTr("Add AppImage…")
+                anchors.verticalCenter: parent.verticalCenter
+                onClicked: backend.act("appimage.add", [], ["appimages"])
+            }
+            OmaButton {
+                text: qsTr("Check for Updates")
+                enabled: !page.checkingImages
+                anchors.verticalCenter: parent.verticalCenter
+                onClicked: backend.load("appimageUpdates")
+            }
+        }
+        Repeater {
+            model: page.addedImages
+            delegate: AppImageRow { required property var modelData; image: modelData }
+        }
+    }
+
+    SettingsGroup {
+        visible: page.downloadedImages.length > 0
+        title: qsTr("Found in Downloads")
+        footer: qsTr("Adding one moves it to ~/Applications.")
+        Repeater {
+            model: page.downloadedImages
+            delegate: AppImageRow { required property var modelData; image: modelData }
+        }
+    }
+
     Repeater {
         model: page.categories
         delegate: SettingsGroup {
@@ -170,7 +306,8 @@ SettingsPage {
     }
 
     Text {
-        visible: page.items.length > 0 && page.categories.every(c => !page.items.some(i => i.category === c.id && page.shown(i)))
+        visible: page.items.length > 0 && page.addedImages.length === 0 && page.downloadedImages.length === 0
+                 && page.categories.every(c => !page.items.some(i => i.category === c.id && page.shown(i)))
         Layout.fillWidth: true
         text: qsTr("Nothing matches.")
         color: ui.muted
@@ -215,6 +352,25 @@ SettingsPage {
     }
 
     OmaDialog {
+        id: replaceDialog
+        objectName: "appImageReplace"
+        property var image: ({ replacesName: "", path: "" })
+        title: qsTr("Replace %1?").arg(image.replacesName)
+        acceptText: qsTr("Replace")
+        onAccepted: backend.act("appimage.replace", [image.path], ["appimages"])
+        Text {
+            Layout.fillWidth: true
+            text: qsTr("The download takes the place of the one you have, in the app launcher too. The old file goes to the trash, so you can get it back.")
+            horizontalAlignment: Text.AlignLeft
+            color: ui.muted
+            font.family: ui.font
+            font.pixelSize: ui.small
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+        }
+    }
+
+    OmaDialog {
         id: removeDialog
         objectName: "softwareRemove"
         property var item: ({ label: "", key: "" })
@@ -222,7 +378,9 @@ SettingsPage {
         title: qsTr("Remove %1?").arg(page.toolText[item.key] ? page.toolText[item.key].label : item.label)
         acceptText: qsTr("Remove")
         onAccepted: {
-            if (drop) {
+            if (item.appimage) {
+                backend.act("appimage.remove", [item.path], ["appimages"])
+            } else if (drop) {
                 backend.act("software.drop", [item.key], ["software"])
                 page.watching = true
                 stopWatching.restart()
@@ -232,7 +390,8 @@ SettingsPage {
         }
         Text {
             Layout.fillWidth: true
-            text: removeDialog.item.category === "agent"
+            text: removeDialog.item.appimage ? qsTr("It goes to the trash and leaves the app launcher.")
+                  : removeDialog.item.category === "agent"
                   ? (removeDialog.drop ? qsTr("A terminal opens to remove it from mise, where Omarchy installed it.")
                                        : qsTr("It comes with its desktop app: a terminal opens to remove the app, and may ask for your password."))
                   : removeDialog.drop

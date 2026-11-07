@@ -10,6 +10,8 @@ Item {
     property string sublabel
     property string glyph
     property string glyphFamily: ""
+    // A picture in place of the glyph, such as an app's own icon.
+    property string iconSource: ""
     property color tint: ui.fg
     property bool busy: false
     property bool dimmed: false
@@ -33,7 +35,7 @@ Item {
     // When the row is too narrow for its label beside the controls, the
     // controls move to a line of their own under the label, rather than
     // squeezing the label to a few letters or drawing over it.
-    readonly property int textIndent: glyph.length > 0 ? ui.s(18) + ui.s(12) : 0
+    readonly property int textIndent: glyph.length > 0 || iconSource.length > 0 ? ui.s(18) + ui.s(12) : 0
     readonly property bool stacked: (label.length > 0 || sublabel.length > 0) && controls.implicitWidth > 0
         && width - ui.s(20) - textIndent - ui.s(12) - controls.implicitWidth < ui.s(140)
 
@@ -62,11 +64,22 @@ Item {
             spacing: ui.s(12)
 
             PaneIcon {
-                visible: row.glyph.length > 0
+                visible: row.glyph.length > 0 && row.iconSource.length === 0
                 glyph: row.glyph
                 family: row.glyphFamily
                 tint: row.tint
                 Layout.preferredWidth: ui.s(18)
+            }
+            Image {
+                visible: row.iconSource.length > 0
+                source: row.iconSource
+                Layout.preferredWidth: ui.s(18)
+                Layout.preferredHeight: ui.s(18)
+                sourceSize.width: ui.s(36)
+                sourceSize.height: ui.s(36)
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                smooth: true
             }
 
             ColumnLayout {

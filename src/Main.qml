@@ -76,7 +76,7 @@ ApplicationWindow {
         { id: "storage", group: 1, title: qsTr("Storage"), glyph: "\u{F02CA}", show: true,
           keywords: qsTr("storage disk space free full folders snapshots snapper package cache") },
         { id: "software", group: 1, title: qsTr("Apps"), glyph: "\u{F003B}", show: true,
-          keywords: qsTr("apps install remove uninstall software packages aur browser editor terminal gaming steam development ai coding agents dictation") },
+          keywords: qsTr("apps install remove uninstall software packages aur browser editor terminal gaming steam development ai coding agents dictation appimage appimages") },
         { id: "appearance", group: 1, title: qsTr("Appearance"), glyph: "\u{F03D8}", show: true,
           keywords: qsTr("theme dark light color font text size corners transparency animations") },
         { id: "fonts", group: 1, title: qsTr("Fonts"), glyph: "\u{F06D6}", show: true,
@@ -164,8 +164,13 @@ ApplicationWindow {
         return (ids || []).map(id => { const s = backend.index.find(x => x.id === id); return s ? qsTranslate("Setting", s.label) + " " + s.label : "" }).join(" ")
     }
     // What the Apps pane offers, once someone searches, so "steam" finds it.
-    onNeedleChanged: if (needle.length > 1 && !backend.lists.software) backend.load("software")
+    onNeedleChanged: {
+        if (needle.length < 2) return
+        if (!backend.lists.software) backend.load("software")
+        if (!backend.lists.appimages) backend.load("appimages")
+    }
     readonly property var apps: (backend.lists.software || []).filter(i => i.category !== "tools")
+    readonly property var appImages: (backend.lists.appimages || []).filter(a => a.location !== "downloads")
 
     // The sidebar: every pane, or while searching, the panes that match and
     // under each the pages and apps inside it that do.
@@ -180,6 +185,9 @@ ApplicationWindow {
             const items = needle.length < 2 || p.id !== "software" ? []
                 : apps.filter(a => found(a.label + " " + a.key + " " + (a.package || ""))).slice(0, 8)
                       .map(a => ({ id: p.id, group: p.group, title: a.label, glyph: a.icon, glyphFamily: a.iconFont, page: "" , item: true }))
+                      .concat(appImages.filter(a => found(a.name)).slice(0, 8)
+                      .map(a => ({ id: p.id, group: p.group, title: a.name, glyph: a.icon ? "" : "\u{F03D7}",
+                                   iconSource: a.icon ? "file://" + a.icon : "", page: "", item: true })))
             if (found(p.title + " " + p.keywords + " " + (settingLabels[p.id] || "")) || subs.length > 0 || items.length > 0)
                 out.push(p)
             for (const x of subs.concat(items)) out.push(x)
@@ -391,11 +399,23 @@ ApplicationWindow {
                                     anchors.rightMargin: ui.s(10)
                                     spacing: ui.s(10)
                                     PaneIcon {
+                                        visible: !item.modelData.iconSource
                                         glyph: item.modelData.glyph || ""
                                         family: item.modelData.glyphFamily || ""
                                         size: item.nested ? ui.small : ui.icon
                                         tint: item.selected ? ui.accent : item.nested ? ui.muted : ui.fg
                                         Layout.preferredWidth: ui.s(18)
+                                    }
+                                    // An AppImage's own icon.
+                                    Image {
+                                        visible: !!item.modelData.iconSource
+                                        source: item.modelData.iconSource || ""
+                                        Layout.preferredWidth: ui.s(18)
+                                        Layout.preferredHeight: ui.small
+                                        sourceSize.width: ui.s(36)
+                                        sourceSize.height: ui.s(36)
+                                        fillMode: Image.PreserveAspectFit
+                                        asynchronous: true
                                     }
                                     Text {
                                         Layout.fillWidth: true

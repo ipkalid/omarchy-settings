@@ -3,6 +3,10 @@
     "one": "%1 of %n installed",
     "other": "%1 of %n installed"
   },
+  "%n added": {
+    "one": "%n added",
+    "other": "%n added"
+  },
   "%n connected": {
     "one": "%n connected",
     "other": "%n connected"
