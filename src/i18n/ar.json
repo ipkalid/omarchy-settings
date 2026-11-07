@@ -95,6 +95,14 @@
     "many": "%n ساعة",
     "other": "%n ساعة"
   },
+  "%n in Downloads": {
+    "zero": "لا شيء في التنزيلات",
+    "one": "واحد في التنزيلات",
+    "two": "اثنان في التنزيلات",
+    "few": "%n في التنزيلات",
+    "many": "%n في التنزيلات",
+    "other": "%n في التنزيلات"
+  },
   "%n installed": {
     "zero": "لا شيء مثبّت",
     "one": "تطبيق واحد مثبّت",
@@ -220,7 +228,6 @@
   "Add your own pictures to %1 to see them here.": "أضف صورك إلى %1 لتظهر هنا.",
   "Added AppImages move to ~/Applications and show in the app launcher with their own icon. Updates come from where their makers publish them and are checked against the published checksum.": "تنتقل تطبيقات AppImage المضافة إلى ‎~/Applications‎ وتظهر في مشغّل التطبيقات بأيقوناتها. تأتي التحديثات من حيث ينشرها صانعوها، ويُتحقق منها بمقارنة المجموع الاختباري المنشور.",
   "Added by you": "أضفته أنت",
-  "Adding one moves it to ~/Applications.": "إضافته تنقله إلى ‎~/Applications‎.",
   "Address": "العنوان",
   "Administrator": "المسؤول",
   "After %n seconds": {

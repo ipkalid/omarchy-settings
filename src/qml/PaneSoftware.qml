@@ -243,12 +243,16 @@ SettingsPage {
     }
 
     SettingsGroup {
-        visible: page.query.length === 0 || page.addedImages.length > 0
+        visible: page.query.length === 0 || page.addedImages.length > 0 || page.downloadedImages.length > 0
         title: qsTr("AppImages")
         footer: qsTr("Added AppImages move to ~/Applications and show in the app launcher with their own icon. Updates come from where their makers publish them and are checked against the published checksum.")
         collapsible: true
         collapsed: !page.isOpen("appimages")
-        summary: qsTr("%n added", "", page.appImages.filter(a => a.location !== "downloads").length)
+        summary: {
+            const added = qsTr("%n added", "", page.appImages.filter(a => a.location !== "downloads").length)
+            const waiting = page.appImages.filter(a => a.location === "downloads").length
+            return waiting > 0 ? added + " · " + qsTr("%n in Downloads", "", waiting) : added
+        }
         onToggle: page.toggleGroup("appimages")
         SettingRow {
             visible: page.query.length === 0
@@ -272,12 +276,23 @@ SettingsPage {
             model: page.addedImages
             delegate: AppImageRow { required property var modelData; image: modelData }
         }
-    }
-
-    SettingsGroup {
-        visible: page.downloadedImages.length > 0
-        title: qsTr("Found in Downloads")
-        footer: qsTr("Adding one moves it to ~/Applications.")
+        // AppImages lying in Downloads, ready to add or to replace one above.
+        Text {
+            visible: page.downloadedImages.length > 0
+            width: parent.width
+            topPadding: ui.s(10)
+            bottomPadding: ui.s(2)
+            leftPadding: ui.s(10)
+            rightPadding: ui.s(10)
+            text: qsTr("Found in Downloads")
+            horizontalAlignment: Text.AlignLeft
+            color: ui.muted
+            font.family: ui.font
+            font.pixelSize: ui.caption
+            font.bold: true
+            elide: Text.ElideRight
+            textFormat: Text.PlainText
+        }
         Repeater {
             model: page.downloadedImages
             delegate: AppImageRow { required property var modelData; image: modelData }

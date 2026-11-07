@@ -31,6 +31,10 @@
     "one": "%n hour",
     "other": "%n hours"
   },
+  "%n in Downloads": {
+    "one": "%n in Downloads",
+    "other": "%n in Downloads"
+  },
   "%n installed": {
     "one": "%n installed",
     "other": "%n installed"
