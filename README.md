@@ -1,17 +1,33 @@
 # Settings
 
-![Settings showing the Appearance pane](docs/screenshot.png)
+![Settings for Omarchy: the Displays pane arranging two monitors, the theme gallery, and more panes, in the current theme](docs/screenshot.png)
 
 One window for the things you would otherwise change by hand in config files
-on [Omarchy](https://omarchy.org). It is laid out like a desktop settings app
-(a searchable sidebar of panes; searching lists the pages and apps inside
-each pane that match, and outlines the matching setting in its page) and drawn like the Omarchy shell's own Wi-Fi and Bluetooth panels, in
-the current theme's colors and monospace font. It follows theme, text size,
-corner, and language changes live, right to left included. It is translated
-into Arabic, Chinese (Simplified and Traditional), French, German, Italian,
-Japanese, Korean, Polish, Portuguese (Brazil), Russian, Spanish (Mexico), and
-Turkish; Omarchy's other languages get their number and date formats and
-show English text until they are translated.
+on [Omarchy](https://omarchy.org), laid out like a desktop settings app and
+drawn like the Omarchy shell's own panels, in the current theme's colors and
+monospace font.
+
+- **23 panes**, from Wi-Fi, sound, and power to the keyboard, printers, and
+  the firewall, with a search that lists the matching pages and apps in every
+  pane and outlines the setting it found.
+- **Multiple displays**: drag displays into place edge to edge, identify
+  which is which, pick the main display, mirror one onto another, choose
+  which workspaces open where, and set adaptive sync, 10-bit color, and HDR.
+  Each monitor keeps its settings on whatever port it is plugged into.
+- **Make it yours**: themes, fonts, wallpaper, the bar's widgets, the dock,
+  window rules, and the Omarchy menu.
+- **Every app Omarchy offers**, installed and removed from one list, plus
+  AppImages added to the launcher with their icons and kept up to date.
+- **Safe changes**: a backup before every rewrite, Ctrl+Z for everything,
+  Hyprland changes rolled back if Hyprland rejects them, and display changes
+  undone unless you keep them.
+- **14 languages**: Arabic, Chinese (Simplified and Traditional), English,
+  French, German, Italian, Japanese, Korean, Polish, Portuguese (Brazil),
+  Russian, Spanish (Mexico), and Turkish, right to left included. Omarchy's
+  other languages get their number and date formats and English text.
+  Theme, text size, corner, and language changes show up live.
+- **Scriptable**: every setting can be read and changed with the
+  `omasettings` command, for scripts and AI agents.
 
 | Pane | What's in it |
 | --- | --- |
@@ -21,7 +37,7 @@ show English text until they are translated.
 | General | About, updates and update channel, language, time zone and clock, default apps and file types, login items, web apps, storage and snapshots, changes and backup |
 | Apps | Everything Omarchy's Install and Remove menus offer (browsers, AI apps, coding agents, services, editors, terminals, games, dev environments, dictation, package pickers), with what's installed, so those menus can stay hidden; AppImages, added to the app launcher with their own icons and updated from where their makers publish them |
 | Appearance | Theme gallery, installing and removing themes, corners, transparency, animations, text size, font |
-| Desktop & Dock, Bar, Plugins | Dock and pinned apps, window layout and gaps, window rules, focus; the bar's widgets and their order; shell plugins and updates |
+| Desktop & Dock, Bar, Omarchy Menu, Plugins | Dock and pinned apps, window layout and gaps, window rules, focus; the bar's widgets and their order; hiding parts of the Omarchy menu, your own menu items, and Settings' pages in the menu search; shell plugins and updates |
 | Displays, Wallpaper | Arranging displays by dragging them edge to edge, identifying which is which, the main display, mirroring, which workspaces open on which display; resolution, refresh, scale, rotation, adaptive sync, 10-bit color and HDR, remembered per monitor whichever port it is plugged into; Night Shift and its schedule; wallpapers and adding your own |
 | Notifications, Sound | Do Not Disturb, crash reports; output and input devices and volume |
 | Lock Screen, Login & Security, Firewall | Idle times; password, fingerprint, security keys; ufw on/off and open ports |
@@ -104,7 +120,10 @@ Settings never rewrites a file you wrote.
 - Idle and lock times are written into `~/.config/omarchy/shell.json` in
   place, keeping its formatting. A file with a syntax error is left alone.
 - Display changes undo themselves after 15 seconds unless you keep them, and
-  the last display can't be turned off.
+  the last display showing its own picture can't be turned off or mirrored
+  away. Moving displays in the arrangement applies at once, with an Undo.
+  Displays are saved by their make, model, and serial number
+  (`desc:...`), so a monitor keeps its settings on any port or dock.
 - Interactive setup (passwords, fingerprint, security keys, updates) opens in
   a terminal, the way Omarchy's menus do it.
 
