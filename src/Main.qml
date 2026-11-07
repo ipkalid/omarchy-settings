@@ -425,6 +425,18 @@ ApplicationWindow {
                         wrapMode: Text.Wrap
                         textFormat: Text.PlainText
                     }
+
+                    // Which Settings this is, under the list.
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Settings %1").arg(Qt.application.version)
+                        horizontalAlignment: Text.AlignHCenter
+                        color: ui.muted2
+                        font.family: ui.font
+                        font.pixelSize: ui.caption
+                        elide: Text.ElideRight
+                        textFormat: Text.PlainText
+                    }
                 }
 
                 Rectangle {

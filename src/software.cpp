@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QSet>
+#include <QStandardPaths>
 
 #include <algorithm>
 
@@ -29,16 +30,34 @@ QString shellQuote(const QString &s) {
     return "'" + QString(s).replace("'", "'\\''") + "'";
 }
 
-// Whether a coding agent is installed, the way omarchy-default-agent itself
-// decides it before offering to install one: its definitions (everything
-// above that check) are read from the script and its agent_present asked.
-// When the script no longer has that check, nothing is run and the agent
-// counts as not installed.
-QString agentPresent(const QString &name) {
+// A coding agent as omarchy-default-agent defines it: its definitions
+// (everything above its install check) are read from the script, which sets
+// $name and $agent_tool and defines agent_present. When the script no longer
+// has that check, nothing is run and this fails.
+QString agentDefinitions(const QString &name) {
     return QStringLiteral(
                "src=$(awk '/^if \\[\\[ \\$installing == \"false\" \\]\\] && ! agent_present/{found=1; exit} {print} "
-               "END{exit !found}' \"$(command -v omarchy-default-agent)\") && set -- %1 && eval \"$src\" && agent_present")
+               "END{exit !found}' \"$(command -v omarchy-default-agent)\") && set -- %1 && eval \"$src\"")
         .arg(shellQuote(name));
+}
+
+// Whether the agent is installed, as omarchy-default-agent decides it before
+// offering to install one.
+QString agentPresent(const QString &name) {
+    return agentDefinitions(name) + " && agent_present";
+}
+
+// Removing a mise-installed agent the way Omarchy retires a mise copy of
+// Hermes: out of the user's global config (where `mise use -g` put it), then
+// every installed version. Omarchy's own lazy declaration stays, as for any
+// tool it declares. A copy the user installed in ~/.local/bin is theirs.
+QString agentRemoval(const QString &name) {
+    return QStringLiteral(
+               "( %1 || exit 1; echo \"Removing $name\"; mise rm -g \"$agent_tool\" >/dev/null 2>&1; "
+               "mise uninstall --all \"$agent_tool\" >/dev/null 2>&1; "
+               "if agent_present; then echo \"$name is still installed, perhaps a copy of your own in ~/.local/bin.\"; exit 1; fi; "
+               "echo \"$name is removed.\" )")
+        .arg(agentDefinitions(name));
 }
 
 // The names a default-app setting uses for an item ("code" for VSCode).
@@ -96,7 +115,8 @@ QList<QVariantMap> Store::softwareItems(bool evaluate) {
     QList<QVariantMap> items;
     QStringList checks;
     for (auto it = found.begin(); it != found.end(); ++it) {
-        const QString key = it.key(), installId = it.value().first, removeId = it.value().second;
+        const QString key = it.key(), installId = it.value().first;
+        QString removeId = it.value().second;
         // A removal with nothing to install is a setup switch (the SSH
         // agent), which Login & Security already has.
         if (installId.isEmpty())
@@ -105,6 +125,14 @@ QList<QVariantMap> Store::softwareItems(bool evaluate) {
         const bool isTool = tools.contains(key);
         const QString category = isTool ? QStringLiteral("tools") : key.section('.', 0, 0);
         const QString name = key.section('.', -1);
+        // Hermes and OpenClaw are installed with their desktop apps (their
+        // agent_installer in omarchy-default-agent), which the menu removes;
+        // Settings removes the agents mise installed. Claude and Amp also
+        // have desktop apps, but those aren't where their agents come from.
+        static const QStringList withApp{"hermes", "openclaw"};
+        if (category == "agent" && removeId.isEmpty() && withApp.contains(name) && hasAction("remove.ai." + name))
+            removeId = "remove.ai." + name;
+        const bool agentDrop = category == "agent" && removeId.isEmpty();
 
         QString label = (installId.isEmpty() ? out : in).value("label").toString();
         // Node.js sits under JavaScript in the menu; here the list is flat.
@@ -143,7 +171,7 @@ QList<QVariantMap> Store::softwareItems(bool evaluate) {
                          {"icon", (installId.isEmpty() ? out : in).value("icon").toString()},
                          {"iconFont", (installId.isEmpty() ? out : in).value("iconFont").toString()},
                          {"installId", installId}, {"removeId", removeId}, {"package", package},
-                         {"dropRemove", removeId.isEmpty() && !package.isEmpty() && !isDefault},
+                         {"dropRemove", agentDrop || (removeId.isEmpty() && !package.isEmpty() && !isDefault)},
                          {"isDefault", isDefault}, {"defaultKind", defaultKind},
                          {"known", !installedIf.isEmpty()}, {"available", true}, {"installed", false}};
         items << item;
@@ -192,6 +220,28 @@ QVariant Store::listSoftware() {
     return out;
 }
 
+QVariant Store::listDefaultApps() {
+    // Each choice and the command omarchy-default-browser, -terminal, and
+    // -editor look for to decide whether it's installed.
+    using Choices = QList<QPair<QString, QString>>;
+    static const QList<QPair<QString, Choices>> kinds{
+        {"browser", {{"chromium", "chromium"}, {"chrome", "google-chrome-stable"}, {"brave", "brave"},
+                     {"brave-origin", "brave-origin"}, {"edge", "microsoft-edge-stable"}, {"firefox", "firefox"},
+                     {"zen", "zen-browser"}}},
+        {"terminal", {{"alacritty", "alacritty"}, {"foot", "foot"}, {"ghostty", "ghostty"}, {"kitty", "kitty"}}},
+        {"editor", {{"nvim", "nvim"}, {"code", "code"}, {"cursor", "cursor"}, {"zed", "zeditor"},
+                    {"sublime_text", "subl"}, {"helix", "helix"}, {"vim", "vim"}, {"emacs", "emacs"}}}};
+    QVariantMap out;
+    for (const auto &[kind, choices] : kinds) {
+        QVariantList installed;
+        for (const auto &[value, command] : choices)
+            if (!QStandardPaths::findExecutable(command).isEmpty())
+                installed << value;
+        out.insert(kind, installed);
+    }
+    return out;
+}
+
 QString Store::softwareCommand(const QString &action, const QString &arg, QStringList &command) {
     if (action == "software.run") {
         // Only an action from Omarchy's shipped menu, under Install, Remove,
@@ -207,7 +257,8 @@ QString Store::softwareCommand(const QString &action, const QString &arg, QStrin
     }
     if (action == "software.drop") {
         // Apps Omarchy installs but has no removal for: drop the package it
-        // checks for, never the terminal or editor in use.
+        // checks for, never the terminal or editor in use; or a coding agent
+        // mise installed.
         for (const QVariantMap &item : softwareItems(false)) {
             if (item.value("key") != arg)
                 continue;
@@ -217,6 +268,10 @@ QString Store::softwareCommand(const QString &action, const QString &arg, QStrin
                     : tr("%1 is your default editor; pick another under General › Default Apps first").arg(item.value("label").toString());
             if (!item.value("dropRemove").toBool())
                 return tr("Settings can't remove %1").arg(item.value("label").toString());
+            if (item.value("category") == "agent") {
+                command = {"omarchy-launch-floating-terminal-with-presentation", agentRemoval(arg.section('.', 1))};
+                return {};
+            }
             command = {"omarchy-launch-floating-terminal-with-presentation", "omarchy-pkg-drop " + item.value("package").toString()};
             return {};
         }

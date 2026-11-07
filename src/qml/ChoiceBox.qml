@@ -74,7 +74,11 @@ ComboBox {
     }
 
     popup: Popup {
+        // Grows from the box's far edge back toward the page, since boxes
+        // sit at the end of their rows, and stays inside the window.
+        x: Qt.application.layoutDirection === Qt.RightToLeft ? 0 : box.width - width
         y: box.height + ui.s(2)
+        margins: ui.s(8)
         width: Math.max(box.width, Math.min(box.maxWidth + ui.s(60), Math.round(380 * ui.scale)))
         implicitHeight: Math.min(list.contentHeight, ui.controlHeight * 10) + 2
         padding: 1

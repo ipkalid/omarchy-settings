@@ -863,6 +863,10 @@ private slots:
                   "  \"remove.service.ssh-agent\": {\"label\":\"SSH Agent\",\"action\":\"s\"},\n"
                   "  \"setup.default.agent\": {\"label\":\"Agent\"},\n"
                   "  \"setup.default.agent.claude\": {\"label\":\"Claude\",\"action\":\"omarchy-default-agent claude\"},\n"
+                  "  \"setup.default.agent.hermes\": {\"label\":\"Hermes\",\"action\":\"omarchy-default-agent hermes\"},\n"
+                  "  \"install.ai.claude\": {\"label\":\"Claude Desktop\",\"action\":\"c\",\"disabled\":\"omarchy-pkg-present claude-desktop\"},\n"
+                  "  \"remove.ai.claude\": {\"label\":\"Claude Desktop\",\"action\":\"rc\"},\n"
+                  "  \"remove.ai.hermes\": {\"label\":\"Hermes Desktop\",\"action\":\"rh\"},\n"
                   "  \"install.style.theme\": {\"label\":\"Theme\",\"action\":\"t\"}\n"
                   "}\n");
         Store store(pathsIn(dir), sys.exec());
@@ -877,11 +881,18 @@ private slots:
         // switch or themes.
         QCOMPARE(QSet<QString>(all.keyBegin(), all.keyEnd()),
                  (QSet<QString>{"package", "browser.zen", "editor.vscode", "editor.zed", "gaming.heroic",
-                                "development.javascript.node", "dictation.voxtype", "agent.claude"}));
+                                "development.javascript.node", "dictation.voxtype", "agent.claude", "agent.hermes",
+                                "ai.claude"}));
         QCOMPARE(all["agent.claude"].value("installId").toString(), QString("setup.default.agent.claude"));
         QCOMPARE(all["agent.claude"].value("category").toString(), QString("agent"));
         // The agent menu has no installed check; omarchy-default-agent's own is used.
         QVERIFY(all["agent.claude"].value("known").toBool());
+        // Hermes comes with its desktop app, so removing it is the app's
+        // removal; Claude Desktop's removal is not the Claude agent's.
+        QCOMPARE(all["agent.hermes"].value("removeId").toString(), QString("remove.ai.hermes"));
+        QVERIFY(!all["agent.hermes"].value("dropRemove").toBool());
+        QCOMPARE(all["agent.claude"].value("removeId").toString(), QString());
+        QVERIFY(all["agent.claude"].value("dropRemove").toBool());
         QCOMPARE(all["browser.zen"].value("removeId").toString(), QString("remove.browser.zen"));
         QCOMPARE(all["development.javascript.node"].value("label").toString(), QString("Node.js (JavaScript)"));
         QCOMPARE(all["dictation.voxtype"].value("installId").toString(), QString("setup.default.dictation.voxtype"));
@@ -904,6 +915,25 @@ private slots:
         QVERIFY(all["agent.claude"].value("installed").toBool());
         QVERIFY(all["gaming.heroic"].value("available").toBool());
         QVERIFY(!all["editor.zed"].value("installed").toBool());
+    }
+
+    void defaultAppsOfferWhatIsInstalled() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        // Installed is the command Omarchy's default-app scripts look for.
+        for (const char *command : {"kitty", "subl", "zeditor", "firefox"}) {
+            const QString path = dir.path() + "/bin/" + QString::fromUtf8(command);
+            writeText(path, "#!/bin/sh\n");
+            QFile::setPermissions(path, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+        }
+        const QByteArray path = qgetenv("PATH");
+        qputenv("PATH", (dir.path() + "/bin").toUtf8());
+        Store store(pathsIn(dir), sys.exec());
+        const QVariantMap apps = store.list("defaultApps").toMap();
+        qputenv("PATH", path);
+        QCOMPARE(apps.value("terminal").toStringList(), QStringList{"kitty"});
+        QCOMPARE(apps.value("editor").toStringList(), (QStringList{"zed", "sublime_text"}));
+        QCOMPARE(apps.value("browser").toStringList(), QStringList{"firefox"});
     }
 
     void appsAreInstalledAndRemovedOnlyTheMenusWay() {
@@ -931,6 +961,12 @@ private slots:
         command.clear();
         QCOMPARE(store.softwareCommand("software.run", "setup.default.agent.codex", command), QString());
         QCOMPARE(command.last(), QString("omarchy-default-agent codex"));
+        command.clear();
+        QCOMPARE(store.softwareCommand("software.drop", "agent.codex", command), QString());
+        // An agent mise installed comes out of mise, in a terminal.
+        QCOMPARE(command.first(), QString("omarchy-launch-floating-terminal-with-presentation"));
+        QVERIFY(command.last().contains("mise uninstall --all \"$agent_tool\""));
+        QVERIFY(command.last().contains("set -- 'codex'"));
         // Only install and remove items, and only ones that do something.
         QVERIFY(!store.softwareCommand("software.run", "learn.arch", command).isEmpty());
         QVERIFY(!store.softwareCommand("software.run", "install.browser", command).isEmpty());

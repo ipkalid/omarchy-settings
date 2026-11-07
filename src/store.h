@@ -133,6 +133,8 @@ private:
     // software.cpp: the apps and tools Omarchy's Install and Remove menus offer.
     QList<QVariantMap> softwareItems(bool evaluate);
     QVariant listSoftware();
+    // Which of the default browser, terminal, and editor choices are installed.
+    QVariant listDefaultApps();
     QString rewriteMenu(const std::function<QString(QStringList &)> &change);
     QString menuItemAction(const QString &action, const QVariantMap &item);
 

@@ -232,11 +232,25 @@ SettingsPage {
         }
         Text {
             Layout.fillWidth: true
-            text: removeDialog.drop
+            text: removeDialog.item.category === "agent"
+                  ? (removeDialog.drop ? qsTr("A terminal opens to remove it from mise, where Omarchy installed it.")
+                                       : qsTr("It comes with its desktop app: a terminal opens to remove the app, and may ask for your password."))
+                  : removeDialog.drop
                   ? qsTr("A terminal opens to remove the %1 package, and asks for your password.").arg(removeDialog.item.package || "")
                   : qsTr("A terminal opens to remove it the way Omarchy's menu does, and may ask for your password.")
             horizontalAlignment: Text.AlignLeft
             color: ui.muted
+            font.family: ui.font
+            font.pixelSize: ui.small
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+        }
+        Text {
+            visible: removeDialog.item.defaultKind === "agent"
+            Layout.fillWidth: true
+            text: qsTr("It's your coding agent. Pick another under General › Default Apps, or Omarchy's agent shortcut offers to install it again.")
+            horizontalAlignment: Text.AlignLeft
+            color: ui.urgent
             font.family: ui.font
             font.pixelSize: ui.small
             wrapMode: Text.Wrap
