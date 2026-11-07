@@ -108,6 +108,7 @@
   "A display can't mirror itself": "顯示器無法鏡像自己",
   "A keyboard shortcut for Settings": "「設定」的鍵盤快捷鍵",
   "A network name is 1 to 32 characters": "網路名稱須為 1 至 32 個字元",
+  "A password can't contain tabs or line breaks": "密碼不能包含定位字元或換行",
   "A port is a number like 22, or a range like 6000:6010": "連接埠為數字（如 22）或範圍（如 6000:6010）",
   "A reminder is a notification at a time you pick, like a kitchen timer.": "提醒是在你指定的時間跳出的通知，就像廚房計時器。",
   "A single window on a wide screen stays a comfortable shape instead of filling it": "寬螢幕上的單一視窗會維持舒適的比例，而不會填滿整個畫面",

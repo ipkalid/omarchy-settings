@@ -171,6 +171,7 @@
   "A display can't mirror itself": "Монитор не может дублировать сам себя",
   "A keyboard shortcut for Settings": "Сочетание клавиш для Настроек",
   "A network name is 1 to 32 characters": "Имя сети должно содержать от 1 до 32 символов",
+  "A password can't contain tabs or line breaks": "Пароль не может содержать табуляции или переносы строк",
   "A port is a number like 22, or a range like 6000:6010": "Порт — это число, например 22, или диапазон, например 6000:6010",
   "A reminder is a notification at a time you pick, like a kitchen timer.": "Напоминание — это уведомление в выбранное время, как кухонный таймер.",
   "A single window on a wide screen stays a comfortable shape instead of filling it": "Единственное окно на широком экране сохраняет удобные пропорции, а не растягивается на весь экран",

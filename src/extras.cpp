@@ -98,8 +98,10 @@ QString Store::actVpn(const QString &action, const QVariantList &args) {
         // no prompt.
         QString error = runOk("nmcli", {"connection", "modify", "uuid", a0, "+vpn.data", "username=" + user}, 15000);
         if (error.isEmpty() && !password.isEmpty())
-            error = runOk("nmcli", {"connection", "modify", "uuid", a0, "+vpn.data", "password-flags=0",
-                                    "vpn.secrets", "password=" + password}, 15000);
+            error = runOk("nmcli", {"connection", "modify", "uuid", a0, "+vpn.data", "password-flags=0"}, 15000);
+        // The password itself never goes in nmcli's arguments.
+        if (error.isEmpty() && !password.isEmpty())
+            error = setNmSecret(a0, "vpn.secrets", "password=" + password);
         return error;
     }
     return tr("Unknown action %1").arg(action);

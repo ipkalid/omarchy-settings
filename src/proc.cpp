@@ -20,7 +20,7 @@ QString ProcResult::failure(const QString &program) const {
     return detail.section('\n', -1).trimmed();
 }
 
-ProcResult runProcess(const QString &program, const QStringList &args, int timeoutMs) {
+ProcResult runProcess(const QString &program, const QStringList &args, int timeoutMs, const QByteArray &input) {
     ProcResult result;
     QProcess process;
     // Omarchy's commands send desktop notifications and translate their output
@@ -40,6 +40,10 @@ ProcResult runProcess(const QString &program, const QStringList &args, int timeo
     if (!process.waitForStarted(2000))
         return result;
     result.started = true;
+    if (!input.isEmpty()) {
+        process.write(input);
+        process.waitForBytesWritten(timeoutMs);
+    }
     process.closeWriteChannel();
     if (!process.waitForFinished(timeoutMs)) {
         process.kill();

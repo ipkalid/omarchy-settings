@@ -108,6 +108,7 @@
   "A display can't mirror itself": "ディスプレイは自分自身をミラーリングできません",
   "A keyboard shortcut for Settings": "設定アプリを開くキーボードショートカット",
   "A network name is 1 to 32 characters": "ネットワーク名は 1〜32 文字で指定してください",
+  "A password can't contain tabs or line breaks": "パスワードにタブや改行は使えません",
   "A port is a number like 22, or a range like 6000:6010": "ポートは 22 のような番号か、6000:6010 のような範囲で指定します",
   "A reminder is a notification at a time you pick, like a kitchen timer.": "リマインダーは、キッチンタイマーのように指定した時刻に届く通知です。",
   "A single window on a wide screen stays a comfortable shape instead of filling it": "ワイド画面でウィンドウが 1 つだけのとき、画面いっぱいに広げず見やすい形に保ちます",

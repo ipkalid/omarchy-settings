@@ -150,6 +150,7 @@
   "A display can't mirror itself": "Uno schermo non può duplicare se stesso",
   "A keyboard shortcut for Settings": "Una scorciatoia da tastiera per Impostazioni",
   "A network name is 1 to 32 characters": "Il nome di una rete deve avere da 1 a 32 caratteri",
+  "A password can't contain tabs or line breaks": "Una password non può contenere tabulazioni o a capo",
   "A port is a number like 22, or a range like 6000:6010": "Una porta è un numero come 22, o un intervallo come 6000:6010",
   "A reminder is a notification at a time you pick, like a kitchen timer.": "Un promemoria è una notifica all'ora che scegli, come un timer da cucina.",
   "A single window on a wide screen stays a comfortable shape instead of filling it": "Una singola finestra su uno schermo largo mantiene una forma comoda invece di riempirlo",

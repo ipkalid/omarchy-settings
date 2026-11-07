@@ -129,6 +129,7 @@
   "A display can't mirror itself": "Bir ekran kendini yansıtamaz",
   "A keyboard shortcut for Settings": "Ayarlar için bir klavye kısayolu",
   "A network name is 1 to 32 characters": "Ağ adı 1 ile 32 karakter arasında olmalıdır",
+  "A password can't contain tabs or line breaks": "Parola sekme veya satır sonu içeremez",
   "A port is a number like 22, or a range like 6000:6010": "Port, 22 gibi bir sayı ya da 6000:6010 gibi bir aralıktır",
   "A reminder is a notification at a time you pick, like a kitchen timer.": "Hatırlatıcı, mutfak zamanlayıcısı gibi seçtiğiniz zamanda gelen bir bildirimdir.",
   "A single window on a wide screen stays a comfortable shape instead of filling it": "Geniş ekrandaki tek pencere, ekranı doldurmak yerine rahat bir oranda kalır",

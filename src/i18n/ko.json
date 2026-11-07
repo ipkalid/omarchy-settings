@@ -108,6 +108,7 @@
   "A display can't mirror itself": "디스플레이는 자기 자신을 미러링할 수 없습니다",
   "A keyboard shortcut for Settings": "설정용 키보드 단축키",
   "A network name is 1 to 32 characters": "네트워크 이름은 1~32자여야 합니다",
+  "A password can't contain tabs or line breaks": "비밀번호에는 탭이나 줄바꿈을 넣을 수 없습니다",
   "A port is a number like 22, or a range like 6000:6010": "포트는 22와 같은 숫자 또는 6000:6010과 같은 범위입니다",
   "A reminder is a notification at a time you pick, like a kitchen timer.": "리마인더는 주방 타이머처럼 지정한 시간에 표시되는 알림입니다.",
   "A single window on a wide screen stays a comfortable shape instead of filling it": "와이드 화면에서 창이 하나뿐이면 화면을 가득 채우지 않고 보기 편한 비율을 유지합니다",

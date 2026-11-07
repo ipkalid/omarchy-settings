@@ -23,14 +23,18 @@
 // from a table keyed by "program arg arg...".
 struct FakeSystem {
     QStringList calls;
+    // What each call was given on standard input, by call.
+    QHash<QString, QByteArray> inputs;
     QHash<QString, ProcResult> answers;
     QString configErrorsAfterReload;
     bool reloaded = false;
 
     Exec exec() {
-        return [this](const QString &program, const QStringList &args, int) {
+        return [this](const QString &program, const QStringList &args, int, const QByteArray &input) {
             const QString call = (QStringList{QFileInfo(program).fileName()} + args).join(' ');
             calls << call;
+            if (!input.isEmpty())
+                inputs[call] += input;
             if (call == "hyprctl reload")
                 reloaded = true;
             if (call == "hyprctl configerrors") {
@@ -483,6 +487,51 @@ private slots:
         QCOMPARE(Layout::place({a}, 0, QPoint(300, 300), 40), (QList<QPoint>{{0, 0}}));
     }
 
+    void wifiAndVpnPasswordsNeverGoInArguments() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        sys.answer("nmcli -t -f SSID,SECURITY device wifi list --rescan no", "Cafe:WPA2\nHome\\:5G:WPA3\n");
+        sys.answer("nmcli connection add type wifi con-name Cafe ssid Cafe wifi-sec.key-mgmt wpa-psk",
+                   "Connection 'Cafe' (11111111-2222-3333-4444-555555555555) successfully added.\n");
+        Store store(pathsIn(dir), sys.exec());
+        const QString password = R"(  my "pass" \word  )";
+        QCOMPARE(store.act("wifi.connect", {"Cafe", password}), QString());
+        const QString edit = "nmcli connection edit uuid 11111111-2222-3333-4444-555555555555";
+        // Asked for on its own line; backslashes escaped, spaces kept.
+        QCOMPARE(QString::fromUtf8(sys.inputs.value(edit)),
+                 QString("set 802-11-wireless-security.psk\n" R"(  my "pass" \\word  )" "\nsave persistent\nquit\n"));
+        QVERIFY(sys.calls.contains("nmcli --wait 30 connection up uuid 11111111-2222-3333-4444-555555555555"));
+        for (const QString &call : sys.calls)
+            QVERIFY2(!call.contains("pass"), qPrintable(call));
+
+        // A network secured with WPA3 alone is joined with SAE; one that
+        // fails is not left behind as a saved profile.
+        sys.answer("nmcli connection add type wifi con-name Home:5G ssid Home:5G wifi-sec.key-mgmt sae",
+                   "Connection 'Home:5G' (66666666-2222-3333-4444-555555555555) successfully added.\n");
+        sys.answer("nmcli --wait 30 connection up uuid 66666666-2222-3333-4444-555555555555", "Error: Secrets were required", 4);
+        QVERIFY(!store.act("wifi.connect", {"Home:5G", "wrong-password"}).isEmpty());
+        QVERIFY(sys.calls.contains("nmcli connection delete uuid 66666666-2222-3333-4444-555555555555"));
+        QVERIFY(store.act("wifi.connect", {"Cafe", "tab\there!"}).contains("line breaks"));
+
+        // VPN: the user name in vpn.data, the password only on stdin.
+        const QString vpn = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+        QCOMPARE(store.act("vpn.credentials", {vpn, "me", "s3cret pass"}), QString());
+        QCOMPARE(QString::fromUtf8(sys.inputs.value("nmcli connection edit uuid " + vpn)),
+                 QString("set vpn.secrets\npassword=s3cret pass\nsave persistent\nquit\n"));
+        for (const QString &call : sys.calls)
+            QVERIFY2(!call.contains("s3cret"), qPrintable(call));
+    }
+
+    void secretErrorsNeverShowThePassword() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        sys.answerPrefix("nmcli connection edit", "nmcli> Error: failed to set 'password' property: 'hunter22' is invalid\n");
+        Store store(pathsIn(dir), sys.exec());
+        const QString error = store.act("vpn.credentials", {"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "me", "hunter22"});
+        QVERIFY(error.contains("is invalid"));
+        QVERIFY(!error.contains("hunter22"));
+    }
+
     void actionsRejectUnsafeArguments() {
         QTemporaryDir dir;
         FakeSystem sys;
@@ -497,9 +546,14 @@ private slots:
     void hiddenNetworksAreJoinedByName() {
         QTemporaryDir dir;
         FakeSystem sys;
+        sys.answer("nmcli connection add type wifi con-name Secret Lab ssid Secret Lab wifi-sec.key-mgmt wpa-psk 802-11-wireless.hidden yes",
+                   "Connection 'Secret Lab' (77777777-2222-3333-4444-555555555555) successfully added.\n");
         Store store(pathsIn(dir), sys.exec());
         QCOMPARE(store.act("wifi.connectHidden", {"Secret Lab", "hunter22"}), QString());
-        QVERIFY(sys.calls.contains("nmcli --wait 30 device wifi connect Secret Lab password hunter22 hidden yes"));
+        QCOMPARE(QString::fromUtf8(sys.inputs.value("nmcli connection edit uuid 77777777-2222-3333-4444-555555555555")),
+                 QString("set 802-11-wireless-security.psk\nhunter22\nsave persistent\nquit\n"));
+        QVERIFY(sys.calls.contains("nmcli --wait 30 connection up uuid 77777777-2222-3333-4444-555555555555"));
+        QVERIFY(!sys.calls.join('\n').contains("hunter22"));
         QCOMPARE(store.act("wifi.connectHidden", {"Open Lab", ""}), QString());
         QVERIFY(sys.calls.contains("nmcli --wait 30 device wifi connect Open Lab hidden yes"));
         QVERIFY(store.act("wifi.connectHidden", {"", ""}).contains("1 to 32"));
@@ -527,7 +581,9 @@ private slots:
         QVERIFY(store.act("vpn.delete", {"; rm -rf ~"}).contains("Unknown VPN"));
         QCOMPARE(store.act("vpn.credentials", {uuid, "me", "pw"}), QString());
         QVERIFY(sys.calls.contains("nmcli connection modify uuid " + uuid + " +vpn.data username=me"));
-        QVERIFY(sys.calls.contains("nmcli connection modify uuid " + uuid + " +vpn.data password-flags=0 vpn.secrets password=pw"));
+        QVERIFY(sys.calls.contains("nmcli connection modify uuid " + uuid + " +vpn.data password-flags=0"));
+        QCOMPARE(QString::fromUtf8(sys.inputs.value("nmcli connection edit uuid " + uuid)),
+                 QString("set vpn.secrets\npassword=pw\nsave persistent\nquit\n"));
         QVERIFY(store.act("vpn.credentials", {uuid, "a,b", ""}).contains("commas"));
     }
 

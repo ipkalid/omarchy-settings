@@ -588,6 +588,13 @@ ApplicationWindow {
                         onClicked: win.helpVisible = true
                         tooltip: qsTr("Keyboard shortcuts (?)")
                     }
+                    // Closes the app with the mouse, the same as Q.
+                    OmaButton {
+                        glyph: "\u{F0156}"
+                        bordered: false
+                        onClicked: Qt.quit()
+                        tooltip: qsTr("Quit")
+                    }
                 }
 
                 Rectangle { Layout.fillWidth: true; height: 1; color: ui.separator }

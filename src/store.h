@@ -86,7 +86,8 @@ public:
     static QString appImageUpdateInfo(const QString &path);
 
 private:
-    ProcResult run(const QString &program, const QStringList &args, int timeoutMs = 5000) const;
+    ProcResult run(const QString &program, const QStringList &args, int timeoutMs = 5000,
+                   const QByteArray &input = {}) const;
     QString runOk(const QString &program, const QStringList &args, int timeoutMs = 5000) const;
     QString launch(const QString &program, const QStringList &args) const;
     QString output(const QString &program, const QStringList &args, int timeoutMs = 5000) const;
@@ -186,6 +187,10 @@ public:
 
 private:
     QString monitorAction(const QString &action, const QVariantList &args);
+    // Sets a secret on a NetworkManager connection through nmcli's editor on
+    // standard input, so it never shows in a process list.
+    QString setNmSecret(const QString &uuid, const QString &property, const QString &value);
+    QString joinWifi(const QString &ssid, const QString &password, bool hidden);
     QString launchInTerminal(const QString &id);
 
     void addHypr(const QString &id, const QString &pane, const QString &type, const QString &option,

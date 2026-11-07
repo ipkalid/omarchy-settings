@@ -108,6 +108,7 @@
   "A display can't mirror itself": "显示器不能镜像自身",
   "A keyboard shortcut for Settings": "“设置”的快捷键",
   "A network name is 1 to 32 characters": "网络名称为 1 到 32 个字符",
+  "A password can't contain tabs or line breaks": "密码不能包含制表符或换行符",
   "A port is a number like 22, or a range like 6000:6010": "端口为数字（如 22）或范围（如 6000:6010）",
   "A reminder is a notification at a time you pick, like a kitchen timer.": "提醒会在你选定的时间发出通知，就像厨房定时器一样。",
   "A single window on a wide screen stays a comfortable shape instead of filling it": "宽屏上的单个窗口会保持舒适的比例，而不是铺满屏幕",

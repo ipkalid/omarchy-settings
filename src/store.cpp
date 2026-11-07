@@ -75,7 +75,7 @@ Store::Store(Paths paths, Exec exec)
     build();
 }
 
-ProcResult Store::run(const QString &program, const QStringList &args, int timeoutMs) const {
+ProcResult Store::run(const QString &program, const QStringList &args, int timeoutMs, const QByteArray &input) const {
     // Omarchy's commands live in $OMARCHY_PATH/bin, which the session puts on
     // PATH; look there too so a launch from a bare environment still works.
     QString resolved = program;
@@ -86,7 +86,7 @@ ProcResult Store::run(const QString &program, const QStringList &args, int timeo
         if (resolved.isEmpty())
             resolved = program;
     }
-    return m_exec(resolved, args, timeoutMs);
+    return m_exec(resolved, args, timeoutMs, input);
 }
 
 // Windows the app opens (terminals, editors) outlive it, so they start
@@ -1387,6 +1387,95 @@ QString Store::monitorAction(const QString &action, const QVariantList &args) {
     return {};
 }
 
+// nmcli takes a password as an argument, where any local account can read it
+// while the command runs, so it goes through nmcli's connection editor on
+// standard input instead. Asked for on a line of its own, the editor keeps
+// the value as typed, spaces included; only backslashes are escapes.
+QString Store::setNmSecret(const QString &uuid, const QString &property, const QString &value) {
+    for (const QChar c : value)
+        if (c.unicode() < 0x20 || c.unicode() == 0x7f)
+            return tr("A password can't contain tabs or line breaks");
+    QString escaped = value;
+    escaped.replace("\\", "\\\\");
+    const QByteArray script = ("set " + property + "\n" + escaped + "\nsave persistent\nquit\n").toUtf8();
+    const ProcResult r = run("nmcli", {"connection", "edit", "uuid", uuid}, 15000, script);
+    QString error;
+    for (const QString &line : QString::fromUtf8(r.out + r.err).split('\n'))
+        if (const int at = line.indexOf("Error:"); at >= 0 && error.isEmpty())
+            error = line.mid(at + 6).trimmed();
+    if (error.isEmpty() && !r.ok())
+        error = r.failure("nmcli");
+    // An error may quote what was typed; never show the password.
+    for (const QString &secret : {value, value.section('=', 1)})
+        if (!secret.isEmpty())
+            error.replace(secret, QStringLiteral("…"));
+    return error;
+}
+
+// Joins a Wi-Fi network with a password the way `nmcli device wifi connect`
+// does (a saved profile named after the network, then activated), with the
+// password set through setNmSecret.
+QString Store::joinWifi(const QString &ssid, const QString &password, bool hidden) {
+    for (const QChar c : password)
+        if (c.unicode() < 0x20 || c.unicode() == 0x7f)
+            return tr("A password can't contain tabs or line breaks");
+    // The scan says how the network is secured; a hidden one isn't in it.
+    QString security;
+    if (!hidden)
+        for (const QString &line : output("nmcli", {"-t", "-f", "SSID,SECURITY", "device", "wifi", "list", "--rescan", "no"}, 15000).split('\n')) {
+            const QStringList f = splitTerse(line);
+            if (f.size() >= 2 && f[0] == ssid) {
+                security = f[1];
+                break;
+            }
+        }
+    const bool wep = security.contains("WEP");
+    const bool saeOnly = security.contains("WPA3") && !security.contains("WPA2") && !security.contains("WPA1");
+    const QString keyMgmt = wep ? "none" : saeOnly ? "sae" : "wpa-psk";
+
+    // A profile already saved for this network gets the new password;
+    // otherwise one is made, and taken away again if joining fails.
+    QString uuid;
+    for (const QString &line : output("nmcli", {"-t", "-f", "NAME,UUID,TYPE", "connection", "show"}).split('\n')) {
+        const QStringList f = splitTerse(line);
+        if (f.size() >= 3 && f[0] == ssid && f[2] == "802-11-wireless") {
+            uuid = f[1];
+            break;
+        }
+    }
+    const bool made = uuid.isEmpty();
+    if (made) {
+        QStringList add{"connection", "add", "type", "wifi", "con-name", ssid, "ssid", ssid,
+                        "wifi-sec.key-mgmt", keyMgmt};
+        if (hidden)
+            add << "802-11-wireless.hidden" << "yes";
+        const ProcResult r = run("nmcli", add, 15000);
+        if (!r.ok())
+            return r.failure("nmcli");
+        static const QRegularExpression added(R"(\(([0-9a-fA-F-]{36})\))");
+        uuid = added.match(r.text()).captured(1);
+        if (uuid.isEmpty())
+            return r.failure("nmcli");
+    }
+    QString error;
+    if (wep) {
+        // 5 or 13 characters (or 10 or 26 hex digits) is a key; anything
+        // else is a passphrase.
+        static const QRegularExpression hexKey("^([0-9a-fA-F]{10}|[0-9a-fA-F]{26})$");
+        const bool key = password.size() == 5 || password.size() == 13 || hexKey.match(password).hasMatch();
+        error = runOk("nmcli", {"connection", "modify", "uuid", uuid, "wifi-sec.wep-key-type", key ? "1" : "2"}, 15000);
+        if (error.isEmpty())
+            error = setNmSecret(uuid, "802-11-wireless-security.wep-key0", password);
+    } else {
+        error = setNmSecret(uuid, "802-11-wireless-security.psk", password);
+    }
+    if (error.isEmpty())
+        error = runOk("nmcli", {"--wait", "30", "connection", "up", "uuid", uuid}, 40000);
+    if (!error.isEmpty() && made)
+        run("nmcli", {"connection", "delete", "uuid", uuid}, 15000);
+    return error;
+}
+
 QString Store::act(const QString &action, const QVariantList &args) {
     const QString a0 = args.value(0).toString();
     static const QRegularExpression mac("^[0-9A-F]{2}(:[0-9A-F]{2}){5}$");
@@ -1394,13 +1483,13 @@ QString Store::act(const QString &action, const QVariantList &args) {
     if (action == "wifi.connect") {
         if (a0.isEmpty())
             return tr("Choose a network");
+        const QString password = args.value(1).toString();
         const bool known = output("nmcli", {"-t", "-f", "NAME", "connection", "show"}).split('\n').contains(a0);
-        if (known && args.value(1).toString().isEmpty())
+        if (known && password.isEmpty())
             return runOk("nmcli", {"--wait", "30", "connection", "up", "id", a0}, 40000);
-        QStringList command{"--wait", "30", "device", "wifi", "connect", a0};
-        if (!args.value(1).toString().isEmpty())
-            command << "password" << args.value(1).toString();
-        return runOk("nmcli", command, 40000);
+        if (password.isEmpty())
+            return runOk("nmcli", {"--wait", "30", "device", "wifi", "connect", a0}, 40000);
+        return joinWifi(a0, password, false);
     }
     if (action == "wifi.disconnect") {
         for (const QString &line : output("nmcli", {"-t", "-f", "DEVICE,TYPE,STATE", "device"}).split('\n')) {
@@ -1418,11 +1507,9 @@ QString Store::act(const QString &action, const QVariantList &args) {
         const QString password = args.value(1).toString();
         if (a0.isEmpty() || a0.toUtf8().size() > 32)
             return tr("A network name is 1 to 32 characters");
-        QStringList command{"--wait", "30", "device", "wifi", "connect", a0};
-        if (!password.isEmpty())
-            command << "password" << password;
-        command << "hidden" << "yes";
-        return runOk("nmcli", command, 45000);
+        if (password.isEmpty())
+            return runOk("nmcli", {"--wait", "30", "device", "wifi", "connect", a0, "hidden", "yes"}, 45000);
+        return joinWifi(a0, password, true);
     }
     if (action.startsWith("vpn."))
         return actVpn(action, args);

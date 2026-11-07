@@ -171,6 +171,7 @@
   "A display can't mirror itself": "Ekran nie może klonować samego siebie",
   "A keyboard shortcut for Settings": "Skrót klawiszowy do Ustawień",
   "A network name is 1 to 32 characters": "Nazwa sieci musi mieć od 1 do 32 znaków",
+  "A password can't contain tabs or line breaks": "Hasło nie może zawierać tabulatorów ani podziałów wiersza",
   "A port is a number like 22, or a range like 6000:6010": "Port to liczba, np. 22, lub zakres, np. 6000:6010",
   "A reminder is a notification at a time you pick, like a kitchen timer.": "Przypomnienie to powiadomienie o wybranej godzinie, jak minutnik kuchenny.",
   "A single window on a wide screen stays a comfortable shape instead of filling it": "Pojedyncze okno na szerokim ekranie zachowuje wygodne proporcje zamiast go wypełniać",

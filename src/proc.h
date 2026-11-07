@@ -19,9 +19,13 @@ struct ProcResult {
 };
 
 // Every command the app runs goes through one of these, so tests can hand the
-// store a fake system instead of the real one.
-using Exec = std::function<ProcResult(const QString &program, const QStringList &args, int timeoutMs)>;
+// store a fake system instead of the real one. `input` is written to the
+// command's standard input: secrets go there, never into the arguments,
+// which any local account can read while the command runs.
+using Exec = std::function<ProcResult(const QString &program, const QStringList &args, int timeoutMs,
+                                      const QByteArray &input)>;
 
 // Runs a program without a shell (arguments are never interpreted), waits up
 // to timeoutMs, and kills it if it takes longer.
-ProcResult runProcess(const QString &program, const QStringList &args, int timeoutMs = 5000);
+ProcResult runProcess(const QString &program, const QStringList &args, int timeoutMs = 5000,
+                      const QByteArray &input = {});
