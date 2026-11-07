@@ -52,9 +52,10 @@ SettingsPage {
         "preinstalls": { label: qsTr("Preinstalled apps"), detail: qsTr("The apps Omarchy comes with") }
     })
 
-    // Which groups are open. Categories start closed so the page reads as a
-    // list of them; filtering opens everything so matches show.
-    property var openGroups: ({ "tools": true, "appimages": true })
+    // Which groups are open. Only the first, Packages & Tools, starts open,
+    // so the page reads as a list of the rest; filtering opens everything
+    // so matches show.
+    property var openGroups: ({ "tools": true })
     readonly property bool searching: query.length > 0 || installedOnly || win.query.trim().length > 1
     function isOpen(id) { return searching || !!openGroups[id] }
     function toggleGroup(id) {
