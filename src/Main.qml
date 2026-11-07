@@ -250,10 +250,77 @@ ApplicationWindow {
         go(to.pane, to.sub, to.subTitle, false)
     }
 
+    // A page's short name in links: its component name without the pane's
+    // (GeneralDateTime is general/datetime, KeyboardShortcuts is keyboard/shortcuts).
+    function pageSlug(sp) {
+        const prefix = sp.pane.toLowerCase()
+        const name = sp.page.toLowerCase()
+        return name.indexOf(prefix) === 0 && name.length > prefix.length ? name.slice(prefix.length) : name
+    }
+    // Opens what `omasettings open <pane>[/<page>]` names, from the command
+    // line or from another launch while this window is open. Anything it
+    // doesn't know opens the pane, or leaves the window where it is.
+    function openTarget(target, record) {
+        const parts = String(target || "").trim().toLowerCase().split("/")
+        const paneId = parts[0]
+        if (!paneId || !paneById(paneId))
+            return
+        const sp = parts[1] ? subPages.find(s => s.pane === paneId
+                                                && (pageSlug(s) === parts[1] || s.page.toLowerCase() === parts[1])) : null
+        // A fresh look, not the search that was typed in the window before.
+        if (search.text.length > 0) search.text = ""
+        if (sp) { subParams = {}; go(paneId, sp.page, sp.title, record) }
+        else go(paneId, "", "", record)
+    }
+
+    Connections {
+        target: backend
+        function onOpenRequested(target) { win.openTarget(target) }
+    }
+
+    // Every pane and page as an entry for the Omarchy menu's search (off
+    // until switched on in Omarchy Menu): its title and keywords in the
+    // language in use, and in English too, so either finds it.
+    function menuSearchEntries() {
+        const terms = (title, keywords) => {
+            const out = []
+            for (const t of [translator.english(title), keywords || "", translator.english(keywords || "")])
+                if (t && t !== title && out.indexOf(t) < 0) out.push(t)
+            return out
+        }
+        const out = []
+        for (const p of panes) {
+            if (!p.show) continue
+            out.push({ id: p.id, target: p.id, icon: p.glyph, label: p.title, searchTerms: terms(p.title, p.keywords) })
+            for (const sp of subPages.filter(s => s.pane === p.id))
+                out.push({ id: p.id + "." + pageSlug(sp), target: p.id + "/" + pageSlug(sp), icon: sp.glyph,
+                           label: sp.title, searchTerms: terms(sp.title, sp.keywords) })
+        }
+        return out
+    }
+    readonly property bool menuSearchOn: !!(backend.lists.menuSearch || {}).on
+    function setMenuSearch(on) {
+        backend.act("menu.searchEntries", [on ? menuSearchEntries() : [], qsTr("Settings")], ["menuSearch"])
+    }
+    // While it's on, the entries follow the language and what this computer
+    // has (Battery or Power); writing the same entries again changes nothing.
+    Timer {
+        id: menuSearchSync
+        interval: 1500
+        onTriggered: if (win.menuSearchOn) win.setMenuSearch(true)
+    }
+    onMenuSearchOnChanged: if (menuSearchOn) menuSearchSync.restart()
+    onCapsChanged: menuSearchSync.restart()
+    Connections {
+        target: translator
+        function onChanged() { menuSearchSync.restart() }
+    }
+
     Component.onCompleted: {
         backend.load("capabilities")
-        if (initialPane && paneById(initialPane))
-            pane = initialPane
+        backend.load("menuSearch")
+        // Where the window opens isn't somewhere to go back to.
+        openTarget(initialPane, false)
     }
 
     property bool helpVisible: false

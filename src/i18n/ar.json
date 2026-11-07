@@ -315,6 +315,7 @@
   "Browsers": "المتصفحات",
   "Built In": "مدمجة",
   "Calendar": "التقويم",
+  "Can't add %1 to the menu": "تعذّر إضافة %1 إلى القائمة",
   "Cancel": "إلغاء",
   "Caps Lock": "Caps Lock",
   "Caps Lock key": "مفتاح Caps Lock",
@@ -485,6 +486,7 @@
     "many": "تصفية %n اختصارًا",
     "other": "تصفية %n اختصار"
   },
+  "Find Settings' pages in the menu search": "إيجاد صفحات الإعدادات في بحث القائمة",
   "Find themes at omarchy.org/themes. Paste the theme's git address; it is downloaded and applied.": "اعثر على السمات في omarchy.org/themes. الصق عنوان git للسمة لتُنزَّل وتُطبَّق.",
   "Fingerprint": "بصمة الإصبع",
   "Fingerprint, security keys, and SSH": "البصمة ومفاتيح الأمان وSSH",
@@ -1103,6 +1105,7 @@
   "Turning one off frees its keys for something else. For anything this can't do, edit bindings.lua.": "إيقاف أحدها يحرر مفاتيحه لشيء آخر. ولأي شيء لا يمكن فعله هنا، حرّر bindings.lua.",
   "Turning the firewall on or off asks for your password.": "يتطلب تشغيل الجدار الناري أو إيقافه كلمة المرور.",
   "Type Chinese, Japanese, or Korean": "الكتابة بالصينية أو اليابانية أو الكورية",
+  "Type “vpn” or “date” in the Omarchy menu to open that page here": "اكتب “vpn” أو “التاريخ” في قائمة Omarchy لفتح تلك الصفحة هنا",
   "Typing": "الكتابة",
   "Under Setup": "ضمن الإعداد",
   "Undo the last change": "التراجع عن آخر تغيير",

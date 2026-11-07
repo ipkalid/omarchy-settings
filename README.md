@@ -27,6 +27,22 @@ show English text until they are translated.
 | Lock Screen, Login & Security, Firewall | Idle times; password, fingerprint, security keys; ufw on/off and open ports |
 | Keyboard, Mouse, Printers | Repeat, layouts, special keys, backlight, a shortcut editor; pointer and trackpad; printers |
 
+## Getting to a page
+
+- **From the Omarchy menu.** Turn on *Find Settings' pages in the menu
+  search* in Settings › Omarchy Menu, then press Super + Space and type
+  `vpn`, `monitor`, or `date`: every pane and page is there, in your
+  language and in English, and opens right where you asked. The entries are
+  a hidden group in `omarchy-menu.jsonc`, so they show only in search, never
+  while browsing the menu.
+- **From a terminal or a keybinding.** `omasettings open vpn` opens a pane,
+  and `omasettings open general/datetime` a page inside one (the pages:
+  `general/about`, `update`, `language`, `datetime`, `loginitems`,
+  `webapps`, `apps`, `troubleshooting`, `settingsapp`; `appearance/themes`,
+  `desktop/rules`, `lock/bootscreen`, `keyboard/shortcuts`).
+- **One window.** If Settings is already open, any of these switches that
+  window to the page and brings it forward instead of opening another.
+
 ## Install
 
 Settings ships as an Omarchy plugin. Add it and enable it:
@@ -124,6 +140,7 @@ omasettings act shortcut.add "SUPER + E" Files launch org.gnome.Nautilus.desktop
 omasettings export ~/Documents           # settings, shortcuts, login items, rules
 omasettings import ~/Documents/omarchy-settings-2026-11-06.json
 omasettings open displays               # open the window on a pane
+omasettings open general/datetime       # or on a page inside one
 omasettings skill install               # a short skill so agents know how
 ```
 

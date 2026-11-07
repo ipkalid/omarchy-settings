@@ -227,6 +227,7 @@
   "Browsers": "Tarayıcılar",
   "Built In": "Yerleşik",
   "Calendar": "Takvim",
+  "Can't add %1 to the menu": "%1 menüye eklenemiyor",
   "Cancel": "İptal",
   "Caps Lock": "Caps Lock",
   "Caps Lock key": "Caps Lock tuşu",
@@ -381,6 +382,7 @@
     "one": "%n kısayolu filtrele",
     "other": "%n kısayolu filtrele"
   },
+  "Find Settings' pages in the menu search": "Ayarlar sayfalarını menü aramasında bul",
   "Find themes at omarchy.org/themes. Paste the theme's git address; it is downloaded and applied.": "Temaları omarchy.org/themes adresinde bulabilirsiniz. Temanın git adresini yapıştırın; tema indirilip uygulanır.",
   "Fingerprint": "Parmak izi",
   "Fingerprint, security keys, and SSH": "Parmak izi, güvenlik anahtarları ve SSH",
@@ -983,6 +985,7 @@
   "Turning one off frees its keys for something else. For anything this can't do, edit bindings.lua.": "Birini kapatmak, tuşlarını başka bir şey için serbest bırakır. Bunun yapamadığı her şey için bindings.lua dosyasını düzenleyin.",
   "Turning the firewall on or off asks for your password.": "Güvenlik duvarını açmak veya kapatmak için parolanız istenir.",
   "Type Chinese, Japanese, or Korean": "Çince, Japonca veya Korece yazın",
+  "Type “vpn” or “date” in the Omarchy menu to open that page here": "O sayfayı burada açmak için Omarchy menüsüne “vpn” veya “tarih” yazın",
   "Typing": "Yazma",
   "Under Setup": "Kurulum altında",
   "Undo the last change": "Son değişikliği geri al",

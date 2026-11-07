@@ -227,6 +227,7 @@
   "Browsers": "Browser",
   "Built In": "Integriert",
   "Calendar": "Kalender",
+  "Can't add %1 to the menu": "%1 kann nicht zum Menü hinzugefügt werden",
   "Cancel": "Abbrechen",
   "Caps Lock": "Feststelltaste",
   "Caps Lock key": "Feststelltaste",
@@ -381,6 +382,7 @@
     "one": "%n Tastenkürzel filtern",
     "other": "%n Tastenkürzel filtern"
   },
+  "Find Settings' pages in the menu search": "Seiten von Einstellungen in der Menüsuche finden",
   "Find themes at omarchy.org/themes. Paste the theme's git address; it is downloaded and applied.": "Designs finden Sie auf omarchy.org/themes. Fügen Sie die Git-Adresse des Designs ein; es wird heruntergeladen und angewendet.",
   "Fingerprint": "Fingerabdruck",
   "Fingerprint, security keys, and SSH": "Fingerabdruck, Sicherheitsschlüssel und SSH",
@@ -983,6 +985,7 @@
   "Turning one off frees its keys for something else. For anything this can't do, edit bindings.lua.": "Das Deaktivieren eines Tastenkürzels gibt seine Tasten für anderes frei. Für alles, was hier nicht möglich ist, bearbeiten Sie bindings.lua.",
   "Turning the firewall on or off asks for your password.": "Zum Ein- oder Ausschalten der Firewall ist Ihr Passwort erforderlich.",
   "Type Chinese, Japanese, or Korean": "Chinesisch, Japanisch oder Koreanisch tippen",
+  "Type “vpn” or “date” in the Omarchy menu to open that page here": "Geben Sie im Omarchy-Menü „vpn“ oder „Datum“ ein, um die Seite hier zu öffnen",
   "Typing": "Tippen",
   "Under Setup": "Unter „Einrichtung“",
   "Undo the last change": "Letzte Änderung widerrufen",

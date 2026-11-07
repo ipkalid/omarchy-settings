@@ -872,7 +872,7 @@ QStringList Store::listNames() const {
             "themes", "backgrounds", "fonts", "languages", "timezones", "keyboardLayouts", "keybindings",
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
-            "storage", "homeUsage", "snapshots", "managed",
+            "storage", "homeUsage", "snapshots", "managed", "menuSearch",
             "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom", "software", "defaultApps", "appimages", "appimageUpdates"};
 }
 
@@ -1090,7 +1090,7 @@ QVariant Store::list(const QString &name) {
         return parseKeybindings(output("omarchy-menu-keybindings", {"--print"}, 10000));
     static const QStringList more{"apps", "fileTypes", "webapps", "dock", "wifiBand", "power", "crashMutes", "shortcuts",
                                   "loginItems", "windowRules", "firewall", "printers", "storage", "homeUsage",
-                                  "snapshots", "managed"};
+                                  "snapshots", "managed", "menuSearch"};
     if (more.contains(name))
         return listMore(name);
     if (QStringList{"security", "system", "branding", "bootScreens", "hardware", "reminders", "fontCatalog"}.contains(name))

@@ -1,4 +1,4 @@
-QT += core gui qml quick quickcontrols2 concurrent
+QT += core gui qml quick quickcontrols2 concurrent network
 
 CONFIG += c++17 release
 TARGET = omasettings

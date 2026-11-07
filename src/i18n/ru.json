@@ -271,6 +271,7 @@
   "Browsers": "Браузеры",
   "Built In": "Встроенные",
   "Calendar": "Календарь",
+  "Can't add %1 to the menu": "Не удаётся добавить %1 в меню",
   "Cancel": "Отмена",
   "Caps Lock": "Caps Lock",
   "Caps Lock key": "Клавиша Caps Lock",
@@ -433,6 +434,7 @@
     "many": "Поиск среди %n сочетаний",
     "other": "Поиск среди %n сочетаний"
   },
+  "Find Settings' pages in the menu search": "Искать страницы «Настроек» в поиске меню",
   "Find themes at omarchy.org/themes. Paste the theme's git address; it is downloaded and applied.": "Темы можно найти на omarchy.org/themes. Вставьте git-адрес темы — она будет загружена и применена.",
   "Fingerprint": "Отпечаток пальца",
   "Fingerprint, security keys, and SSH": "Отпечаток пальца, ключи безопасности и SSH",
@@ -1043,6 +1045,7 @@
   "Turning one off frees its keys for something else. For anything this can't do, edit bindings.lua.": "Отключение сочетания освобождает его клавиши для чего-то другого. Для всего, что здесь сделать нельзя, отредактируйте bindings.lua.",
   "Turning the firewall on or off asks for your password.": "Для включения или выключения брандмауэра потребуется ввести пароль.",
   "Type Chinese, Japanese, or Korean": "Ввод на китайском, японском или корейском",
+  "Type “vpn” or “date” in the Omarchy menu to open that page here": "Введите «vpn» или «дата» в меню Omarchy, чтобы открыть эту страницу здесь",
   "Typing": "Ввод текста",
   "Under Setup": "В разделе «Настройка»",
   "Undo the last change": "Отменить последнее изменение",

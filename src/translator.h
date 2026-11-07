@@ -26,6 +26,11 @@ public:
     QString translate(const char *context, const char *sourceText, const char *disambiguation = nullptr,
                       int n = -1) const override;
 
+    // The English a translation came from ("Anzeigen" gives "Displays"), so
+    // what's written for other programs can carry both; text with no
+    // translation comes back as it is.
+    Q_INVOKABLE QString english(const QString &translated) const { return m_english.value(translated, translated); }
+
     static QString readLanguage(const QString &path);
     static QString pluralCategory(const QString &language, long long count);
     static QLocale formatLocale(const QString &language);
@@ -40,6 +45,7 @@ private:
     QString m_catalogDirectory;
     QString m_language;
     QHash<QString, QJsonValue> m_strings;
+    QHash<QString, QString> m_english;
     QFileSystemWatcher m_watcher;
     QTimer m_debounce;
 };

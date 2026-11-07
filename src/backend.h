@@ -56,6 +56,9 @@ public:
     void finish();
 
 signals:
+    // Another launch asked the open window to show a pane or page
+    // ("vpn", "general/datetime", or "" to just come forward).
+    void openRequested(const QString &target);
     void valuesChanged();
     void listsChanged();
     void busyChanged();

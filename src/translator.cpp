@@ -133,6 +133,10 @@ void Translator::reload() {
 
     m_language = language;
     m_strings = strings;
+    m_english.clear();
+    for (auto it = strings.begin(); it != strings.end(); ++it)
+        if (it.value().isString() && !m_english.contains(it.value().toString()))
+            m_english.insert(it.value().toString(), it.key().section('|', 0, 0));
     // Dates, numbers, and Qt's own day and month names follow the language
     // too, and right-to-left languages mirror the window.
     const QLocale locale = formatLocale(language);

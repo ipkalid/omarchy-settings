@@ -12,8 +12,10 @@ TARGET_HOME="$HOME"
 
 BIN="$TARGET_HOME/.local/bin/omasettings"
 
-# Take Settings out of the Omarchy menu while the binary is there to do it.
+# Take Settings and its search entries out of the Omarchy menu while the
+# binary is there to do it.
 [[ -x $BIN ]] && HOME="$TARGET_HOME" QT_QPA_PLATFORM=offscreen "$BIN" set integration.menuPlace off >/dev/null 2>&1 || true
+[[ -x $BIN ]] && HOME="$TARGET_HOME" QT_QPA_PLATFORM=offscreen "$BIN" act menu.searchEntries '[]' >/dev/null 2>&1 || true
 
 rm -f "$BIN" \
   "$TARGET_HOME/.local/share/applications/omasettings.desktop" \

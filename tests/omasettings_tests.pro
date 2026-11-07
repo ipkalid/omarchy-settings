@@ -1,4 +1,4 @@
-QT += core gui qml quick quickcontrols2 concurrent testlib
+QT += core gui qml quick quickcontrols2 concurrent network testlib
 CONFIG += c++17 testcase
 TARGET = omasettings_tests
 TEMPLATE = app

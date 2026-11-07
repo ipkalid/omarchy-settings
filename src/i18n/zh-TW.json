@@ -205,6 +205,7 @@
   "Browsers": "瀏覽器",
   "Built In": "內建",
   "Calendar": "行事曆",
+  "Can't add %1 to the menu": "無法將 %1 加入選單",
   "Cancel": "取消",
   "Caps Lock": "Caps Lock",
   "Caps Lock key": "Caps Lock 鍵",
@@ -355,6 +356,7 @@
   "Filter %n shortcuts": {
     "other": "篩選 %n 個快捷鍵"
   },
+  "Find Settings' pages in the menu search": "在選單搜尋中尋找「設定」的頁面",
   "Find themes at omarchy.org/themes. Paste the theme's git address; it is downloaded and applied.": "可在 omarchy.org/themes 尋找主題。貼上主題的 git 位址，即會下載並套用。",
   "Fingerprint": "指紋",
   "Fingerprint, security keys, and SSH": "指紋、安全金鑰與 SSH",
@@ -953,6 +955,7 @@
   "Turning one off frees its keys for something else. For anything this can't do, edit bindings.lua.": "關閉快捷鍵可釋出其按鍵供其他用途。若有此處無法完成的設定，請編輯 bindings.lua。",
   "Turning the firewall on or off asks for your password.": "開啟或關閉防火牆需要輸入密碼。",
   "Type Chinese, Japanese, or Korean": "輸入中文、日文或韓文",
+  "Type “vpn” or “date” in the Omarchy menu to open that page here": "在 Omarchy 選單中輸入「vpn」或「日期」，即可在這裡開啟對應頁面",
   "Typing": "打字",
   "Under Setup": "位於「設定」下",
   "Undo the last change": "復原上一個變更",

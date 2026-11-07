@@ -22,7 +22,7 @@ static QTextStream &err() {
 }
 
 static const char *usage =
-    "Usage: omasettings [open [pane]]\n"
+    "Usage: omasettings [open [pane[/page]]]\n"
     "       omasettings list [pane] [--json]\n"
     "       omasettings get <id> [--json]\n"
     "       omasettings set <id> <value> [--json]\n"
@@ -100,7 +100,12 @@ omasettings export ~/Documents        # import <file> applies one
 - Run `list` first rather than guessing ids.
 - Some changes ask for a password through the desktop's polkit prompt (time
   zone, computer name); tell the user to watch for it.
-- `omasettings open <pane>` opens the window on a pane for the user.
+- `omasettings open <pane>` opens the window on a pane for the user, and
+  `omasettings open <pane>/<page>` on a page inside one: general/about,
+  general/update, general/language, general/datetime, general/loginitems,
+  general/webapps, general/apps, general/troubleshooting,
+  general/settingsapp, appearance/themes, desktop/rules, lock/bootscreen,
+  keyboard/shortcuts. If Settings is open, that window switches to it.
 )";
 
 static int installSkill(const QStringList &args) {

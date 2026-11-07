@@ -205,6 +205,7 @@
   "Browsers": "浏览器",
   "Built In": "内置",
   "Calendar": "日历",
+  "Can't add %1 to the menu": "无法将 %1 添加到菜单",
   "Cancel": "取消",
   "Caps Lock": "大写锁定",
   "Caps Lock key": "大写锁定键",
@@ -355,6 +356,7 @@
   "Filter %n shortcuts": {
     "other": "筛选 %n 个快捷键"
   },
+  "Find Settings' pages in the menu search": "在菜单搜索中查找“设置”的页面",
   "Find themes at omarchy.org/themes. Paste the theme's git address; it is downloaded and applied.": "可在 omarchy.org/themes 查找主题。粘贴主题的 git 地址，即可下载并应用。",
   "Fingerprint": "指纹",
   "Fingerprint, security keys, and SSH": "指纹、安全密钥和 SSH",
@@ -953,6 +955,7 @@
   "Turning one off frees its keys for something else. For anything this can't do, edit bindings.lua.": "关闭某项后，其按键可用于其他用途。如需此处无法实现的功能，请编辑 bindings.lua。",
   "Turning the firewall on or off asks for your password.": "打开或关闭防火墙需要输入密码。",
   "Type Chinese, Japanese, or Korean": "输入中文、日文或韩文",
+  "Type “vpn” or “date” in the Omarchy menu to open that page here": "在 Omarchy 菜单中输入“vpn”或“日期”，即可在这里打开对应页面",
   "Typing": "打字",
   "Under Setup": "在“设置”菜单下",
   "Undo the last change": "撤销上一次更改",

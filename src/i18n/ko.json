@@ -205,6 +205,7 @@
   "Browsers": "브라우저",
   "Built In": "내장",
   "Calendar": "캘린더",
+  "Can't add %1 to the menu": "%1을(를) 메뉴에 추가할 수 없습니다",
   "Cancel": "취소",
   "Caps Lock": "Caps Lock",
   "Caps Lock key": "Caps Lock 키",
@@ -355,6 +356,7 @@
   "Filter %n shortcuts": {
     "other": "단축키 %n개 필터링"
   },
+  "Find Settings' pages in the menu search": "메뉴 검색에서 설정 페이지 찾기",
   "Find themes at omarchy.org/themes. Paste the theme's git address; it is downloaded and applied.": "omarchy.org/themes에서 테마를 찾아보세요. 테마의 Git 주소를 붙여넣으면 다운로드되어 적용됩니다.",
   "Fingerprint": "지문",
   "Fingerprint, security keys, and SSH": "지문, 보안 키, SSH",
@@ -953,6 +955,7 @@
   "Turning one off frees its keys for something else. For anything this can't do, edit bindings.lua.": "하나를 끄면 해당 키를 다른 용도로 사용할 수 있습니다. 여기서 할 수 없는 작업은 bindings.lua를 편집하세요.",
   "Turning the firewall on or off asks for your password.": "방화벽을 켜거나 끄려면 비밀번호가 필요합니다.",
   "Type Chinese, Japanese, or Korean": "중국어, 일본어 또는 한국어 입력",
+  "Type “vpn” or “date” in the Omarchy menu to open that page here": "Omarchy 메뉴에서 “vpn”이나 “날짜”를 입력하면 해당 페이지가 여기에서 열립니다",
   "Typing": "입력",
   "Under Setup": "‘설정’ 메뉴 아래",
   "Undo the last change": "마지막 변경 실행 취소",

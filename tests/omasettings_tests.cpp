@@ -537,6 +537,56 @@ private slots:
         QVERIFY(!readText(store.managedLuaPath()).contains("syncthing"));
     }
 
+    void panesAndPagesCanBeFoundFromTheMenuSearch() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        const QString menu = dir.path() + "/config/omarchy/extensions/omarchy-menu.jsonc";
+        writeText(menu, "{\n  \"mine\": {\"label\":\"Mine\",\"action\":\"true\"},\n}\n");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("menu.searchEntries", {QVariantList{}, "Settings"}), QString());
+        QVERIFY(!store.list("menuSearch").toMap().value("on").toBool());
+
+        const QVariantList entries{
+            QVariantMap{{"id", "vpn"}, {"target", "vpn"}, {"icon", "x"}, {"label", "VPN"},
+                        {"searchTerms", QVariantList{"vpn wireguard", "  "}}},
+            QVariantMap{{"id", "general.datetime"}, {"target", "general/datetime"}, {"label", "Datum \"& Uhrzeit\""},
+                        {"searchTerms", QVariantList{"Date & Time"}}},
+        };
+        QCOMPARE(store.act("menu.searchEntries", {entries, "Einstellungen"}), QString());
+        QCOMPARE(store.write("integration.menuPlace", "setup"), QString());
+        const QString text = readText(menu);
+        QVERIFY(store.list("menuSearch").toMap().value("on").toBool());
+        // The rest of the file is as it was, and the file is still a menu.
+        QVERIFY(text.contains("\"mine\": {\"label\":\"Mine\",\"action\":\"true\"}"));
+        QVERIFY(text.contains("\"setup.omasettings\""));
+        QVERIFY(text.contains("\"omasettings-search\": {\"icon\":"));
+        QVERIFY(text.contains("\"label\":\"Einstellungen\",\"when\":\"false\""));
+        QVERIFY(text.contains("\"omasettings-search.general.datetime\": {\"action\":\"omasettings open general/datetime\",\"icon\":\"\",\"label\":\"Datum \\\"& Uhrzeit\\\"\",\"searchTerms\":[\"Date & Time\"]}"));
+        QVERIFY(text.contains("\"searchTerms\":[\"vpn wireguard\"]"));
+        QJsonParseError error;
+        QJsonDocument::fromJson(text.split('\n').filter(QRegularExpression("^(?!\\s*//)")).join('\n').replace(",\n}", "\n}").toUtf8(), &error);
+        QCOMPARE(error.error, QJsonParseError::NoError);
+
+        // The same entries again leave the file alone; new ones replace the block.
+        const QDateTime written = QFileInfo(menu).lastModified();
+        QTest::qWait(20);
+        QCOMPARE(store.act("menu.searchEntries", {entries, "Einstellungen"}), QString());
+        QCOMPARE(QFileInfo(menu).lastModified(), written);
+        QCOMPARE(store.act("menu.searchEntries", {QVariantList{entries[0]}, "Settings"}), QString());
+        QCOMPARE(readText(menu).count("omasettings:search begin"), 1);
+        QVERIFY(!readText(menu).contains("general.datetime"));
+
+        // Ids and targets go into a shell command, so only plain ones do.
+        QVERIFY(!store.act("menu.searchEntries", {QVariantList{QVariantMap{{"id", "x"}, {"target", "vpn; rm -rf ~"}, {"label", "X"}}}, ""}).isEmpty());
+        QVERIFY(!store.act("menu.searchEntries", {QVariantList{QVariantMap{{"id", "x\"y"}, {"target", "vpn"}, {"label", "X"}}}, ""}).isEmpty());
+
+        // None takes the block out, from the app or the command line.
+        QCOMPARE(store.act("menu.searchEntries", {"[]"}), QString());
+        QVERIFY(!readText(menu).contains("omasettings-search"));
+        QVERIFY(readText(menu).contains("\"setup.omasettings\""));
+        QVERIFY(!store.list("menuSearch").toMap().value("on").toBool());
+    }
+
     void aRuleCanBeChangedInPlace() {
         QTemporaryDir dir;
         FakeSystem sys;

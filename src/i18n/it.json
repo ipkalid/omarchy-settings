@@ -249,6 +249,7 @@
   "Browsers": "Browser",
   "Built In": "Integrati",
   "Calendar": "Calendario",
+  "Can't add %1 to the menu": "Impossibile aggiungere %1 al menu",
   "Cancel": "Annulla",
   "Caps Lock": "Bloc Maiusc",
   "Caps Lock key": "Tasto Bloc Maiusc",
@@ -407,6 +408,7 @@
     "one": "Filtra %n scorciatoia",
     "other": "Filtra %n scorciatoie"
   },
+  "Find Settings' pages in the menu search": "Trova le pagine di Impostazioni nella ricerca del menu",
   "Find themes at omarchy.org/themes. Paste the theme's git address; it is downloaded and applied.": "Trova temi su omarchy.org/themes. Incolla l'indirizzo git del tema: verrà scaricato e applicato.",
   "Fingerprint": "Impronta digitale",
   "Fingerprint, security keys, and SSH": "Impronta digitale, chiavi di sicurezza e SSH",
@@ -1013,6 +1015,7 @@
   "Turning one off frees its keys for something else. For anything this can't do, edit bindings.lua.": "Disattivarne una libera i suoi tasti per altro. Per tutto ciò che non si può fare qui, modifica bindings.lua.",
   "Turning the firewall on or off asks for your password.": "Per attivare o disattivare il firewall serve la password.",
   "Type Chinese, Japanese, or Korean": "Scrivi in cinese, giapponese o coreano",
+  "Type “vpn” or “date” in the Omarchy menu to open that page here": "Scrivi “vpn” o “data” nel menu di Omarchy per aprire qui quella pagina",
   "Typing": "Digitazione",
   "Under Setup": "In Impostazioni",
   "Undo the last change": "Annulla l'ultima modifica",
