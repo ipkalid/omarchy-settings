@@ -53,15 +53,25 @@ SettingsPage {
     })
 
     // Which groups are open. Only the first, Packages & Tools, starts open,
-    // so the page reads as a list of the rest; filtering opens everything
-    // so matches show.
+    // so the page reads as a list of the rest. Filtering opens everything so
+    // matches show, and a group closed while filtering stays closed until the
+    // filter changes; the groups open before come back when it ends.
     property var openGroups: ({ "tools": true })
+    property var closedWhileFiltering: ({})
     readonly property bool searching: query.length > 0 || installedOnly || win.query.trim().length > 1
-    function isOpen(id) { return searching || !!openGroups[id] }
+    readonly property string filterState: query + "|" + installedOnly + "|" + win.query.trim()
+    onFilterStateChanged: closedWhileFiltering = ({})
+    function isOpen(id) { return searching ? !closedWhileFiltering[id] : !!openGroups[id] }
     function toggleGroup(id) {
-        const next = Object.assign({}, openGroups)
-        next[id] = !openGroups[id]
-        openGroups = next
+        if (searching) {
+            const next = Object.assign({}, closedWhileFiltering)
+            next[id] = !closedWhileFiltering[id]
+            closedWhileFiltering = next
+        } else {
+            const next = Object.assign({}, openGroups)
+            next[id] = !openGroups[id]
+            openGroups = next
+        }
     }
 
     // AppImages: added ones (in the launcher or ~/Applications), and ones
