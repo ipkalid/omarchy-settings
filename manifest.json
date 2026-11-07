@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ipkalid.settings",
   "name": "Settings",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "author": "Khalid Alhazmi",
   "license": "MIT",
   "description": "A Settings app for Omarchy, like System Settings on a Mac: Wi-Fi, sound, displays, keyboard, appearance, the bar, the Omarchy menu, and more, without editing config files. Enabling the plugin builds the app and adds it to the app launcher.",

@@ -100,6 +100,12 @@
     "one": "1 zainstalowana",
     "other": "%n zainstalowanych"
   },
+  "%n items": {
+    "one": "%n element",
+    "few": "%n elementy",
+    "many": "%n elementów",
+    "other": "%n elementu"
+  },
   "%n items in hidden sections still show up in search": {
     "few": "%n elementy w ukrytych sekcjach nadal pojawiają się w wyszukiwaniu",
     "many": "%n elementów w ukrytych sekcjach nadal pojawia się w wyszukiwaniu",
@@ -135,6 +141,12 @@
     "many": "%n reguł",
     "one": "1 reguła",
     "other": "%n reguł"
+  },
+  "%n shown": {
+    "one": "%n widoczny",
+    "few": "%n widoczne",
+    "many": "%n widocznych",
+    "other": "%n widocznych"
   },
   "%n snapshots": {
     "few": "%n migawki",
@@ -361,6 +373,7 @@
   "Custom…": "Własne…",
   "DNS servers": "Serwery DNS",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "DNS zamienia nazwy na adresy. Zmiana wymaga podania hasła; opcja Własne otwiera terminal, w którym można wpisać własne serwery.",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS, udostępnianie, test prędkości, pasmo Wi-Fi",
   "Date & Time": "Data i czas",
   "Decide when the screensaver starts and the screen locks while you are away.": "Określ, kiedy pod Twoją nieobecność włącza się wygaszacz i blokuje się ekran.",
   "Default": "Domyślna",
@@ -666,7 +679,6 @@
   "Names and passwords can't contain line breaks or commas": "Nazwy i hasła nie mogą zawierać podziałów wiersza ani przecinków",
   "Natural scrolling": "Naturalne przewijanie",
   "Needs the %1 package": "Wymaga pakietu %1",
-  "Network Details": "Szczegóły sieci",
   "Network name (SSID)": "Nazwa sieci (SSID)",
   "Networks that don't broadcast their name never show up in a scan": "Sieci, które nie rozgłaszają swojej nazwy, nigdy nie pojawiają się podczas skanowania",
   "Never": "Nigdy",

@@ -122,6 +122,14 @@
     "many": "%n تطبيقًا مثبّتًا",
     "other": "%n تطبيق مثبّت"
   },
+  "%n items": {
+    "zero": "لا عناصر",
+    "one": "عنصر واحد",
+    "two": "عنصران",
+    "few": "%n عناصر",
+    "many": "%n عنصرًا",
+    "other": "%n عنصر"
+  },
   "%n items in hidden sections still show up in search": {
     "zero": "لا عناصر",
     "one": "عنصر واحد في أقسام مخفية ما زال يظهر في البحث",
@@ -169,6 +177,14 @@
     "few": "%n قواعد",
     "many": "%n قاعدة",
     "other": "%n قاعدة"
+  },
+  "%n shown": {
+    "zero": "لا شيء ظاهر",
+    "one": "واحد ظاهر",
+    "two": "اثنان ظاهران",
+    "few": "%n ظاهرة",
+    "many": "%n ظاهرًا",
+    "other": "%n ظاهر"
   },
   "%n snapshots": {
     "zero": "لا لقطات",
@@ -405,6 +421,7 @@
   "Custom…": "مخصص…",
   "DNS servers": "خوادم DNS",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "يحوّل DNS الأسماء إلى عناوين. يتطلب تغييره كلمة المرور؛ و«مخصص» يفتح طرفية لإدخال خوادمك.",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS، المشاركة، اختبار السرعة، نطاق Wi-Fi",
   "Date & Time": "التاريخ والوقت",
   "Decide when the screensaver starts and the screen locks while you are away.": "حدّد متى تبدأ شاشة التوقف ومتى تُقفل الشاشة أثناء غيابك.",
   "Default": "افتراضية",
@@ -722,7 +739,6 @@
   "Names and passwords can't contain line breaks or commas": "لا يمكن أن تحتوي الأسماء وكلمات المرور على فواصل أسطر أو فواصل",
   "Natural scrolling": "التمرير الطبيعي",
   "Needs the %1 package": "يحتاج إلى الحزمة %1",
-  "Network Details": "تفاصيل الشبكة",
   "Network name (SSID)": "اسم الشبكة (SSID)",
   "Networks that don't broadcast their name never show up in a scan": "الشبكات التي لا تبث اسمها لا تظهر أبدًا عند البحث",
   "Never": "أبدًا",

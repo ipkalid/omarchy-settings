@@ -78,6 +78,10 @@
     "one": "%n kurulu",
     "other": "%n kurulu"
   },
+  "%n items": {
+    "one": "%n öğe",
+    "other": "%n öğe"
+  },
   "%n items in hidden sections still show up in search": {
     "one": "Gizli bir bölümdeki %n öğe yine de aramada görünür",
     "other": "Gizli bölümlerdeki %n öğe yine de aramada görünür"
@@ -101,6 +105,10 @@
   "%n rules": {
     "one": "%n kural",
     "other": "%n kural"
+  },
+  "%n shown": {
+    "one": "%n görünür",
+    "other": "%n görünür"
   },
   "%n snapshots": {
     "one": "%n anlık görüntü",
@@ -317,6 +325,7 @@
   "Custom…": "Özel…",
   "DNS servers": "DNS sunucuları",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "DNS, adları adreslere dönüştürür. Değiştirmek için parolanız istenir; Özel seçeneği kendi sunucularınızı girmeniz için bir terminal açar.",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS, paylaşım, hız testi, Wi-Fi bandı",
   "Date & Time": "Tarih ve saat",
   "Decide when the screensaver starts and the screen locks while you are away.": "Siz uzaktayken ekran koruyucunun ne zaman başlayacağına ve ekranın ne zaman kilitleneceğine karar verin.",
   "Default": "Varsayılan",
@@ -610,7 +619,6 @@
   "Names and passwords can't contain line breaks or commas": "Adlar ve parolalar satır sonu veya virgül içeremez",
   "Natural scrolling": "Doğal kaydırma",
   "Needs the %1 package": "%1 paketi gerekli",
-  "Network Details": "Ağ ayrıntıları",
   "Network name (SSID)": "Ağ adı (SSID)",
   "Networks that don't broadcast their name never show up in a scan": "Adını yayınlamayan ağlar taramada hiçbir zaman görünmez",
   "Never": "Hiçbir zaman",

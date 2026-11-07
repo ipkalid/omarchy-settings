@@ -67,6 +67,9 @@
   "%n installed": {
     "other": "已安装 %n 个"
   },
+  "%n items": {
+    "other": "%n 项"
+  },
   "%n items in hidden sections still show up in search": {
     "other": "隐藏部分中的 %n 个项目仍会出现在搜索结果中"
   },
@@ -84,6 +87,9 @@
   },
   "%n rules": {
     "other": "%n 条规则"
+  },
+  "%n shown": {
+    "other": "%n 项显示"
   },
   "%n snapshots": {
     "other": "%n 个快照"
@@ -295,6 +301,7 @@
   "Custom…": "自定义…",
   "DNS servers": "DNS 服务器",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "DNS 负责将域名解析为地址。更改需要输入密码；选择“自定义”会打开终端以输入你自己的服务器。",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS、共享、网速测试、Wi-Fi 频段",
   "Date & Time": "日期与时间",
   "Decide when the screensaver starts and the screen locks while you are away.": "设置离开时屏保何时启动、屏幕何时锁定。",
   "Default": "默认",
@@ -582,7 +589,6 @@
   "Names and passwords can't contain line breaks or commas": "名称和密码不能包含换行符或逗号",
   "Natural scrolling": "自然滚动",
   "Needs the %1 package": "需要 %1 软件包",
-  "Network Details": "网络详细信息",
   "Network name (SSID)": "网络名称 (SSID)",
   "Networks that don't broadcast their name never show up in a scan": "不广播名称的网络不会出现在扫描结果中",
   "Never": "永不",

@@ -100,6 +100,12 @@
     "many": "Установлено: %n",
     "other": "Установлено: %n"
   },
+  "%n items": {
+    "one": "%n элемент",
+    "few": "%n элемента",
+    "many": "%n элементов",
+    "other": "%n элемента"
+  },
   "%n items in hidden sections still show up in search": {
     "one": "%n пункт в скрытых разделах всё ещё находится поиском",
     "few": "%n пункта в скрытых разделах всё ещё находятся поиском",
@@ -135,6 +141,12 @@
     "few": "%n правила",
     "many": "%n правил",
     "other": "%n правил"
+  },
+  "%n shown": {
+    "one": "Видно: %n",
+    "few": "Видно: %n",
+    "many": "Видно: %n",
+    "other": "Видно: %n"
   },
   "%n snapshots": {
     "one": "%n снимок",
@@ -361,6 +373,7 @@
   "Custom…": "Вручную…",
   "DNS servers": "DNS-серверы",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "DNS преобразует имена в адреса. Для изменения потребуется ввести пароль; вариант «Вручную» открывает терминал для ввода своих серверов.",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS, общий доступ, тест скорости, диапазон Wi-Fi",
   "Date & Time": "Дата и время",
   "Decide when the screensaver starts and the screen locks while you are away.": "Укажите, когда запускается заставка и блокируется экран, пока вас нет.",
   "Default": "По умолчанию",
@@ -666,7 +679,6 @@
   "Names and passwords can't contain line breaks or commas": "Имена и пароли не могут содержать переносы строк и запятые",
   "Natural scrolling": "Естественная прокрутка",
   "Needs the %1 package": "Требуется пакет %1",
-  "Network Details": "Сведения о сети",
   "Network name (SSID)": "Имя сети (SSID)",
   "Networks that don't broadcast their name never show up in a scan": "Сети, которые не транслируют своё имя, не видны при поиске",
   "Never": "Никогда",

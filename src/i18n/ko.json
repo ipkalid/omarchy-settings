@@ -67,6 +67,9 @@
   "%n installed": {
     "other": "%n개 설치됨"
   },
+  "%n items": {
+    "other": "%n개 항목"
+  },
   "%n items in hidden sections still show up in search": {
     "other": "숨긴 섹션의 항목 %n개는 계속 검색에 표시됩니다"
   },
@@ -84,6 +87,9 @@
   },
   "%n rules": {
     "other": "규칙 %n개"
+  },
+  "%n shown": {
+    "other": "%n개 표시"
   },
   "%n snapshots": {
     "other": "스냅샷 %n개"
@@ -295,6 +301,7 @@
   "Custom…": "사용자 지정…",
   "DNS servers": "DNS 서버",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "DNS는 이름을 주소로 변환합니다. 변경하려면 비밀번호가 필요하며, 사용자 지정을 선택하면 터미널이 열려 직접 서버를 입력할 수 있습니다.",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS, 공유, 속도 테스트, Wi-Fi 대역",
   "Date & Time": "날짜 및 시간",
   "Decide when the screensaver starts and the screen locks while you are away.": "자리를 비운 동안 화면 보호기가 시작되고 화면이 잠기는 시점을 설정합니다.",
   "Default": "기본값",
@@ -582,7 +589,6 @@
   "Names and passwords can't contain line breaks or commas": "이름과 비밀번호에는 줄바꿈이나 쉼표를 사용할 수 없습니다",
   "Natural scrolling": "자연스러운 스크롤",
   "Needs the %1 package": "%1 패키지가 필요합니다",
-  "Network Details": "네트워크 세부 정보",
   "Network name (SSID)": "네트워크 이름(SSID)",
   "Networks that don't broadcast their name never show up in a scan": "이름을 브로드캐스트하지 않는 네트워크는 검색에 표시되지 않습니다",
   "Never": "안 함",

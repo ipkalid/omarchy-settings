@@ -67,6 +67,9 @@
   "%n installed": {
     "other": "%n 件インストール済み"
   },
+  "%n items": {
+    "other": "%n 件"
+  },
   "%n items in hidden sections still show up in search": {
     "other": "非表示のセクションにある %n 件の項目も検索には表示されます"
   },
@@ -84,6 +87,9 @@
   },
   "%n rules": {
     "other": "%n 件のルール"
+  },
+  "%n shown": {
+    "other": "%n 件表示"
   },
   "%n snapshots": {
     "other": "%n 件のスナップショット"
@@ -295,6 +301,7 @@
   "Custom…": "カスタム…",
   "DNS servers": "DNS サーバー",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "DNS は名前をアドレスに変換します。変更にはパスワードが必要です。「カスタム」を選ぶとターミナルが開き、独自のサーバーを入力できます。",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS、共有、速度テスト、Wi-Fi 帯域",
   "Date & Time": "日付と時刻",
   "Decide when the screensaver starts and the screen locks while you are away.": "離席中にスクリーンセーバーを起動し、画面をロックするタイミングを設定します。",
   "Default": "デフォルト",
@@ -582,7 +589,6 @@
   "Names and passwords can't contain line breaks or commas": "名前とパスワードには改行やカンマを含めることはできません",
   "Natural scrolling": "ナチュラルスクロール",
   "Needs the %1 package": "%1 パッケージが必要です",
-  "Network Details": "ネットワークの詳細",
   "Network name (SSID)": "ネットワーク名（SSID）",
   "Networks that don't broadcast their name never show up in a scan": "名前を公開していないネットワークは、検索しても表示されません",
   "Never": "しない",

@@ -89,6 +89,11 @@
     "one": "%n installato",
     "other": "%n installati"
   },
+  "%n items": {
+    "one": "%n elemento",
+    "many": "%n di elementi",
+    "other": "%n elementi"
+  },
   "%n items in hidden sections still show up in search": {
     "many": "%n elementi nelle sezioni nascoste compaiono comunque nella ricerca",
     "one": "%n elemento in una sezione nascosta compare comunque nella ricerca",
@@ -118,6 +123,11 @@
     "many": "%n regole",
     "one": "%n regola",
     "other": "%n regole"
+  },
+  "%n shown": {
+    "one": "%n visibile",
+    "many": "%n visibili",
+    "other": "%n visibili"
   },
   "%n snapshots": {
     "many": "%n snapshot",
@@ -339,6 +349,7 @@
   "Custom…": "Personalizzato…",
   "DNS servers": "Server DNS",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "Il DNS trasforma i nomi in indirizzi. Per cambiarlo serve la password; Personalizzato apre un terminale per inserire i tuoi server.",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS, condivisione, test di velocità, banda Wi-Fi",
   "Date & Time": "Data e ora",
   "Decide when the screensaver starts and the screen locks while you are away.": "Decidi quando si avvia il salvaschermo e quando si blocca lo schermo mentre sei via.",
   "Default": "Predefinito",
@@ -638,7 +649,6 @@
   "Names and passwords can't contain line breaks or commas": "Nomi e password non possono contenere a capo o virgole",
   "Natural scrolling": "Scorrimento naturale",
   "Needs the %1 package": "Richiede il pacchetto %1",
-  "Network Details": "Dettagli rete",
   "Network name (SSID)": "Nome della rete (SSID)",
   "Networks that don't broadcast their name never show up in a scan": "Le reti che non trasmettono il proprio nome non compaiono mai in una ricerca",
   "Never": "Mai",

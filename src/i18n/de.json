@@ -78,6 +78,10 @@
     "one": "%n installiert",
     "other": "%n installiert"
   },
+  "%n items": {
+    "one": "%n Eintrag",
+    "other": "%n Einträge"
+  },
   "%n items in hidden sections still show up in search": {
     "one": "%n Eintrag in einem ausgeblendeten Bereich erscheint weiterhin in der Suche",
     "other": "%n Einträge in ausgeblendeten Bereichen erscheinen weiterhin in der Suche"
@@ -101,6 +105,10 @@
   "%n rules": {
     "one": "%n Regel",
     "other": "%n Regeln"
+  },
+  "%n shown": {
+    "one": "%n sichtbar",
+    "other": "%n sichtbar"
   },
   "%n snapshots": {
     "one": "%n Snapshot",
@@ -317,6 +325,7 @@
   "Custom…": "Benutzerdefiniert…",
   "DNS servers": "DNS-Server",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "DNS übersetzt Namen in Adressen. Zum Ändern ist Ihr Passwort erforderlich; „Benutzerdefiniert“ öffnet ein Terminal, um eigene Server einzugeben.",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS, Teilen, Geschwindigkeitstest, WLAN-Band",
   "Date & Time": "Datum & Uhrzeit",
   "Decide when the screensaver starts and the screen locks while you are away.": "Legen Sie fest, wann der Bildschirmschoner startet und der Bildschirm gesperrt wird, während Sie abwesend sind.",
   "Default": "Standard",
@@ -610,7 +619,6 @@
   "Names and passwords can't contain line breaks or commas": "Namen und Passwörter dürfen keine Zeilenumbrüche oder Kommas enthalten",
   "Natural scrolling": "Natürliches Scrollen",
   "Needs the %1 package": "Benötigt das Paket %1",
-  "Network Details": "Netzwerkdetails",
   "Network name (SSID)": "Netzwerkname (SSID)",
   "Networks that don't broadcast their name never show up in a scan": "Netzwerke, die ihren Namen nicht senden, erscheinen nie in einer Suche",
   "Never": "Nie",

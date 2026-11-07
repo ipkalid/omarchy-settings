@@ -43,6 +43,10 @@
     "one": "%n installed",
     "other": "%n installed"
   },
+  "%n items": {
+    "one": "%n item",
+    "other": "%n items"
+  },
   "%n items in hidden sections still show up in search": {
     "one": "%n item in a hidden section still shows up in search",
     "other": "%n items in hidden sections still show up in search"
@@ -66,6 +70,10 @@
   "%n rules": {
     "one": "%n rule",
     "other": "%n rules"
+  },
+  "%n shown": {
+    "one": "%n shown",
+    "other": "%n shown"
   },
   "%n snapshots": {
     "one": "%n snapshot",

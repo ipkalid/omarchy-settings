@@ -89,6 +89,11 @@
     "one": "%n installé",
     "other": "%n installés"
   },
+  "%n items": {
+    "one": "%n élément",
+    "many": "%n d’éléments",
+    "other": "%n éléments"
+  },
   "%n items in hidden sections still show up in search": {
     "many": "%n éléments de sections masquées apparaissent toujours dans la recherche",
     "one": "%n élément d’une section masquée apparaît toujours dans la recherche",
@@ -118,6 +123,11 @@
     "many": "%n règles",
     "one": "%n règle",
     "other": "%n règles"
+  },
+  "%n shown": {
+    "one": "%n affiché",
+    "many": "%n affichés",
+    "other": "%n affichés"
   },
   "%n snapshots": {
     "many": "%n instantanés",
@@ -339,6 +349,7 @@
   "Custom…": "Personnalisé…",
   "DNS servers": "Serveurs DNS",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "Le DNS convertit les noms en adresses. Le modifier nécessite votre mot de passe ; Personnalisé ouvre un terminal pour saisir vos propres serveurs.",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS, partage, test de débit, bande Wi-Fi",
   "Date & Time": "Date et heure",
   "Decide when the screensaver starts and the screen locks while you are away.": "Choisissez quand l’écran de veille démarre et quand l’écran se verrouille pendant votre absence.",
   "Default": "Par défaut",
@@ -638,7 +649,6 @@
   "Names and passwords can't contain line breaks or commas": "Les noms et mots de passe ne peuvent contenir ni retour à la ligne ni virgule",
   "Natural scrolling": "Défilement naturel",
   "Needs the %1 package": "Nécessite le paquet %1",
-  "Network Details": "Détails du réseau",
   "Network name (SSID)": "Nom du réseau (SSID)",
   "Networks that don't broadcast their name never show up in a scan": "Les réseaux qui ne diffusent pas leur nom n’apparaissent jamais lors d’une recherche",
   "Never": "Jamais",

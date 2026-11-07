@@ -67,6 +67,9 @@
   "%n installed": {
     "other": "已安裝 %n 個"
   },
+  "%n items": {
+    "other": "%n 項"
+  },
   "%n items in hidden sections still show up in search": {
     "other": "隱藏區段中的 %n 個項目仍會出現在搜尋結果中"
   },
@@ -84,6 +87,9 @@
   },
   "%n rules": {
     "other": "%n 條規則"
+  },
+  "%n shown": {
+    "other": "%n 項顯示"
   },
   "%n snapshots": {
     "other": "%n 個快照"
@@ -295,6 +301,7 @@
   "Custom…": "自訂…",
   "DNS servers": "DNS 伺服器",
   "DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.": "DNS 會將名稱轉換為位址。更改時需要輸入密碼；選擇「自訂」會開啟終端機，讓你輸入自己的伺服器。",
+  "DNS, sharing, speed test, Wi-Fi band": "DNS、分享、網速測試、Wi-Fi 頻段",
   "Date & Time": "日期與時間",
   "Decide when the screensaver starts and the screen locks while you are away.": "設定離開時螢幕保護程式何時啟動、螢幕何時鎖定。",
   "Default": "預設",
@@ -582,7 +589,6 @@
   "Names and passwords can't contain line breaks or commas": "名稱與密碼不可包含換行或逗號",
   "Natural scrolling": "自然捲動",
   "Needs the %1 package": "需要 %1 套件",
-  "Network Details": "網路詳細資訊",
   "Network name (SSID)": "網路名稱（SSID）",
   "Networks that don't broadcast their name never show up in a scan": "不廣播名稱的網路不會出現在掃描結果中",
   "Never": "永不",

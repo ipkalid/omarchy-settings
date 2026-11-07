@@ -71,42 +71,6 @@ SettingsPage {
     }
 
     SettingsGroup {
-        visible: page.on && !!page.current
-        title: qsTr("Network Details")
-        footer: qsTr("DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.")
-        ChoiceRow {
-            setting: "network.dns"
-            label: qsTr("DNS servers")
-            options: [
-                { value: "DHCP", text: qsTr("From the network") },
-                { value: "Cloudflare", text: "Cloudflare" },
-                { value: "Google", text: "Google" },
-                { value: "Custom", text: qsTr("Custom…") }
-            ]
-        }
-        ButtonRow {
-            label: qsTr("Share this network")
-            sublabel: qsTr("A QR code a phone can scan to join")
-            glyph: "\u{F0432}"
-            text: qsTr("Show Code")
-            onClicked: backend.act("summon", ["omarchy.wifiqr"])
-        }
-        ButtonRow {
-            label: qsTr("Internet speed")
-            glyph: "\u{F04C5}"
-            text: qsTr("Test…")
-            onClicked: backend.act("summon", ["omarchy.speedtest"])
-        }
-        ChoiceRow {
-            setting: "wifi.band"
-            label: qsTr("Wi-Fi band")
-            sublabel: page.band.band ? qsTr("Now on %1 GHz").arg(page.band.band) : ""
-            options: [{ value: "auto", text: qsTr("Automatic") }].concat(
-                (page.band.available || []).map(b => ({ value: b, text: qsTr("%1 GHz only").arg(b) })))
-        }
-    }
-
-    SettingsGroup {
         visible: page.on && page.known.length > 0
         title: qsTr("Known Networks")
         Repeater {
@@ -156,6 +120,49 @@ SettingsPage {
             text: qsTr("Join Other…")
             busy: backend.busy.indexOf("wifi.connectHidden") >= 0
             onClicked: hiddenDialog.open()
+        }
+    }
+
+    // The connected network's details, folded away under the networks.
+    SettingsGroup {
+        id: advanced
+        visible: page.on && !!page.current
+        property bool open: false
+        title: qsTr("Advanced")
+        summary: qsTr("DNS, sharing, speed test, Wi-Fi band")
+        collapsible: true
+        collapsed: !open
+        onToggle: open = !open
+        footer: qsTr("DNS turns names into addresses. Changing it asks for your password; Custom opens a terminal to enter your own servers.")
+        ChoiceRow {
+            setting: "network.dns"
+            label: qsTr("DNS servers")
+            options: [
+                { value: "DHCP", text: qsTr("From the network") },
+                { value: "Cloudflare", text: "Cloudflare" },
+                { value: "Google", text: "Google" },
+                { value: "Custom", text: qsTr("Custom…") }
+            ]
+        }
+        ButtonRow {
+            label: qsTr("Share this network")
+            sublabel: qsTr("A QR code a phone can scan to join")
+            glyph: "\u{F0432}"
+            text: qsTr("Show Code")
+            onClicked: backend.act("summon", ["omarchy.wifiqr"])
+        }
+        ButtonRow {
+            label: qsTr("Internet speed")
+            glyph: "\u{F04C5}"
+            text: qsTr("Test…")
+            onClicked: backend.act("summon", ["omarchy.speedtest"])
+        }
+        ChoiceRow {
+            setting: "wifi.band"
+            label: qsTr("Wi-Fi band")
+            sublabel: page.band.band ? qsTr("Now on %1 GHz").arg(page.band.band) : ""
+            options: [{ value: "auto", text: qsTr("Automatic") }].concat(
+                (page.band.available || []).map(b => ({ value: b, text: qsTr("%1 GHz only").arg(b) })))
         }
     }
 

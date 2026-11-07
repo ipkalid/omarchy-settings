@@ -65,6 +65,28 @@ SettingsPage {
         }
         return counts
     }
+    // How many of those are on: not hidden themselves, and not inside
+    // something hidden below the item they're counted under.
+    readonly property var shownCount: {
+        const counts = {}
+        for (const i of items) {
+            const parts = i.id.split(".")
+            let on = !i.hidden
+            for (let n = parts.length - 1; n >= 1; --n) {
+                const ancestor = parts.slice(0, n).join(".")
+                if (on) counts[ancestor] = (counts[ancestor] || 0) + 1
+                if (hiddenIds[ancestor]) on = false
+            }
+        }
+        return counts
+    }
+    // "12 items inside · 9 shown"; a hidden item's count of shown ones would
+    // say nothing true, so it only says what's inside.
+    function insideSummary(id) {
+        const inside = qsTr("%n items inside", "", insideCount[id] || 0)
+        return hiddenIds[id] || hiddenBy(id) ? inside : inside + " · " + qsTr("%n shown", "", shownCount[id] || 0)
+    }
+    property bool customOpen: false
     function isOpen(id) { return query.length > 0 || !!expanded[id] }
     function toggleOpen(id) {
         const next = Object.assign({}, expanded)
@@ -105,7 +127,7 @@ SettingsPage {
         label: item.label
         readonly property int inside: page.insideCount[item.id] || 0
         sublabel: expandable && !open && inside > 0 && item.depth > 0 && !coveredBy && item.editable
-                 ? qsTr("%n items inside", "", inside)
+                 ? page.insideSummary(item.id)
                  : !item.editable ? qsTr("Set over several lines in your menu file; change it there")
                  : coveredBy && !item.hidden ? qsTr("Hidden with %1, but search still finds it").arg(page.labelOf(coveredBy))
                  : coveredBy ? qsTr("Hidden with %1").arg(page.labelOf(coveredBy))
@@ -185,7 +207,18 @@ SettingsPage {
     // Your own items, wherever they sit in the menu.
     SettingsGroup {
         title: qsTr("Your Items")
+        collapsible: true
+        collapsed: !page.customOpen
+        onToggle: page.customOpen = !page.customOpen
+        summary: qsTr("%n items", "", page.custom.length)
         footer: qsTr("Items you add go into omarchy-menu.jsonc, the way Omarchy's menu takes extensions. A copy of the file is kept before each change.")
+        // Stays in view while the list is folded.
+        leading: ButtonRow {
+            label: page.custom.length === 0 ? qsTr("Add your own commands and submenus to the menu") : ""
+            text: qsTr("Add Item…")
+            highlighted: true
+            onClicked: itemDialog.openFor(null)
+        }
         Repeater {
             model: page.custom
             delegate: SettingRow {
@@ -222,12 +255,6 @@ SettingsPage {
                 }
             }
         }
-        ButtonRow {
-            label: page.custom.length === 0 ? qsTr("Add your own commands and submenus to the menu") : ""
-            text: qsTr("Add Item…")
-            highlighted: true
-            onClicked: itemDialog.openFor(null)
-        }
     }
 
     Repeater {
@@ -253,7 +280,7 @@ SettingsPage {
                 visible: !group.open && group.children_.length > 0
                 width: parent.width
                 leftPadding: ui.s(40)
-                text: qsTr("%n items inside", "", group.children_.length)
+                text: page.insideSummary(group.modelData.id)
                 color: ui.muted2
                 font.family: ui.font
                 font.pixelSize: ui.caption
