@@ -1,6 +1,9 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
+#include <QDirIterator>
+#include <QRegularExpression>
+#include <QSet>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -1416,6 +1419,121 @@ private slots:
             QJsonDocument::fromJson(readText(QStringLiteral(SRCDIR) + "/../src/i18n/" + file).toUtf8(), &error);
             QVERIFY2(error.error == QJsonParseError::NoError, qPrintable(file + ": " + error.errorString()));
         }
+    }
+
+    // ---- Catalogs are complete --------------------------------------------------
+    // ar.json holds every string Settings shows; every other catalog but
+    // en.json (English plural forms only) has exactly its keys, keeps each
+    // key's placeholders, and gives counted strings the forms its language
+    // uses. tools/i18n.py checks the same and lists what a catalog lacks.
+
+    static QJsonObject catalog(const QString &code) {
+        return QJsonDocument::fromJson(readText(QStringLiteral(SRCDIR) + "/../src/i18n/" + code + ".json").toUtf8()).object();
+    }
+
+    static QStringList placeholders(const QString &text, bool countSpelledOut) {
+        static const QRegularExpression re("%L?\\d|%n");
+        QStringList out;
+        for (auto it = re.globalMatch(text); it.hasNext();) {
+            const QString p = it.next().captured();
+            if (!(countSpelledOut && p == "%n"))
+                out << p;
+        }
+        out.sort();
+        return out;
+    }
+
+    static QString unescapeLiteral(QString s) {
+        static const QRegularExpression codepoint("\\\\u\\{([0-9A-Fa-f]+)\\}");
+        for (auto m = codepoint.match(s); m.hasMatch(); m = codepoint.match(s))
+            s.replace(m.capturedStart(), m.capturedLength(), QString::fromUcs4(std::u32string(1, char32_t(m.captured(1).toUInt(nullptr, 16))).data(), 1));
+        return s.replace("\\n", "\n").replace("\\\"", "\"").replace("\\'", "'").replace("\\\\", "\\");
+    }
+
+    void everySourceStringIsInTheReferenceCatalog() {
+        const QJsonObject reference = catalog("ar");
+        // A quoted literal: "((?:[^"\\]|\\.)*)"
+        const QString lit = "\"((?:[^\"\\\\]|\\\\.)*)\"";
+        const QRegularExpression qsTrCall("\\bqsTr\\(\\s*" + lit + "(?:\\s*,\\s*" + lit + ")?");
+        const QRegularExpression qsTranslateCall("\\b(?:qsTranslate|QT_TRANSLATE_NOOP)\\(\\s*" + lit + "\\s*,\\s*" + lit);
+        const QRegularExpression trCall("(?<![\\w.])tr\\(\\s*" + lit);
+        static const QRegularExpression comment("(?m)^\\s*//.*$");
+        QStringList missing;
+        QDirIterator files(QStringLiteral(SRCDIR) + "/../src", {"*.qml", "*.cpp", "*.h"}, QDir::Files, QDirIterator::Subdirectories);
+        while (files.hasNext()) {
+            const QString text = readText(files.next()).remove(comment);
+            for (auto it = qsTrCall.globalMatch(text); it.hasNext();) {
+                const auto m = it.next();
+                const QString key = unescapeLiteral(m.captured(1)) + (m.captured(2).isEmpty() ? "" : "|" + unescapeLiteral(m.captured(2)));
+                if (!reference.contains(key)) missing << key;
+            }
+            for (auto it = qsTranslateCall.globalMatch(text); it.hasNext();)
+                if (const QString key = unescapeLiteral(it.next().captured(2)); !reference.contains(key)) missing << key;
+            for (auto it = trCall.globalMatch(text); it.hasNext();)
+                if (const QString key = unescapeLiteral(it.next().captured(1)); !reference.contains(key)) missing << key;
+        }
+        // Setting labels are translated by qsTranslate("Setting", label).
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        for (const Setting &s : store.settings())
+            if (!s.label.isEmpty() && !reference.contains(s.label)) missing << s.label;
+        missing.removeDuplicates();
+        QVERIFY2(missing.isEmpty(), qPrintable("Not in ar.json: " + missing.join(" | ")));
+    }
+
+    void shippedCatalogsAreComplete() {
+        const QJsonObject reference = catalog("ar");
+        const QStringList referenceKeys = reference.keys();
+        for (const QString &file : QDir(QStringLiteral(SRCDIR) + "/../src/i18n").entryList({"*.json"})) {
+            const QString code = file.chopped(5);
+            if (code == "en")
+                continue;
+            const QJsonObject cat = catalog(code);
+            QStringList problems;
+            const QStringList catKeys = cat.keys();
+            const QSet<QString> have(catKeys.begin(), catKeys.end()), want(referenceKeys.begin(), referenceKeys.end());
+            for (const QString &k : want - have) problems << "missing " + k;
+            for (const QString &k : have - want) problems << "extra " + k;
+
+            // The forms this language's plural rule uses, and "other" as the fallback.
+            QSet<QString> forms{"other"};
+            for (long long n = 0; n <= 200; ++n) forms << Translator::pluralCategory(code, n);
+            forms << Translator::pluralCategory(code, 1000000);
+
+            for (const QString &key : referenceKeys) {
+                if (!cat.contains(key)) continue;
+                const QString source = key.section('|', 0, 0);
+                const QJsonValue value = cat.value(key);
+                if (reference.value(key).isObject()) {
+                    const QJsonObject given = value.toObject();
+                    const QStringList givenForms = given.keys();
+                    if (!value.isObject() || QSet<QString>(givenForms.begin(), givenForms.end()) != forms) {
+                        problems << key + ": wrong plural forms";
+                        continue;
+                    }
+                    for (const QString &form : givenForms) {
+                        // zero, one, and two may spell the count out ("a day").
+                        const bool spelled = form == "zero" || form == "one" || form == "two";
+                        if (given.value(form).toString().trimmed().isEmpty()
+                            || placeholders(given.value(form).toString(), spelled) != placeholders(source, spelled))
+                            problems << key + "[" + form + "]: empty or placeholders differ";
+                    }
+                } else if (!value.isString() || value.toString().trimmed().isEmpty()
+                           || placeholders(value.toString(), false) != placeholders(source, false)) {
+                    problems << key + ": empty or placeholders differ";
+                }
+            }
+            QVERIFY2(problems.isEmpty(), qPrintable(file + ": " + QString::number(problems.size()) + " problems, e.g. "
+                                                    + problems.mid(0, 5).join(" | ")));
+        }
+    }
+
+    void everyCatalogIsBundled() {
+        const QString qrc = readText(QStringLiteral(SRCDIR) + "/../src/resources.qrc");
+        for (const QString &file : QDir(QStringLiteral(SRCDIR) + "/../src/i18n").entryList({"*.json"}))
+            QVERIFY2(qrc.contains("<file alias=\"i18n/" + file + "\">i18n/" + file + "</file>"),
+                     qPrintable(file + " is not in resources.qrc"));
     }
 };
 

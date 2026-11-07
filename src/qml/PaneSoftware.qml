@@ -48,7 +48,7 @@ SettingsPage {
         "package": { label: qsTr("Packages"), detail: qsTr("Pick packages from Arch's repositories") },
         "aur": { label: qsTr("AUR packages"), detail: qsTr("Pick packages from the Arch User Repository") },
         "tui": { label: qsTr("Terminal apps"), detail: qsTr("Add a terminal app to the app launcher") },
-        "windows": { label: qsTr("Windows"), detail: qsTr("Windows in a virtual machine") },
+        "windows": { label: qsTr("Windows", "operating system"), detail: qsTr("Windows in a virtual machine") },
         "preinstalls": { label: qsTr("Preinstalled apps"), detail: qsTr("The apps Omarchy comes with") }
     })
 

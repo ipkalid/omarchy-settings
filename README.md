@@ -7,8 +7,11 @@ on [Omarchy](https://omarchy.org). It is laid out like a desktop settings app
 (a searchable sidebar of panes; searching lists the pages and apps inside
 each pane that match, and outlines the matching setting in its page) and drawn like the Omarchy shell's own Wi-Fi and Bluetooth panels, in
 the current theme's colors and monospace font. It follows theme, text size,
-corner, and language changes live, in all of Omarchy's languages, right to
-left included.
+corner, and language changes live, right to left included. It is translated
+into Arabic, Chinese (Simplified and Traditional), French, German, Italian,
+Japanese, Korean, Polish, Portuguese (Brazil), Russian, Spanish (Mexico), and
+Turkish; Omarchy's other languages get their number and date formats and
+show English text until they are translated.
 
 | Pane | What's in it |
 | --- | --- |
@@ -135,6 +138,24 @@ bin/build      # build/omasettings
 bin/test       # the Qt Test suite, offscreen
 bin/install    # makepkg -fsi, so it shows up in the app launcher (Super + Space)
 ```
+
+## Translations
+
+Catalogs are `src/i18n/<code>.json`, one per Omarchy language code, mapping
+English text to its translation; counted strings map to their plural forms.
+`ar.json` holds every string Settings shows, and the test suite fails if any
+other catalog misses one, changes a placeholder, or lacks a plural form its
+language uses.
+
+```sh
+tools/i18n.py extract        # strings in the source that ar.json lacks
+tools/i18n.py check          # every catalog complete and well formed
+tools/i18n.py todo de        # what de.json still needs, as JSON
+OMASETTINGS_LANGUAGE_FILE=/tmp/lang build/omasettings   # /tmp/lang holds a code, e.g. de
+```
+
+A new catalog also needs a line in `src/resources.qrc`. Use Omarchy's own
+terms for the language, from `$OMARCHY_PATH/default/i18n/<code>/`.
 
 ## License
 

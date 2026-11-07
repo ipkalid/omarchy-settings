@@ -49,8 +49,10 @@ int main(int argc, char *argv[]) {
     app.setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
 
     // Installed before anything is translated, and every qsTr() binding is
-    // re-evaluated when the Omarchy language changes.
-    Translator translator;
+    // re-evaluated when the Omarchy language changes. OMASETTINGS_LANGUAGE_FILE
+    // points it at another language file, to check a translation without
+    // changing the desktop's language.
+    Translator translator(qEnvironmentVariable("OMASETTINGS_LANGUAGE_FILE"));
     app.installTranslator(&translator);
 
     Theme theme;
