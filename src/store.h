@@ -6,6 +6,7 @@
 #include <QJsonObject>
 #include <QList>
 #include <QMutex>
+#include <QRecursiveMutex>
 #include <QString>
 #include <QVariant>
 #include <functional>
@@ -73,6 +74,27 @@ public:
     // What Restore Defaults would change on a pane, and doing it.
     QVariantList defaultsFor(const QString &pane);
     QString resetPane(const QString &pane);
+
+    // Settings that belong to this machine rather than the person: they
+    // stay behind on export and Sync.
+    static bool isMachineSpecific(const QString &id);
+
+    // sync.cpp: keeping settings, apps, and chosen files in a private git
+    // repository, and bringing another computer to match it.
+    QString syncDir() const;
+    QString syncStatePath() const;
+    // Whether changes upload on their own.
+    bool syncAuto() const;
+    // Writes this computer's snapshot into dir, leaving the parts in skip as
+    // they are there.
+    QString writeSyncSnapshot(const QString &dir, const QStringList &skip, const QStringList &dotfiles);
+    // What applying the local copy of the repository would change here.
+    QVariantMap syncPlan();
+    // The packages the person added: explicit ones, less the excluded and
+    // those that come with the machine (kernels, firmware, drivers, Omarchy).
+    static QStringList syncPackages(const QStringList &explicitPackages, const QStringList &excluded);
+    // The tools in a mise config's [tools] table, as tool@version.
+    static QStringList miseTools(const QString &toml);
 
     // Exposed for tests.
     static QString reindentJson(const QByteArray &json);
@@ -173,6 +195,24 @@ public:
 
 private:
     QString importSettings(const QJsonObject &doc);
+    QString normalize(const Setting &setting, const QVariant &value, QVariant &out) const;
+
+    QJsonObject syncState() const;
+    QString updateSyncState(const std::function<void(QJsonObject &)> &change);
+    QStringList syncSkipped() const;
+    ProcResult git(const QStringList &args, int timeoutMs = 15000, bool network = false) const;
+    QString syncBranch() const;
+    QString syncRemoteHead() const;
+    QString syncConnect(const QString &url);
+    QString syncCreate(const QString &name);
+    QString syncCheck();
+    QString syncUpload(bool force, bool automatic);
+    QString syncApply();
+    QString syncInstallScript(const QVariantMap &plan);
+    QVariantMap appImageSource(const QString &updateInfo) const;
+    QVariant listSync();
+    QVariant listSyncPreview();
+    QString actSync(const QString &action, const QVariantList &args);
 
 public:
     static QString normalizeKeys(const QString &keys);
@@ -208,4 +248,7 @@ private:
     // The last update check's findings, for appimage.update.
     QMutex m_appImageLock;
     QHash<QString, QVariantMap> m_appImageUpdates;
+    // One sync operation at a time on the local copy of the repository.
+    QRecursiveMutex m_syncLock;
+    QMutex m_syncStateLock;
 };

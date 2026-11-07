@@ -381,6 +381,17 @@ QString Store::write(const QString &id, const QVariant &value) {
     // first change to an option hands it back to the user's own config.
     if ((!value.isValid() || value.isNull()) && !s->hyprOption.isEmpty())
         return resetHypr(s->hyprOption);
+    QVariant v;
+    if (const QString error = normalize(*s, value, v); !error.isEmpty())
+        return error;
+    return s->write(v);
+}
+
+// A value in the form a setting stores it, checked against its type, range,
+// and choices.
+QString Store::normalize(const Setting &setting, const QVariant &value, QVariant &out) const {
+    const Setting *s = &setting;
+    const QString &id = s->id;
     QVariant v = value;
     if (s->type == "bool") {
         v = truthy(value);
@@ -402,7 +413,8 @@ QString Store::write(const QString &id, const QVariant &value) {
         if (!found)
             return tr("%1 is not one of the choices for %2").arg(value.toString(), id);
     }
-    return s->write(v);
+    out = v;
+    return {};
 }
 
 void Store::add(Setting setting) {
@@ -873,7 +885,7 @@ QStringList Store::listNames() const {
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
             "storage", "homeUsage", "snapshots", "managed", "menuSearch",
-            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom", "software", "defaultApps", "appimages", "appimageUpdates"};
+            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom", "software", "defaultApps", "appimages", "appimageUpdates", "sync", "syncPreview"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -1131,6 +1143,10 @@ QVariant Store::list(const QString &name) {
         return listMore(name);
     if (QStringList{"security", "system", "branding", "bootScreens", "hardware", "reminders", "fontCatalog"}.contains(name))
         return listSystem(name);
+    if (name == "sync")
+        return listSync();
+    if (name == "syncPreview")
+        return listSyncPreview();
     if (name == "menu")
         return listMenu();
     if (name == "menuCustom")
@@ -1568,6 +1584,8 @@ QString Store::act(const QString &action, const QVariantList &args) {
 
     if (action.startsWith("appimage."))
         return actAppImage(action, args);
+    if (action.startsWith("sync."))
+        return actSync(action, args);
 
     if (action == "software.run" || action == "software.drop") {
         QStringList command;

@@ -18,6 +18,10 @@ monospace font.
   window rules, and the Omarchy menu.
 - **Every app Omarchy offers**, installed and removed from one list, plus
   AppImages added to the launcher with their icons and kept up to date.
+- **Sync**: keep your settings, apps (Omarchy's, pacman, AUR, Flatpak, mise,
+  web apps, AppImages), themes, plugins, and chosen dotfiles in a private
+  GitHub repository. Changes upload on their own; another computer matches
+  it with one click, after showing what will change. Hardware stays behind.
 - **Safe changes**: a backup before every rewrite, Ctrl+Z for everything,
   Hyprland changes rolled back if Hyprland rejects them, and display changes
   undone unless you keep them.
@@ -34,7 +38,7 @@ monospace font.
 | Wi-Fi | Networks, hidden networks, DNS servers, Wi-Fi band |
 | Bluetooth, VPN | Pairing; WireGuard and OpenVPN connections (import, sign in, install support) |
 | Power | Power mode now, on the adapter, and on battery; hibernation |
-| General | About, updates and update channel, language, time zone and clock, default apps and file types, login items, web apps, storage and snapshots, changes and backup |
+| General | About, updates and update channel, language, time zone and clock, default apps and file types, login items, web apps, storage and snapshots, Sync, changes and backup |
 | Apps | Everything Omarchy's Install and Remove menus offer (browsers, AI apps, coding agents, services, editors, terminals, games, dev environments, dictation, package pickers), with what's installed, so those menus can stay hidden; AppImages, added to the app launcher with their own icons and updated from where their makers publish them |
 | Appearance | Theme gallery, installing and removing themes, corners, transparency, animations, text size, font |
 | Desktop & Dock, Bar, Omarchy Menu, Plugins | Dock and pinned apps, window layout and gaps, window rules, focus; the bar's widgets and their order; hiding parts of the Omarchy menu, your own menu items, and Settings' pages in the menu search; shell plugins and updates |
@@ -54,7 +58,7 @@ monospace font.
 - **From a terminal or a keybinding.** `omasettings open vpn` opens a pane,
   and `omasettings open general/datetime` a page inside one (the pages:
   `general/about`, `update`, `language`, `datetime`, `loginitems`,
-  `webapps`, `apps`, `troubleshooting`, `settingsapp`; `appearance/themes`,
+  `webapps`, `apps`, `troubleshooting`, `sync`, `settingsapp`; `appearance/themes`,
   `desktop/rules`, `lock/bootscreen`, `keyboard/shortcuts`).
 - **One window.** If Settings is already open, any of these switches that
   window to the page and brings it forward instead of opening another.
@@ -130,6 +134,39 @@ Settings never rewrites a file you wrote.
 Everything is written atomically (beside the target, then renamed), and every
 change can be undone with Ctrl+Z.
 
+## Sync
+
+General › Sync connects Settings to a private GitHub repository, through the
+`gh` login (it creates one, `omarchy-sync`, if you like). The repository
+holds plain files, so its history on GitHub reads like a changelog:
+
+| Path | What it is |
+| --- | --- |
+| `settings.json` | Everything Export writes: settings, shortcuts, login items, window rules |
+| `desktop/` | The Omarchy menu file, the dock and bar layout, apps for file types, branding |
+| `apps/` | Omarchy's apps, the pacman and AUR packages you added, Flatpak apps, mise tools, web apps, AppImages that publish updates |
+| `themes.json`, `wallpapers/` | Themes added by git URL, wallpapers you added |
+| `plugins.json` | Shell plugins by git URL, and which are on |
+| `git.json` | The name and email on your commits |
+| `dotfiles/` | Files and folders from your home you chose to sync |
+
+- **Uploading** happens half a minute after a change and every 15 minutes
+  while Settings is open; a change still waiting goes when it closes. It never overwrites something newer: if another
+  computer uploaded since this one last synced, it waits until that's applied
+  (or you choose Upload Anyway, which keeps theirs in the history).
+- **Applying** lists every change first. Plugins, themes, wallpapers, web
+  apps, the menu, the dock and bar, file types, and dotfiles are put in
+  place (a file it replaces is kept beside it), then settings. Missing apps
+  install in one terminal, which asks for your password once. Nothing is
+  ever removed.
+- **What stays behind**: displays, sound devices, Wi-Fi and Bluetooth,
+  power profiles, the keyboard backlight, touchpad on/off, printers, the
+  firewall, the computer's name and time zone, and packages that belong to
+  the hardware (kernels, firmware, microcode, graphics drivers).
+- Each part can be turned off for one computer; the repository keeps it for
+  the others. `~/.ssh`, `~/.gnupg`, and other keys can't be added as
+  dotfiles, and Sync refuses a public repository.
+
 ## Keyboard
 
 | Key | Does |
@@ -158,6 +195,8 @@ omasettings data monitors --json        # wifi, bluetooth, sinks, monitors, them
 omasettings act shortcut.add "SUPER + E" Files launch org.gnome.Nautilus.desktop
 omasettings export ~/Documents           # settings, shortcuts, login items, rules
 omasettings import ~/Documents/omarchy-settings-2026-11-06.json
+omasettings sync status                 # Sync: connected? newer settings waiting?
+omasettings sync upload                 # or: apply, check, connect <url>, create
 omasettings open displays               # open the window on a pane
 omasettings open general/datetime       # or on a page inside one
 omasettings skill install               # a short skill so agents know how

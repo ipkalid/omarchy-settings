@@ -135,6 +135,8 @@ ApplicationWindow {
           settings: ["general.browser", "general.terminal", "general.editor", "general.agent", "general.dictation"] },
         { pane: "general", page: "GeneralTroubleshooting", title: qsTr("Troubleshooting"), glyph: "\u{F0BC6}",
           keywords: qsTr("restart reset refresh configs kernel start over") },
+        { pane: "general", page: "GeneralSync", title: qsTr("Sync"), glyph: "\u{F04E6}",
+          keywords: qsTr("sync github repository backup another computer dotfiles packages apps restore") },
         { pane: "general", page: "GeneralSettingsApp", title: qsTr("Changes & Backup"), glyph: "\u{F006F}",
           keywords: qsTr("changes backup export import reset settings shortcut"),
           settings: ["integration.menuPlace", "integration.menuEntry"] },

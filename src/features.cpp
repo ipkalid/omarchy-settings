@@ -1195,17 +1195,20 @@ QString Store::actMore(const QString &action, const QVariantList &args) {
 
 // Settings that belong to this machine rather than to the person: they stay
 // behind when settings move to another computer.
-static bool machineSpecific(const QString &id) {
+// Power, displays, and Do Not Disturb are this machine's state too.
+bool Store::isMachineSpecific(const QString &id) {
     static const QStringList ids{"security.gitName", "security.gitEmail", "general.dictation", "general.hostname", "general.timezone", "general.autoTime", "network.dns", "wifi.band",
                                  "wifi.enabled", "bluetooth.enabled", "display.brightness", "keyboard.backlight",
-                                 "power.profile", "pointer.touchpad", "pointer.touchscreen", "lock.stayAwake"};
+                                 "power.profile", "power.acProfile", "power.batteryProfile", "display.laptopScreen",
+                                 "display.mirror", "display.nightLight", "notifications.doNotDisturb",
+                                 "pointer.touchpad", "pointer.touchscreen", "lock.stayAwake"};
     return ids.contains(id) || id.startsWith("sound.");
 }
 
 QJsonObject Store::exportSettings() {
     QJsonObject settings;
     for (const Setting &s : m_settings) {
-        if (machineSpecific(s.id))
+        if (isMachineSpecific(s.id))
             continue;
         const QVariant v = s.read ? s.read() : QVariant();
         if (v.isValid() && !v.isNull())
@@ -1235,15 +1238,32 @@ QString Store::importSettings(const QJsonObject &doc) {
             writeNightShift(managed.value("nightShift").toObject());
     }
     const QJsonObject settings = doc.value("settings").toObject();
+    // Hyprland's options go into the generated file together, so Hyprland
+    // reloads once rather than once for each.
+    QVariantMap hypr;
+    QStringList hyprLabels;
     for (auto it = settings.begin(); it != settings.end(); ++it) {
         const Setting *s = setting(it.key());
-        if (!s || machineSpecific(it.key()) || it.key().startsWith("display.night"))
+        if (!s || isMachineSpecific(it.key()) || it.key().startsWith("display.night"))
             continue;
         const QVariant value = it.value().toVariant();
         if (s->read && s->read() == value)
             continue;
+        if (!s->hyprOption.isEmpty()) {
+            QVariant v;
+            if (QString error = normalize(*s, value, v); !error.isEmpty())
+                failed << s->label + ": " + error;
+            else if (!(s->read && s->read() == v)) {
+                hypr.insert(s->hyprOption, v);
+                hyprLabels << s->label;
+            }
+            continue;
+        }
         if (QString error = write(it.key(), value); !error.isEmpty())
             failed << s->label + ": " + error;
     }
+    if (!hypr.isEmpty())
+        if (QString error = hyprSet(hypr); !error.isEmpty())
+            failed << hyprLabels.join(", ") + ": " + error;
     return failed.isEmpty() ? QString() : tr("Some settings were not applied: %1").arg(failed.join("; "));
 }

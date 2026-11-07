@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QSet>
 #include <QThreadPool>
+#include <QTimer>
 #include <QVariantMap>
 #include <memory>
 
@@ -56,8 +57,11 @@ public:
     // rects are [{x, y, width, height}], the result [{x, y}] (Layout::place).
     Q_INVOKABLE QVariantList placeMonitor(const QVariantList &rects, int moved, int x, int y, int snap) const;
 
-    // Waits for every queued change; used before quitting.
+    // Waits for every queued change, and uploads to Sync what is still
+    // waiting to go; used before quitting.
     void finish();
+    // Sync uploads a little after a change, so a run of changes is one upload.
+    void scheduleSync();
 
 signals:
     // Another launch asked the open window to show a pane or page
@@ -80,6 +84,10 @@ private:
 
     std::shared_ptr<Store> m_store;
     QThreadPool m_reads, m_writes;
+    // Sync's git work, apart from the writes so a slow upload never holds up
+    // a change.
+    QThreadPool m_sync;
+    QTimer m_syncSoon, m_syncPeriodic;
     QVariantMap m_values, m_lists;
     QSet<QString> m_busy;
     QHash<QString, QVariant> m_pending; // newest queued value per setting

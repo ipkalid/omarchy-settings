@@ -14,6 +14,7 @@
         <file alias="qml/GeneralLanguage.qml">qml/GeneralLanguage.qml</file>
         <file alias="qml/GeneralLoginItems.qml">qml/GeneralLoginItems.qml</file>
         <file alias="qml/GeneralSettingsApp.qml">qml/GeneralSettingsApp.qml</file>
+        <file alias="qml/GeneralSync.qml">qml/GeneralSync.qml</file>
         <file alias="qml/GeneralTroubleshooting.qml">qml/GeneralTroubleshooting.qml</file>
         <file alias="qml/GeneralUpdate.qml">qml/GeneralUpdate.qml</file>
         <file alias="qml/GeneralWebApps.qml">qml/GeneralWebApps.qml</file>

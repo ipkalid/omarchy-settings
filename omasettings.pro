@@ -24,6 +24,7 @@ SOURCES += \
     src/features.cpp \
     src/system.cpp \
     src/software.cpp \
+    src/sync.cpp \
     src/hyprconf.cpp \
     src/monitorlayout.cpp \
     src/proc.cpp \

@@ -952,6 +952,123 @@ private slots:
         QVERIFY(fresh.act("settings.import", {other.path() + "/not-ours.json"}).contains("not a Settings export"));
     }
 
+    void importReloadsHyprlandOnce() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        const QString file = dir.path() + "/settings.json";
+        writeText(file, R"({"app":"omasettings","version":1,"settings":{"desktop.borderSize":3,"keyboard.repeatRate":40,"desktop.gapsInner":7}})");
+        QCOMPARE(store.act("settings.import", {file}), QString());
+        QCOMPARE(sys.calls.count("hyprctl reload"), 1);
+        QCOMPARE(store.managedState().value("hypr").toObject().size(), 3);
+    }
+
+    // ---- Sync -------------------------------------------------------------------
+    void syncKeepsThePersonAndLeavesTheMachine() {
+        QCOMPARE(Store::syncPackages({"linux-lts", "amd-ucode", "sof-firmware", "omarchy-keyring", "nvidia-open-dkms",
+                                      "supergfxctl", "rocm-smi-lib", "htop", "btop", ""}, {"btop"}),
+                 QStringList{"htop"});
+        QCOMPARE(Store::miseTools("[env]\nA = \"1\"\n[tools]\nnode = \"22\" # lts\n'cargo:x' = ['1', '2']\n"
+                                  "python = { version = \"3.12\" }\n"),
+                 (QStringList{"node@22", "cargo:x@latest", "python@latest"}));
+        for (const char *id : {"power.batteryProfile", "power.acProfile", "display.mirror", "display.laptopScreen",
+                               "notifications.doNotDisturb", "sound.output", "wifi.enabled"})
+            QVERIFY2(Store::isMachineSpecific(id), id);
+        QVERIFY(!Store::isMachineSpecific("appearance.theme"));
+    }
+
+    void syncSnapshotHoldsPartsAndKeepsSkippedOnes() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths p = pathsIn(dir);
+        p.data = dir.path() + "/data";
+        sys.answer("pacman -Qqe", "base\nlinux\nnvidia-open-dkms\nripgrep\nslack-desktop\nchromium\nzoom\n");
+        sys.answer("omarchy-pkg-defaults", "chromium\n");
+        sys.answer("pacman -Qqm", "zoom\n");
+        Store store(p, sys.exec());
+        writeText(p.config + "/omarchy/shell.json", R"({"bar":{"position":"bottom"},"idle":{"lock":300},"dock":{"pinned":["a"]}})");
+        writeText(p.config + "/omarchy/extensions/omarchy-menu.jsonc", "{\n  \"setup\": { \"when\": \"false\" }\n}\n");
+        writeText(p.config + "/mise/config.toml", "[tools]\nnode = \"22\"\n\"npm:x\" = \"latest\"\n[settings]\nfoo = 1\n");
+        const QString out = dir.path() + "/snap";
+        writeText(out + "/dotfiles/kept.txt", "from another computer");
+
+        QCOMPARE(store.writeSyncSnapshot(out, {"dotfiles"}, {}), QString());
+        const QJsonObject settings = QJsonDocument::fromJson(readText(out + "/settings.json").toUtf8()).object();
+        QVERIFY(settings.contains("settings"));
+        QVERIFY(!settings.contains("exported"));
+        QVERIFY(!settings.value("settings").toObject().contains("general.hostname"));
+        const QJsonObject shell = QJsonDocument::fromJson(readText(out + "/desktop/shell.json").toUtf8()).object();
+        QCOMPARE(shell.value("bar").toObject().value("position").toString(), QString("bottom"));
+        QVERIFY(!shell.contains("idle"));
+        QVERIFY(readText(out + "/desktop/menu.jsonc").contains("\"setup\""));
+        QCOMPARE(readText(out + "/apps/pacman.txt"), QString("ripgrep\nslack-desktop\n"));
+        QCOMPARE(readText(out + "/apps/aur.txt"), QString("zoom\n"));
+        QCOMPARE(readText(out + "/apps/mise.txt"), QString("node@22\nnpm:x@latest\n"));
+        // Left out here, so what the repository has stays.
+        QCOMPARE(readText(out + "/dotfiles/kept.txt"), QString("from another computer"));
+    }
+
+    void syncUploadWaitsForNewerSettings() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths p = pathsIn(dir);
+        p.data = dir.path() + "/data";
+        Store store(p, sys.exec());
+        QDir().mkpath(store.syncDir() + "/.git");
+        writeText(store.syncStatePath(), "{\"url\":\"https://github.com/me/omarchy-sync\",\"branch\":\"main\",\"lastCommit\":\"aaa\"}");
+        sys.answer("git -C " + store.syncDir() + " rev-parse --verify --quiet refs/remotes/origin/main", "bbb\n");
+
+        QCOMPARE(store.act("sync.upload", {"auto"}), QString());
+        QVERIFY(store.act("sync.upload", {""}).contains("newer settings"));
+        for (const QString &call : sys.calls)
+            QVERIFY2(!call.contains(" push ") && !call.contains(" commit "), qPrintable(call));
+        const QJsonObject state = QJsonDocument::fromJson(readText(store.syncStatePath()).toUtf8()).object();
+        QVERIFY(state.value("pending").toBool());
+        QVERIFY(store.syncAuto());
+    }
+
+    void syncPlanOnlyAddsWhatIsMissing() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths p = pathsIn(dir);
+        p.data = dir.path() + "/data";
+        sys.answer("pacman -Qq", "ripgrep\nhtop\n");
+        Store store(p, sys.exec());
+        const QString repo = store.syncDir();
+        writeText(repo + "/apps/pacman.txt", "ripgrep\nfd\n");
+        writeText(repo + "/apps/mise.txt", "node@22\ngo@latest\n");
+        writeText(p.config + "/mise/config.toml", "[tools]\nnode = \"20\"\n");
+        writeText(repo + "/dotfiles/.zshrc", "new");
+        writeText(p.home + "/.zshrc", "old");
+        writeText(repo + "/desktop/mimeapps.list", "[Default Applications]\n");
+
+        const QVariantMap plan = store.syncPlan();
+        QCOMPARE(plan.value("pacman").toStringList(), QStringList{"fd"});
+        QCOMPARE(plan.value("mise").toStringList(), QStringList{"go@latest"});
+        QCOMPARE(plan.value("dotfiles").toStringList(), QStringList{".zshrc"});
+        QVERIFY(plan.value("desktop").toStringList().contains("mime"));
+
+        // A part this computer leaves out isn't planned at all.
+        QCOMPARE(store.act("sync.skip", {"dotfiles", false}), QString());
+        QVERIFY(!store.syncPlan().contains("dotfiles"));
+        QVERIFY(store.act("sync.skip", {"displays", false}).contains("Unknown part"));
+    }
+
+    void syncDotfilesStayInHomeAndAwayFromKeys() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths p = pathsIn(dir);
+        p.data = dir.path() + "/data";
+        Store store(p, sys.exec());
+        writeText(p.home + "/.ssh/id_ed25519", "secret");
+        writeText(p.home + "/.config/nvim/init.lua", "-- mine");
+        QVERIFY(store.act("sync.dotfile.add", {p.home + "/.ssh"}).contains("keys or passwords"));
+        QVERIFY(store.act("sync.dotfile.add", {"/etc/passwd"}).contains("home folder"));
+        QCOMPARE(store.act("sync.dotfile.add", {p.home + "/.config/nvim"}), QString());
+        const QJsonObject state = QJsonDocument::fromJson(readText(store.syncStatePath()).toUtf8()).object();
+        QCOMPARE(state.value("dotfiles").toArray(), QJsonArray{".config/nvim"});
+    }
+
     void managedChangesCanBeListedAndReset() {
         QTemporaryDir dir;
         FakeSystem sys;

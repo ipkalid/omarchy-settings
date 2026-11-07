@@ -7,7 +7,7 @@ SettingsPage {
     tagline: backend.values["general.hostname"] || page.about.hostname || ""
     glyph: "\u{F0493}"
     description: qsTr("Manage how this computer is named, updated, and set up for your language and time zone.")
-    lists: ["about", "languages"]
+    lists: ["about", "languages", "sync"]
 
     readonly property var about: backend.lists.about || ({})
     readonly property var language: (backend.lists.languages || []).find(l => l.code === backend.values["general.language"])
@@ -61,6 +61,13 @@ SettingsPage {
     }
 
     SettingsGroup {
+        NavRow {
+            label: qsTr("Sync")
+            sublabel: qsTr("Keep settings and apps in a GitHub repository, and bring another computer to match")
+            glyph: "\u{F04E6}"
+            detail: (backend.lists.sync || {}).pending ? qsTr("Newer settings") : ""
+            onOpen: win.openSub("GeneralSync", qsTr("Sync"))
+        }
         NavRow {
             label: qsTr("Troubleshooting")
             sublabel: qsTr("Restart parts of the desktop, reset configs, kernel, start over")

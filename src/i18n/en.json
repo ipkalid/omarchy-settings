@@ -11,6 +11,18 @@
     "one": "%n added",
     "other": "%n added"
   },
+  "%n apps weren't installed": {
+    "one": "%n app wasn't installed",
+    "other": "%n apps weren't installed"
+  },
+  "%n changes": {
+    "one": "%n change",
+    "other": "%n changes"
+  },
+  "%n changes. Apps are only added, never removed; the ones that need a password install in a terminal.": {
+    "one": "%n change. Apps are only added, never removed; the ones that need a password install in a terminal.",
+    "other": "%n changes. Apps are only added, never removed; the ones that need a password install in a terminal."
+  },
   "%n connected": {
     "one": "%n connected",
     "other": "%n connected"
@@ -38,6 +50,10 @@
   "%n in Downloads": {
     "one": "%n in Downloads",
     "other": "%n in Downloads"
+  },
+  "%n in the repository": {
+    "one": "%n in the repository",
+    "other": "%n in the repository"
   },
   "%n installed": {
     "one": "%n installed",

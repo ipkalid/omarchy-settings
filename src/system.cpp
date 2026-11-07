@@ -297,6 +297,7 @@ QStringList Store::terminalCommand(const QString &id) {
         {"sudoPasswordlessOff", {"omarchy-sudo-passwordless", "--disable"}},
         {"directBoot", {"omarchy-setup-direct-boot"}},
         {"gitSetup", {"omarchy-setup-git"}},
+        {"githubLogin", {"gh", "auth", "login", "--web", "--git-protocol", "https"}},
         {"themeUpdate", {"omarchy-theme-update"}},
         {"timeSync", {"omarchy-update-time"}},
         {"restartAudio", {"omarchy-restart-audio"}},

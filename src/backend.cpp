@@ -8,6 +8,22 @@
 Backend::Backend(std::shared_ptr<Store> store, QObject *parent) : QObject(parent), m_store(std::move(store)) {
     m_reads.setMaxThreadCount(4);
     m_writes.setMaxThreadCount(1);
+    m_sync.setMaxThreadCount(1);
+
+    // Sync uploads half a minute after the last change, every quarter hour
+    // for what changed outside Settings (an app installed in a terminal),
+    // and once soon after opening.
+    auto upload = [this] {
+        if (m_store->syncAuto() && !m_busy.contains("sync.upload") && !m_busy.contains("sync.apply"))
+            act("sync.upload", {"auto"}, {"sync"});
+    };
+    m_syncSoon.setSingleShot(true);
+    m_syncSoon.setInterval(30000);
+    connect(&m_syncSoon, &QTimer::timeout, this, upload);
+    m_syncPeriodic.setInterval(15 * 60000);
+    connect(&m_syncPeriodic, &QTimer::timeout, this, upload);
+    m_syncPeriodic.start();
+    QTimer::singleShot(20000, this, upload);
 }
 
 Backend::~Backend() {
@@ -15,8 +31,19 @@ Backend::~Backend() {
 }
 
 void Backend::finish() {
+    const bool waiting = m_syncSoon.isActive();
+    m_syncSoon.stop();
+    m_syncPeriodic.stop();
     m_writes.waitForDone();
     m_reads.waitForDone();
+    m_sync.waitForDone();
+    if (waiting && m_store->syncAuto())
+        m_store->act("sync.upload", {"auto"});
+}
+
+void Backend::scheduleSync() {
+    if (m_store->syncAuto())
+        m_syncSoon.start();
 }
 
 QVariantList Backend::index() const {
@@ -191,6 +218,8 @@ void Backend::write(const QString &id, const QVariant &value, bool record) {
                     self->m_undo.removeLast();
                     emit self->historyChanged();
                 }
+            } else {
+                self->scheduleSync();
             }
             // Show what the system really has now, unless a newer change is
             // still on its way.
@@ -203,18 +232,27 @@ void Backend::write(const QString &id, const QVariant &value, bool record) {
 }
 
 void Backend::act(const QString &action, const QVariantList &args, const QStringList &reload, const QString &pane) {
+    // An upload on its own schedule says nothing when it can't reach the
+    // repository; the Sync page shows why.
+    const bool quiet = (action == "sync.upload" && args.value(0).toString() == "auto") || action == "sync.check";
     setBusy(action, true);
-    dismissMessage();
+    if (!quiet)
+        dismissMessage();
     QPointer<Backend> self(this);
     auto store = m_store;
-    m_writes.start([self, store, action, args, reload, pane] {
+    // Sync's git work runs beside the writes; applying changes settings, so
+    // it waits its turn with them.
+    const bool beside = action.startsWith("sync.") && action != "sync.apply";
+    (beside ? m_sync : m_writes).start([self, store, action, args, reload, pane, quiet] {
         const QString error = store->act(action, args);
-        QMetaObject::invokeMethod(self.data(), [self, action, error, reload, pane] {
+        QMetaObject::invokeMethod(self.data(), [self, action, error, reload, pane, quiet] {
             if (!self)
                 return;
             self->setBusy(action, false);
-            if (!error.isEmpty())
+            if (!error.isEmpty() && !quiet)
                 self->fail(error);
+            if (error.isEmpty() && !action.startsWith("sync.") && action != "launch" && action != "edit")
+                self->scheduleSync();
             for (const QString &list : reload)
                 self->load(list);
             if (!pane.isEmpty())
