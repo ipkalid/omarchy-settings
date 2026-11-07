@@ -8,6 +8,7 @@ HEADERS += \
     src/backend.h \
     src/cli.h \
     src/hyprconf.h \
+    src/monitorlayout.h \
     src/proc.h \
     src/sidebuttons.h \
     src/store.h \
@@ -24,6 +25,7 @@ SOURCES += \
     src/system.cpp \
     src/software.cpp \
     src/hyprconf.cpp \
+    src/monitorlayout.cpp \
     src/proc.cpp \
     src/store.cpp \
     src/theme.cpp \

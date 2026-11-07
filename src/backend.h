@@ -49,8 +49,12 @@ public:
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
     Q_INVOKABLE void dismissMessage();
-    // What Settings saved for a display, or null, so a change can be undone.
-    Q_INVOKABLE QVariant savedMonitor(const QString &name) const;
+    // What Settings saved for a display (by its key, or else its connector
+    // name), or null, so a change can be undone.
+    Q_INVOKABLE QVariant savedMonitor(const QString &key, const QString &connector = {}) const;
+    // Where every display goes when one is dragged in the arrangement:
+    // rects are [{x, y, width, height}], the result [{x, y}] (Layout::place).
+    Q_INVOKABLE QVariantList placeMonitor(const QVariantList &rects, int moved, int x, int y, int snap) const;
 
     // Waits for every queued change; used before quitting.
     void finish();

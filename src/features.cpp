@@ -833,9 +833,16 @@ QVariant Store::listMore(const QString &name) {
                                {"value", it.value().toVariant()}};
         const QJsonObject monitors = state.value("monitors").toObject();
         for (auto it = monitors.begin(); it != monitors.end(); ++it)
-            out << QVariantMap{{"kind", "monitor"}, {"key", it.key()}, {"label", it.key()},
+            out << QVariantMap{{"kind", "monitor"}, {"key", it.key()}, {"label", QString(it.key()).remove(QRegularExpression("^desc:"))},
                                {"value", it.value().toObject().value("disabled").toBool() ? QStringLiteral("off")
                                                                                           : it.value().toObject().value("mode").toString()}};
+        const QJsonObject workspaces = state.value("workspaces").toObject();
+        for (auto it = workspaces.begin(); it != workspaces.end(); ++it)
+            out << QVariantMap{{"kind", "workspace"}, {"key", it.key()},
+                               {"label", it.value().toString().remove(QRegularExpression("^desc:"))}, {"value", it.key()}};
+        if (state.contains("primary"))
+            out << QVariantMap{{"kind", "primary"}, {"key", "primary"},
+                               {"label", state.value("primary").toString().remove(QRegularExpression("^desc:"))}, {"value", ""}};
         for (const QJsonValue &b : state.value("bindings").toArray())
             out << QVariantMap{{"kind", "binding"}, {"key", b.toObject().value("keys")}, {"label", b.toObject().value("keys")},
                                {"value", b.toObject().value("description")}};
@@ -1109,6 +1116,10 @@ QString Store::actMore(const QString &action, const QVariantList &args) {
         const QString kind = a0, key = args.value(1).toString();
         if (kind == "monitor")
             return monitorAction("monitor.reset", {key});
+        if (kind == "workspace")
+            return monitorAction("monitors.workspaces", {QVariantMap{{key, QString()}}});
+        if (kind == "primary")
+            return monitorAction("monitors.primary", {QString()});
         if (kind == "binding")
             return actMore("shortcut.remove", {key});
         if (kind == "unbind")
@@ -1135,7 +1146,7 @@ QString Store::actMore(const QString &action, const QVariantList &args) {
     if (action == "managed.resetAll") {
         const bool scheduled = managedState().value("nightShift").toObject().value("schedule").toBool();
         const QString error = updateState([](QJsonObject &state) {
-            for (const char *key : {"hypr", "monitors", "gestures", "bindings", "unbinds", "autostart", "windowRules", "nightShift"})
+            for (const char *key : {"hypr", "monitors", "workspaces", "primary", "gestures", "bindings", "unbinds", "autostart", "windowRules", "nightShift"})
                 state.remove(key);
             return QString();
         });

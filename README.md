@@ -22,7 +22,7 @@ show English text until they are translated.
 | Apps | Everything Omarchy's Install and Remove menus offer (browsers, AI apps, coding agents, services, editors, terminals, games, dev environments, dictation, package pickers), with what's installed, so those menus can stay hidden; AppImages, added to the app launcher with their own icons and updated from where their makers publish them |
 | Appearance | Theme gallery, installing and removing themes, corners, transparency, animations, text size, font |
 | Desktop & Dock, Bar, Plugins | Dock and pinned apps, window layout and gaps, window rules, focus; the bar's widgets and their order; shell plugins and updates |
-| Displays, Wallpaper | Resolution, refresh, scale, rotation, Night Shift and its schedule; wallpapers and adding your own |
+| Displays, Wallpaper | Arranging displays by dragging them edge to edge, identifying which is which, the main display, mirroring, which workspaces open on which display; resolution, refresh, scale, rotation, adaptive sync, 10-bit color and HDR, remembered per monitor whichever port it is plugged into; Night Shift and its schedule; wallpapers and adding your own |
 | Notifications, Sound | Do Not Disturb, crash reports; output and input devices and volume |
 | Lock Screen, Login & Security, Firewall | Idle times; password, fingerprint, security keys; ufw on/off and open ports |
 | Keyboard, Mouse, Printers | Repeat, layouts, special keys, backlight, a shortcut editor; pointer and trackpad; printers |

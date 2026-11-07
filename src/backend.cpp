@@ -1,5 +1,7 @@
 #include "backend.h"
 
+#include "monitorlayout.h"
+
 #include <QJsonObject>
 #include <QPointer>
 
@@ -32,9 +34,25 @@ QVariantMap Backend::meta(const QString &id) const {
             {"choices", s->choices}, {"choicesList", s->choicesList}};
 }
 
-QVariant Backend::savedMonitor(const QString &name) const {
-    const QJsonValue v = m_store->managedState().value("monitors").toObject().value(name);
+QVariant Backend::savedMonitor(const QString &key, const QString &connector) const {
+    const QJsonObject monitors = m_store->managedState().value("monitors").toObject();
+    QJsonValue v = monitors.value(key);
+    if (!v.isObject() && !connector.isEmpty())
+        v = monitors.value(connector);
     return v.isObject() ? v.toVariant() : QVariant();
+}
+
+QVariantList Backend::placeMonitor(const QVariantList &rects, int moved, int x, int y, int snap) const {
+    QList<QRect> boxes;
+    for (const QVariant &r : rects) {
+        const QVariantMap m = r.toMap();
+        boxes << QRect(qRound(m.value("x").toDouble()), qRound(m.value("y").toDouble()),
+                       qRound(m.value("width").toDouble()), qRound(m.value("height").toDouble()));
+    }
+    QVariantList out;
+    for (const QPoint &p : Layout::place(boxes, moved, QPoint(x, y), qMax(0, snap)))
+        out << QVariantMap{{"x", p.x()}, {"y", p.y()}};
+    return out;
 }
 
 void Backend::setValue(const QString &id, const QVariant &value) {

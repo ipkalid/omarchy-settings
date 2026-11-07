@@ -2,6 +2,7 @@
 
 #include <QDateTime>
 #include <QHash>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QList>
 #include <QMutex>
@@ -178,6 +179,10 @@ public:
     QString softwareCommand(const QString &action, const QString &arg, QStringList &command);
     // The terminal command that downloads and swaps in a found update.
     QString appImageUpdateCommand(const QString &path, QStringList &command);
+
+    // Each connected display's connector name mapped to the name Settings
+    // saves it under (see monitorAction), from `hyprctl -j monitors all`.
+    static QHash<QString, QString> monitorKeys(const QJsonArray &live);
 
 private:
     QString monitorAction(const QString &action, const QVariantList &args);

@@ -818,8 +818,12 @@ QVariantList Store::defaultsFor(const QString &pane) {
     if (pane == "bar")
         out << QVariantMap{{"id", "bar.layout"}, {"label", "Widgets, position, and background"}, {"value", ""},
                            {"default", "Omarchy's bar"}};
-    if (pane == "displays" && !managedState().value("monitors").toObject().isEmpty())
-        out << QVariantMap{{"id", "display.monitors"}, {"label", "Display modes set here"}, {"value", ""}, {"default", "monitors.lua"}};
+    if (pane == "displays") {
+        const QJsonObject state = managedState();
+        if (!state.value("monitors").toObject().isEmpty() || state.contains("workspaces") || state.contains("primary"))
+            out << QVariantMap{{"id", "display.monitors"}, {"label", "Display layout, modes, and workspaces set here"},
+                               {"value", ""}, {"default", "monitors.lua"}};
+    }
     return out;
 }
 
@@ -838,9 +842,11 @@ QString Store::resetPane(const QString &pane) {
             // background, in one write.
             error = runOk("omarchy-bar", {"defaults"}, 15000);
         } else if (id == "display.monitors") {
-            for (const QString &name : managedState().value("monitors").toObject().keys())
-                if (QString e = monitorAction("monitor.reset", {name}); !e.isEmpty())
-                    error = e;
+            error = updateState([](QJsonObject &state) {
+                for (const char *key : {"monitors", "workspaces", "primary"})
+                    state.remove(key);
+                return QString();
+            });
         } else if (d.contains(id)) {
             error = write(id, d.value(id));
         }

@@ -1000,9 +1000,14 @@ QVariant Store::list(const QString &name) {
     }
     if (name == "monitors") {
         QVariantList out;
-        const QJsonObject managed = managedState().value("monitors").toObject();
-        for (const QJsonValue &v : QJsonDocument::fromJson(run("hyprctl", {"-j", "monitors", "all"}).out).array()) {
+        const QJsonObject state = managedState();
+        const QJsonObject managed = state.value("monitors").toObject();
+        const QJsonObject workspaces = state.value("workspaces").toObject();
+        const QJsonArray live = QJsonDocument::fromJson(run("hyprctl", {"-j", "monitors", "all"}).out).array();
+        const QHash<QString, QString> keys = monitorKeys(live);
+        for (const QJsonValue &v : live) {
             const QJsonObject o = v.toObject();
+            const QString connector = o.value("name").toString(), key = keys.value(connector, connector);
             QStringList modes;
             for (const QJsonValue &mode : o.value("availableModes").toArray()) {
                 const QString m = mode.toString().remove("Hz");
@@ -1011,14 +1016,40 @@ QVariant Store::list(const QString &name) {
             }
             const QString current = QStringLiteral("%1x%2@%3").arg(o.value("width").toInt()).arg(o.value("height").toInt())
                                         .arg(o.value("refreshRate").toDouble(), 0, 'f', 2);
-            out << entry({{"name", o.value("name").toString()}, {"description", o.value("description").toString()},
+            // What Settings saved, under either name, so a choice made
+            // before monitors were matched by description still shows.
+            const QJsonObject saved = managed.value(key).toObject(managed.value(connector).toObject());
+            QVariantList assigned;
+            for (auto it = workspaces.begin(); it != workspaces.end(); ++it)
+                if (it.value().toString() == key || it.value().toString() == connector)
+                    assigned << it.key().toInt();
+            // hyprctl gives the id of the display a mirror shows, or "none";
+            // the page knows displays by connector name.
+            QString mirrorOf = o.value("mirrorOf").toString();
+            if (mirrorOf == "none")
+                mirrorOf.clear();
+            for (const QJsonValue &t : live)
+                if (!mirrorOf.isEmpty() && QString::number(t.toObject().value("id").toInt(-1)) == mirrorOf)
+                    mirrorOf = t.toObject().value("name").toString();
+            out << entry({{"name", connector}, {"key", key}, {"id", o.value("id").toInt()},
+                          {"description", o.value("description").toString()},
                           {"make", o.value("make").toString()}, {"model", o.value("model").toString()},
+                          {"serial", o.value("serial").toString()},
                           {"width", o.value("width").toInt()}, {"height", o.value("height").toInt()},
                           {"refreshRate", o.value("refreshRate").toDouble()}, {"mode", current},
                           {"scale", o.value("scale").toDouble()}, {"x", o.value("x").toInt()}, {"y", o.value("y").toInt()},
                           {"transform", o.value("transform").toInt()}, {"disabled", o.value("disabled").toBool()},
                           {"focused", o.value("focused").toBool()}, {"modes", modes},
-                          {"managed", managed.contains(o.value("name").toString())},
+                          {"managed", managed.contains(key) || managed.contains(connector)},
+                          {"saved", saved.toVariantMap()},
+                          {"mirrorOf", mirrorOf},
+                          {"vrr", saved.contains("vrr") ? saved.value("vrr").toInt() : int(o.value("vrr").toBool())},
+                          {"tenBit", o.value("currentFormat").toString().contains("2101010")},
+                          {"cm", o.value("colorManagementPreset").toString()},
+                          {"sdrBrightness", o.value("sdrBrightness").toDouble(1)},
+                          {"sdrSaturation", o.value("sdrSaturation").toDouble(1)},
+                          {"primary", state.value("primary").toString() == key || state.value("primary").toString() == connector},
+                          {"workspaces", assigned},
                           {"physicalWidth", o.value("physicalWidth").toInt()}, {"physicalHeight", o.value("physicalHeight").toInt()}});
         }
         return out;
@@ -1170,38 +1201,190 @@ QString Store::launchInTerminal(const QString &id) {
     return launch("omarchy-launch-floating-terminal-with-presentation", commands.value(id));
 }
 
+// The name Settings saves a display under: its description, which follows
+// it to any port, unless another connected display has the same one (two
+// identical monitors without serial numbers); then its connector.
+QHash<QString, QString> Store::monitorKeys(const QJsonArray &live) {
+    QHash<QString, int> seen;
+    for (const QJsonValue &v : live)
+        ++seen[v.toObject().value("description").toString().trimmed()];
+    QHash<QString, QString> keys;
+    for (const QJsonValue &v : live) {
+        const QJsonObject o = v.toObject();
+        const QString name = o.value("name").toString(), description = o.value("description").toString().trimmed();
+        const QString key = "desc:" + description;
+        keys.insert(name, !description.isEmpty() && seen.value(description) == 1 && Hypr::validMonitorKey(key) ? key : name);
+    }
+    return keys;
+}
+
 QString Store::monitorAction(const QString &action, const QVariantList &args) {
-    const QString name = args.value(0).toString();
-    if (!Hypr::validMonitorName(name))
-        return tr("Unknown display %1").arg(name);
+    if (action == "monitors.identify") {
+        // Wayland leaves where a window opens to the compositor, so each
+        // Identify number is moved to its own display and made full screen.
+        const QString name = args.value(0).toString();
+        if (!Hypr::validMonitorName(name))
+            return tr("Unknown display %1").arg(name);
+        if (!m_paths.hyprland)
+            return {};
+        // Hyprland matches the whole title, which Qt ends with " — Settings".
+        const QString window = Hypr::luaString("title:^omasettings-identify-" + QString(name).replace(".", "\\.") + "( .*)?$");
+        run("hyprctl", {"dispatch", "hl.dsp.window.move({ monitor = " + Hypr::luaString(name) + ", window = " + window + " })"}, 3000);
+        run("hyprctl", {"dispatch", "hl.dsp.window.fullscreen({ mode = \"fullscreen\", action = \"set\", window = " + window + " })"}, 3000);
+        return {};
+    }
+    // One display by name: the form scripts and the CLI use.
+    if (action == "monitor.apply" || action == "monitor.restore" || action == "monitor.reset") {
+        const QString name = args.value(0).toString();
+        if (!Hypr::validMonitorKey(name))
+            return tr("Unknown display %1").arg(name);
+        const QVariant config = action == "monitor.reset" ? QVariant() : args.value(1);
+        return monitorAction(action == "monitor.apply" ? "monitors.apply" : "monitors.restore", {QVariantMap{{name, config}}});
+    }
+    if (action != "monitors.apply" && action != "monitors.restore" && action != "monitors.workspaces" && action != "monitors.primary")
+        return tr("Unknown action %1").arg(action);
+
     QMutexLocker lock(&m_stateLock);
     QJsonObject state = managedState();
     QJsonObject monitors = state.value("monitors").toObject();
-    if (action == "monitor.apply" || action == "monitor.restore") {
-        const QVariant config = args.value(1);
-        if (config.isNull() || !config.isValid()) {
-            monitors.remove(name);
-        } else {
-            QJsonObject m = QJsonObject::fromVariantMap(config.toMap());
+    QJsonObject workspaces = state.value("workspaces").toObject();
+    const QJsonArray live = QJsonDocument::fromJson(run("hyprctl", {"-j", "monitors", "all"}).out).array();
+    const QHash<QString, QString> keys = monitorKeys(live);
+
+    // Every name a key may also be saved under (its connector, or its
+    // description), so writing one forgets the others.
+    auto aliases = [&](const QString &key) {
+        QStringList out;
+        for (auto it = keys.cbegin(); it != keys.cend(); ++it)
+            if (it.key() == key || it.value() == key)
+                out << it.key() << it.value();
+        out.removeDuplicates();
+        out.removeAll(key);
+        return out;
+    };
+    auto rename = [&](const QString &from, const QString &to) {
+        for (auto it = workspaces.begin(); it != workspaces.end(); ++it)
+            if (it.value().toString() == from)
+                it.value() = to;
+        if (state.value("primary").toString() == from)
+            state.insert("primary", to);
+    };
+
+    if (action == "monitors.apply" || action == "monitors.restore") {
+        const QVariantMap changes = args.value(0).toMap();
+        if (changes.isEmpty())
+            return tr("Choose a display");
+        for (auto it = changes.cbegin(); it != changes.cend(); ++it) {
+            const QString key = it.key();
+            if (!Hypr::validMonitorKey(key))
+                return tr("Unknown display %1").arg(key);
+            for (const QString &alias : aliases(key)) {
+                monitors.remove(alias);
+                rename(alias, key);
+            }
+            if (it.value().isNull() || !it.value().isValid() || it.value().toMap().isEmpty()) {
+                monitors.remove(key);
+                continue;
+            }
+            const QJsonObject m = QJsonObject::fromVariantMap(it.value().toMap());
             if (!m.value("disabled").toBool() &&
                 (!Hypr::validMode(m.value("mode").toString("preferred")) || !Hypr::validPosition(m.value("position").toString("auto"))))
                 return tr("That display mode is not valid");
-            if (m.value("disabled").toBool()) {
-                // Never turn off the last display: there would be no way back.
-                int enabled = 0;
-                for (const QJsonValue &v : QJsonDocument::fromJson(run("hyprctl", {"-j", "monitors"}).out).array())
-                    if (v.toObject().value("name").toString() != name)
-                        ++enabled;
-                if (enabled == 0)
-                    return tr("This is the only display, so it stays on");
-            }
-            monitors.insert(name, m);
+            const QString mirror = m.value("mirror").toString();
+            if (!mirror.isEmpty() && (!Hypr::validMonitorKey(mirror) || mirror == key))
+                return tr("A display can't mirror itself");
+            monitors.insert(key, m);
         }
-    } else if (action == "monitor.reset") {
-        monitors.remove(name);
+
+        // What each connected display will be: never leave none showing a
+        // picture of its own, and only mirror one that does.
+        if (action == "monitors.apply") {
+            auto saved = [&](const QString &connector) {
+                const QString key = keys.value(connector, connector);
+                return monitors.value(key).toObject(monitors.value(connector).toObject());
+            };
+            int showing = 0;
+            for (const QJsonValue &v : live) {
+                const QString connector = v.toObject().value("name").toString();
+                const QJsonObject m = saved(connector);
+                const bool off = m.isEmpty() ? v.toObject().value("disabled").toBool() : m.value("disabled").toBool();
+                const QString mirror = m.value("mirror").toString();
+                if (!off && mirror.isEmpty())
+                    ++showing;
+                if (!off && !mirror.isEmpty()) {
+                    bool found = false;
+                    for (const QJsonValue &t : live) {
+                        const QString target = t.toObject().value("name").toString();
+                        if (target != mirror && keys.value(target) != mirror)
+                            continue;
+                        const QJsonObject tm = saved(target);
+                        found = !(tm.isEmpty() ? t.toObject().value("disabled").toBool() : tm.value("disabled").toBool())
+                                && tm.value("mirror").toString().isEmpty();
+                    }
+                    if (!found)
+                        return tr("A display can only mirror one that is on and shows its own picture");
+                }
+            }
+            if (!live.isEmpty() && showing == 0)
+                return tr("This is the only display, so it stays on");
+        }
+    } else if (action == "monitors.workspaces") {
+        // args: {"6": "desc:…", "7": null}
+        const QVariantMap changes = args.value(0).toMap();
+        for (auto it = changes.cbegin(); it != changes.cend(); ++it) {
+            bool ok = false;
+            const int id = it.key().toInt(&ok);
+            if (!ok || id < 1 || id > 10)
+                return tr("Workspaces are numbered 1 to 10");
+            const QString key = it.value().toString();
+            if (key.isEmpty())
+                workspaces.remove(QString::number(id));
+            else if (!Hypr::validMonitorKey(key))
+                return tr("Unknown display %1").arg(key);
+            else
+                workspaces.insert(QString::number(id), key);
+        }
+    } else if (action == "monitors.primary") {
+        const QString key = args.value(0).toString();
+        if (key.isEmpty())
+            state.remove("primary");
+        else if (!Hypr::validMonitorKey(key))
+            return tr("Unknown display %1").arg(key);
+        else
+            state.insert("primary", key);
     }
-    state.insert("monitors", monitors);
-    return applyState(state);
+
+    if (monitors.isEmpty())
+        state.remove("monitors");
+    else
+        state.insert("monitors", monitors);
+    if (workspaces.isEmpty())
+        state.remove("workspaces");
+    else
+        state.insert("workspaces", workspaces);
+    if (QString error = applyState(state); !error.isEmpty())
+        return error;
+
+    // Rules only place workspaces as they are made, so move the ones that
+    // are open now, then go back to the workspace that was showing.
+    if (action == "monitors.workspaces" && m_paths.hyprland) {
+        const QString active = QString::number(QJsonDocument::fromJson(run("hyprctl", {"-j", "activeworkspace"}).out)
+                                                   .object().value("id").toInt());
+        bool moved = false;
+        for (const QJsonValue &v : QJsonDocument::fromJson(run("hyprctl", {"-j", "workspaces"}).out).array()) {
+            const QJsonObject w = v.toObject();
+            const QString id = QString::number(w.value("id").toInt()), want = workspaces.value(id).toString();
+            const QString on = w.value("monitor").toString();
+            if (want.isEmpty() || want == on || keys.value(on) == want)
+                continue;
+            run("hyprctl", {"dispatch", "hl.dsp.workspace.move({ workspace = " + Hypr::luaString(id) +
+                                            ", monitor = " + Hypr::luaString(want) + " })"}, 3000);
+            moved = true;
+        }
+        if (moved && active != "0")
+            run("hyprctl", {"dispatch", "hl.dsp.focus({ workspace = " + Hypr::luaString(active) + " })"}, 3000);
+    }
+    return {};
 }
 
 QString Store::act(const QString &action, const QVariantList &args) {
@@ -1276,7 +1459,7 @@ QString Store::act(const QString &action, const QVariantList &args) {
         return runOk("pactl", {"set-" + kind + "-mute", device, args.value(2).toBool() ? "1" : "0"});
     }
 
-    if (action.startsWith("monitor."))
+    if (action.startsWith("monitor.") || action.startsWith("monitors."))
         return monitorAction(action, args);
 
     if (action == "background.set") {

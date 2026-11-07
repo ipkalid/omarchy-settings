@@ -19,6 +19,20 @@ bool validMonitorName(const QString &name) {
     return valid.match(name).hasMatch();
 }
 
+bool validMonitorKey(const QString &key) {
+    if (validMonitorName(key))
+        return true;
+    if (!key.startsWith("desc:"))
+        return false;
+    const QString description = key.mid(5);
+    if (description.trimmed().isEmpty() || description.size() > 160)
+        return false;
+    for (const QChar c : description)
+        if (c.unicode() < 0x20 || c.unicode() == 0x7f)
+            return false;
+    return true;
+}
+
 bool validMode(const QString &mode) {
     static const QRegularExpression valid(R"(^(preferred|highres|highrr|\d{2,5}x\d{2,5}(@\d{1,3}(\.\d{1,3})?)?)$)");
     return valid.match(mode).hasMatch();
@@ -116,6 +130,10 @@ QString renderLua(const QJsonObject &state) {
             node = &node->children[path[i]];
         node->values.insert(path.last(), value);
     }
+    // The main display is where the cursor starts.
+    const QString primary = state.value("primary").toString();
+    if (validMonitorKey(primary))
+        root.children["cursor"].values.insert("default_monitor", primary);
     if (!root.children.isEmpty()) {
         out += "\nhl.config({\n";
         writeNode(root, 1, out);
@@ -125,7 +143,7 @@ QString renderLua(const QJsonObject &state) {
     const QJsonObject monitors = state.value("monitors").toObject();
     QStringList monitorLines;
     for (auto it = monitors.begin(); it != monitors.end(); ++it) {
-        if (!validMonitorName(it.key()) || !it.value().isObject())
+        if (!validMonitorKey(it.key()) || !it.value().isObject())
             continue;
         const QJsonObject m = it.value().toObject();
         QStringList fields{"output = " + luaString(it.key())};
@@ -133,7 +151,11 @@ QString renderLua(const QJsonObject &state) {
             fields << "disabled = true";
         } else {
             const QString mode = m.value("mode").toString("preferred");
-            const QString position = m.value("position").toString("auto");
+            const QString mirror = m.value("mirror").toString();
+            const bool mirrored = !mirror.isEmpty() && mirror != it.key() && validMonitorKey(mirror);
+            // A mirror shows another display's picture, so it has no place
+            // of its own in the layout.
+            const QString position = mirrored ? QStringLiteral("auto") : m.value("position").toString("auto");
             double scale = m.value("scale").toDouble(1);
             if (!validMode(mode) || !validPosition(position) || scale < 0.25 || scale > 4)
                 continue;
@@ -142,11 +164,60 @@ QString renderLua(const QJsonObject &state) {
             const int transform = m.value("transform").toInt(0);
             if (transform > 0 && transform <= 7)
                 fields << "transform = " + QString::number(transform);
+            if (mirrored)
+                fields << "mirror = " + luaString(mirror);
+            if (m.contains("vrr")) {
+                const int vrr = m.value("vrr").toInt(-1);
+                if (vrr >= 0 && vrr <= 2)
+                    fields << "vrr = " + QString::number(vrr);
+            }
+            if (m.value("bitdepth").toInt(8) == 10)
+                fields << "bitdepth = 10";
+            static const QStringList presets{"auto", "srgb", "wide", "hdr", "hdredid"};
+            const QString cm = m.value("cm").toString();
+            if (presets.contains(cm)) {
+                fields << "cm = " + luaString(cm);
+                if (cm.startsWith("hdr")) {
+                    const double brightness = m.value("sdrbrightness").toDouble(0);
+                    const double saturation = m.value("sdrsaturation").toDouble(0);
+                    if (brightness >= 0.5 && brightness <= 2)
+                        fields << "sdrbrightness = " + luaNumber(brightness);
+                    if (saturation >= 0.5 && saturation <= 1.5)
+                        fields << "sdrsaturation = " + luaNumber(saturation);
+                }
+            }
         }
         monitorLines << "hl.monitor({ " + fields.join(", ") + " })\n";
     }
     if (!monitorLines.isEmpty())
         out += "\n" + monitorLines.join("");
+
+    // Which display each workspace opens on. The lowest workspace a display
+    // has is the one it shows when it connects; the main display starts on
+    // workspace 1 unless 1 was put somewhere else.
+    QMap<int, QString> workspaces;
+    const QJsonObject assigned = state.value("workspaces").toObject();
+    for (auto it = assigned.begin(); it != assigned.end(); ++it) {
+        bool ok = false;
+        const int id = it.key().toInt(&ok);
+        if (ok && id >= 1 && id <= 10 && validMonitorKey(it.value().toString()))
+            workspaces.insert(id, it.value().toString());
+    }
+    if (!workspaces.contains(1) && validMonitorKey(primary))
+        workspaces.insert(1, primary);
+    QString workspaceRules;
+    QStringList hasDefault;
+    for (auto it = workspaces.cbegin(); it != workspaces.cend(); ++it) {
+        QString rule = "hl.workspace_rule({ workspace = " + luaString(QString::number(it.key())) +
+                       ", monitor = " + luaString(it.value());
+        if (!hasDefault.contains(it.value())) {
+            rule += ", default = true";
+            hasDefault << it.value();
+        }
+        workspaceRules += rule + " })\n";
+    }
+    if (!workspaceRules.isEmpty())
+        out += "\n" + workspaceRules;
 
     if (state.value("gestures").toObject().value("workspaceSwipe").toBool())
         out += "\nhl.gesture({ fingers = 3, direction = \"horizontal\", action = \"workspace\" })\n";

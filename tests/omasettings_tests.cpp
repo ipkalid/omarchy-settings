@@ -14,6 +14,7 @@
 
 #include "backend.h"
 #include "hyprconf.h"
+#include "monitorlayout.h"
 #include "store.h"
 #include "theme.h"
 #include "translator.h"
@@ -328,15 +329,158 @@ private slots:
     void lastDisplayCannotBeTurnedOff() {
         QTemporaryDir dir;
         FakeSystem sys;
-        sys.answer("hyprctl -j monitors", R"([{"name":"DP-1"}])");
+        sys.answer("hyprctl -j monitors all", R"([{"name":"DP-1"}])");
         Store store(pathsIn(dir), sys.exec());
         QVERIFY(store.act("monitor.apply", {"DP-1", QVariantMap{{"disabled", true}}}).contains("only display"));
         QVERIFY(!readText(store.managedLuaPath()).contains("disabled"));
-        sys.answer("hyprctl -j monitors", R"([{"name":"DP-1"},{"name":"HDMI-A-1"}])");
+        sys.answer("hyprctl -j monitors all", R"([{"name":"DP-1"},{"name":"HDMI-A-1"}])");
         QCOMPARE(store.act("monitor.apply", {"DP-1", QVariantMap{{"disabled", true}}}), QString());
         QVERIFY(readText(store.managedLuaPath()).contains(R"(output = "DP-1", disabled = true)"));
         QCOMPARE(store.act("monitor.restore", {"DP-1", QVariant()}), QString());
         QVERIFY(!readText(store.managedLuaPath()).contains("DP-1"));
+    }
+
+    void luaWritesMonitorKeysMirrorsAndColor() {
+        QJsonObject state{{"monitors", QJsonObject{
+            {"desc:Dell Inc. U2723QE 1234", QJsonObject{{"mode", "3840x2160@60"}, {"position", "0x0"}, {"scale", 1.5},
+                                                       {"vrr", 1}, {"bitdepth", 10}, {"cm", "hdr"},
+                                                       {"sdrbrightness", 1.2}, {"sdrsaturation", 3}}},
+            {"HDMI-A-1", QJsonObject{{"mode", "1920x1080@60"}, {"position", "2560x0"}, {"scale", 1},
+                                     {"mirror", "desc:Dell Inc. U2723QE 1234"}, {"vrr", 7}, {"bitdepth", 12}, {"cm", "evil"}}},
+            {"desc:Evil\"); os.execute(\"x", QJsonObject{{"mode", "preferred"}}},
+            {"desc:", QJsonObject{{"mode", "preferred"}}}}}};
+        const QString lua = Hypr::renderLua(state);
+        QVERIFY(lua.contains(R"(hl.monitor({ output = "desc:Dell Inc. U2723QE 1234", mode = "3840x2160@60", position = "0x0", scale = 1.5, vrr = 1, bitdepth = 10, cm = "hdr", sdrbrightness = 1.2 }))"));
+        // A mirror has no place of its own, and bad values are left out.
+        QVERIFY(lua.contains(R"(hl.monitor({ output = "HDMI-A-1", mode = "1920x1080@60", position = "auto", scale = 1, mirror = "desc:Dell Inc. U2723QE 1234" }))"));
+        QVERIFY(lua.contains(R"(output = "desc:Evil\"); os.execute(\"x")"));
+        QVERIFY(!lua.contains(R"(output = "desc:")"));
+        QVERIFY(!lua.contains("sdrsaturation"));
+    }
+
+    void luaWritesWorkspacesAndMainDisplay() {
+        QJsonObject state{{"primary", "desc:Dell Inc. U2723QE 1234"},
+                          {"workspaces", QJsonObject{{"7", "HDMI-A-1"}, {"6", "HDMI-A-1"}, {"11", "HDMI-A-1"}, {"2", "bad;name"}}}};
+        QString lua = Hypr::renderLua(state);
+        QVERIFY(lua.contains(R"(default_monitor = "desc:Dell Inc. U2723QE 1234",)"));
+        QVERIFY(lua.contains(R"(hl.workspace_rule({ workspace = "1", monitor = "desc:Dell Inc. U2723QE 1234", default = true }))"));
+        QVERIFY(lua.contains(R"(hl.workspace_rule({ workspace = "6", monitor = "HDMI-A-1", default = true }))"));
+        QVERIFY(lua.contains(R"(hl.workspace_rule({ workspace = "7", monitor = "HDMI-A-1" }))"));
+        QVERIFY(!lua.contains(R"(workspace = "11")"));
+        QVERIFY(!lua.contains(R"(workspace = "2")"));
+        // Workspace 1 put elsewhere wins over the main display.
+        state.insert("workspaces", QJsonObject{{"1", "HDMI-A-1"}});
+        lua = Hypr::renderLua(state);
+        QVERIFY(lua.contains(R"(hl.workspace_rule({ workspace = "1", monitor = "HDMI-A-1", default = true }))"));
+        QVERIFY(!lua.contains(R"(monitor = "desc:Dell)"));
+    }
+
+    void monitorKeysAreDescriptionsUnlessShared() {
+        QVERIFY(Hypr::validMonitorKey("DP-2"));
+        QVERIFY(Hypr::validMonitorKey("desc:Samsung Electric Company Odyssey G85SD H1AK500000"));
+        QVERIFY(!Hypr::validMonitorKey("desc:"));
+        QVERIFY(!Hypr::validMonitorKey("desc:a\nb"));
+        QVERIFY(!Hypr::validMonitorKey("DP 2"));
+        const QJsonArray live = QJsonDocument::fromJson(R"([
+            {"name":"DP-1","description":"Dell U2723QE 1"},
+            {"name":"DP-2","description":"Acme Screen"},{"name":"DP-3","description":"Acme Screen"},
+            {"name":"eDP-1","description":""}])").array();
+        const QHash<QString, QString> keys = Store::monitorKeys(live);
+        QCOMPARE(keys.value("DP-1"), QString("desc:Dell U2723QE 1"));
+        QCOMPARE(keys.value("DP-2"), QString("DP-2"));
+        QCOMPARE(keys.value("DP-3"), QString("DP-3"));
+        QCOMPARE(keys.value("eDP-1"), QString("eDP-1"));
+    }
+
+    void displaysApplyTogetherAndMoveToTheirDescription() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        sys.answer("hyprctl -j monitors all", R"([{"name":"DP-1","description":"Dell U2723QE 1"},{"name":"HDMI-A-1","description":"LG TV"}])");
+        Store store(pathsIn(dir), sys.exec());
+        // A choice saved by connector before displays were matched by
+        // description.
+        QCOMPARE(store.act("monitor.apply", {"DP-1", QVariantMap{{"mode", "preferred"}, {"position", "0x0"}}}), QString());
+        QVERIFY(readText(store.managedLuaPath()).contains(R"(output = "DP-1")"));
+        QCOMPARE(store.act("monitors.primary", {"DP-1"}), QString());
+
+        const int writes = sys.calls.count("hyprctl reload");
+        QCOMPARE(store.act("monitors.apply", {QVariantMap{
+                     {"desc:Dell U2723QE 1", QVariantMap{{"mode", "preferred"}, {"position", "1920x0"}}},
+                     {"desc:LG TV", QVariantMap{{"mode", "1920x1080@60"}, {"position", "0x0"}}}}}), QString());
+        QCOMPARE(sys.calls.count("hyprctl reload"), writes + 1);
+        QString lua = readText(store.managedLuaPath());
+        QVERIFY(lua.contains(R"(output = "desc:Dell U2723QE 1", mode = "preferred", position = "1920x0")"));
+        QVERIFY(lua.contains(R"(output = "desc:LG TV")"));
+        QVERIFY(!lua.contains(R"(output = "DP-1")"));
+        QVERIFY(lua.contains(R"(default_monitor = "desc:Dell U2723QE 1")"));
+
+        // Mirroring every display leaves none with a picture of its own.
+        QVERIFY(store.act("monitors.apply", {QVariantMap{
+                    {"desc:LG TV", QVariantMap{{"mode", "preferred"}, {"mirror", "desc:Dell U2723QE 1"}}},
+                    {"desc:Dell U2723QE 1", QVariantMap{{"mode", "preferred"}, {"mirror", "desc:LG TV"}}}}}).contains("mirror"));
+        QCOMPARE(store.act("monitors.apply", {QVariantMap{
+                     {"desc:LG TV", QVariantMap{{"mode", "preferred"}, {"mirror", "desc:Dell U2723QE 1"}}}}}), QString());
+        QVERIFY(readText(store.managedLuaPath()).contains(R"(mirror = "desc:Dell U2723QE 1")"));
+        QVERIFY(store.act("monitors.apply", {QVariantMap{{"desc:LG TV", QVariantMap{{"mode", "preferred"}, {"mirror", "desc:LG TV"}}}}})
+                    .contains("itself"));
+
+        // Undoing a change with null forgets the display under every name.
+        QCOMPARE(store.act("monitors.restore", {QVariantMap{{"desc:LG TV", QVariant()}}}), QString());
+        QVERIFY(!readText(store.managedLuaPath()).contains("LG TV"));
+    }
+
+    void workspacesMoveToTheirDisplay() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        sys.answer("hyprctl -j monitors all", R"([{"name":"DP-1","description":"Dell U2723QE 1"},{"name":"HDMI-A-1","description":"LG TV"}])");
+        sys.answer("hyprctl -j activeworkspace", R"({"id":2})");
+        sys.answer("hyprctl -j workspaces", R"([{"id":2,"monitor":"DP-1"},{"id":6,"monitor":"DP-1"},{"id":7,"monitor":"HDMI-A-1"}])");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("monitors.workspaces", {QVariantMap{{"6", "desc:LG TV"}, {"7", "desc:LG TV"}}}), QString());
+        QVERIFY(readText(store.managedLuaPath()).contains(R"(hl.workspace_rule({ workspace = "6", monitor = "desc:LG TV", default = true }))"));
+        const QString calls = sys.calls.join('\n');
+        QVERIFY(calls.contains(R"(hl.dsp.workspace.move({ workspace = "6", monitor = "desc:LG TV" }))"));
+        QVERIFY(!calls.contains(R"(workspace = "7", monitor)"));
+        QVERIFY(calls.contains(R"(hl.dsp.focus({ workspace = "2" }))"));
+        QVERIFY(store.act("monitors.workspaces", {QVariantMap{{"11", "desc:LG TV"}}}).contains("1 to 10"));
+        // Restore Defaults for Displays forgets layout, workspaces, and the
+        // main display together.
+        QCOMPARE(store.act("monitors.primary", {"desc:LG TV"}), QString());
+        QCOMPARE(store.act("monitor.apply", {"desc:LG TV", QVariantMap{{"mode", "preferred"}, {"position", "0x0"}}}), QString());
+        QCOMPARE(store.resetPane("displays"), QString());
+        QVERIFY(!readText(store.managedLuaPath()).contains("hl.monitor"));
+        QVERIFY(!readText(store.managedLuaPath()).contains("default_monitor"));
+        QVERIFY(!readText(store.managedLuaPath()).contains("workspace_rule"));
+        QCOMPARE(store.act("monitors.workspaces", {QVariantMap{{"6", "desc:LG TV"}, {"7", "desc:LG TV"}}}), QString());
+        QCOMPARE(store.act("monitors.workspaces", {QVariantMap{{"6", QString()}, {"7", QString()}}}), QString());
+        QVERIFY(!readText(store.managedLuaPath()).contains("workspace_rule"));
+    }
+
+    void identifyMovesEachNumberToItsDisplay() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QVERIFY(store.act("monitors.identify", {"DP-1\"); os.execute(\"x"}).contains("Unknown display"));
+        QCOMPARE(store.act("monitors.identify", {"HDMI-A.1"}), QString());
+        const QString calls = sys.calls.join('\n');
+        // Hyprland matches the whole title, which Qt ends with " — Settings".
+        QVERIFY(calls.contains(R"(hl.dsp.window.move({ monitor = "HDMI-A.1", window = "title:^omasettings-identify-HDMI-A\\.1( .*)?$" }))"));
+        QVERIFY(calls.contains(R"(hl.dsp.window.fullscreen({ mode = "fullscreen", action = "set", window = "title:^omasettings-identify-HDMI-A\\.1( .*)?$" }))"));
+        QVERIFY(!readText(store.managedLuaPath()).contains("HDMI"));
+    }
+
+    void draggedDisplaysSnapEdgeToEdge() {
+        const QRect a(0, 0, 2560, 1440), b(2560, 0, 1920, 1080);
+        // Dropped near the right edge: snaps to it, tops lined up.
+        QCOMPARE(Layout::place({a, b}, 1, QPoint(2575, 12), 40), (QList<QPoint>{{0, 0}, {2560, 0}}));
+        // Dropped on top of the other: pushed out to the nearest side.
+        QCOMPARE(Layout::place({a, b}, 1, QPoint(2000, 100), 40), (QList<QPoint>{{0, 0}, {2560, 100}}));
+        // Dropped far away: brought back against the nearest edge.
+        QCOMPARE(Layout::place({a, b}, 1, QPoint(500, 3000), 40), (QList<QPoint>{{0, 0}, {500, 1440}}));
+        // Dropped left of the first: everything shifts to start at 0,0.
+        QCOMPARE(Layout::place({a, b}, 1, QPoint(-1930, 0), 40), (QList<QPoint>{{1920, 0}, {0, 0}}));
+        // One display always sits at 0,0.
+        QCOMPARE(Layout::place({a}, 0, QPoint(300, 300), 40), (QList<QPoint>{{0, 0}}));
     }
 
     void actionsRejectUnsafeArguments() {

@@ -11,7 +11,8 @@ SettingsPage {
     readonly property var changes: backend.lists.managed || []
     readonly property var kindNames: ({
         hypr: qsTr("Setting"), monitor: qsTr("Display"), binding: qsTr("Shortcut"), unbind: qsTr("Shortcut turned off"),
-        autostart: qsTr("Opens at login"), rule: qsTr("Window rule"), gesture: qsTr("Gesture"), nightShift: qsTr("Night Shift")
+        autostart: qsTr("Opens at login"), rule: qsTr("Window rule"), gesture: qsTr("Gesture"), nightShift: qsTr("Night Shift"),
+        workspace: qsTr("Workspace"), primary: qsTr("Main display")
     })
     function shown(value) {
         if (value === true) return qsTr("On")
