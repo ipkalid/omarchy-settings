@@ -33,8 +33,9 @@ static const char *usage =
     "       omasettings skill install [--dir <path>]\n"
     "       omasettings icon [--print --color <#rrggbb> [--rounding <px>]]\n"
     "\n"
-    "Panes: wifi bluetooth vpn power general appearance desktop bar plugins\n"
-    "       displays wallpaper notifications sound lock security keyboard pointer\n";
+    "Panes: wifi bluetooth vpn general notifications power storage software plugins\n"
+    "       appearance wallpaper fonts desktop bar menu displays sound keyboard\n"
+    "       pointer printers lock security firewall\n";
 
 bool isCliCommand(const QStringList &args) {
     const QString command = args.value(1);
