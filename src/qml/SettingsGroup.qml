@@ -15,6 +15,9 @@ ColumnLayout {
     property string summary
     signal toggle()
     default property alias rows: list.data
+    // Rows above the others that stay in view while the group is closed,
+    // like an Add button for a list that folds away.
+    property alias leading: lead.data
 
     Layout.fillWidth: true
     spacing: ui.s(6)
@@ -75,6 +78,13 @@ ColumnLayout {
 
         HoverHandler { id: hover; enabled: group.collapsible; cursorShape: Qt.PointingHandCursor }
         TapHandler { enabled: group.collapsible; onTapped: group.toggle() }
+    }
+
+    Column {
+        id: lead
+        visible: children.length > 0
+        Layout.fillWidth: true
+        spacing: ui.s(2)
     }
 
     Column {

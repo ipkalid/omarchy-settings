@@ -84,6 +84,8 @@ public:
     // Whether a file is an AppImage, and the update information it carries.
     static bool isAppImage(const QString &path);
     static QString appImageUpdateInfo(const QString &path);
+    // The name to give an AppImage that carries none, from its file name.
+    static QString appImageName(const QString &path);
 
 private:
     ProcResult run(const QString &program, const QStringList &args, int timeoutMs = 5000,

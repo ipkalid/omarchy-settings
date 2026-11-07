@@ -868,7 +868,7 @@ void Store::build() {
 // --- Lists --------------------------------------------------------------------------------
 
 QStringList Store::listNames() const {
-    return {"capabilities", "about", "battery", "updates", "wifi", "bluetooth", "sinks", "sources", "monitors",
+    return {"capabilities", "about", "battery", "updates", "wifi", "wifiScan", "bluetooth", "sinks", "sources", "monitors",
             "themes", "backgrounds", "fonts", "languages", "timezones", "keyboardLayouts", "keybindings",
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
@@ -953,8 +953,13 @@ QVariant Store::list(const QString &name) {
         const ProcResult r = run("omarchy-update-available", {}, 60000);
         return entry({{"checked", true}, {"available", r.ok()}, {"text", r.text()}});
     }
+    // What NetworkManager last saw, at once: a list that may start a scan
+    // first waits for it, 4 to 8 seconds with nothing to show. wifiScan
+    // looks again, and the Wi-Fi pane reloads this when it's done.
+    if (name == "wifiScan")
+        return run("nmcli", {"-t", "-f", "SSID", "device", "wifi", "list", "--rescan", "yes"}, 20000).ok();
     if (name == "wifi") {
-        QVariantList networks = parseWifi(run("nmcli", {"-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list"}, 15000).out);
+        QVariantList networks = parseWifi(run("nmcli", {"-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list", "--rescan", "no"}, 15000).out);
         QStringList known;
         for (const QString &line : output("nmcli", {"-t", "-f", "NAME,TYPE", "connection", "show"}).split('\n')) {
             const QStringList f = splitTerse(line);

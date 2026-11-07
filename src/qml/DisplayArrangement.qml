@@ -22,6 +22,13 @@ Item {
     // back from Hyprland.
     property var placed: null
     onMonitorsChanged: placed = null
+    // Boxes glide only when a display is dropped (or a drag is called off),
+    // never when the page opens, the window resizes, or the list reloads:
+    // the first frame of a new box can come out at the wrong size, and
+    // animating from it showed the display shrinking into place.
+    property bool gliding: false
+    function glide() { gliding = true; glideEnd.restart() }
+    Timer { id: glideEnd; interval: 300; onTriggered: canvas.gliding = false }
     property int dragging: -1
     property var ghost: null
 
@@ -100,10 +107,8 @@ Item {
             border.width: chosen ? 2 : 1
             opacity: mouse.dragging ? 0.75 : 1
 
-            Behavior on x { enabled: !mouse.dragging; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on y { enabled: !mouse.dragging; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            Behavior on x { enabled: canvas.gliding && !mouse.dragging; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            Behavior on y { enabled: canvas.gliding && !mouse.dragging; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
             Accessible.role: Accessible.Button
             Accessible.name: modelData.label
@@ -220,6 +225,7 @@ Item {
                     dragging = false
                     canvas.ghost = null
                     canvas.dragging = -1
+                    canvas.glide()
                     // x and y animate from where the box was let go to where
                     // it lands (or back, when the drag was cancelled).
                     if (drop)

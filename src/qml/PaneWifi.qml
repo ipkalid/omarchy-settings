@@ -19,7 +19,21 @@ SettingsPage {
     readonly property var current: on ? networks.find(n => n.active) : undefined
     readonly property var known: networks.filter(n => n.known)
     readonly property var others: networks.filter(n => !n.known && !n.active)
-    readonly property bool working: backend.busy.indexOf("wifi.connect") >= 0 || backend.busy.indexOf("list:wifi") >= 0
+    readonly property bool scanning: backend.busy.indexOf("list:wifiScan") >= 0
+    readonly property bool working: backend.busy.indexOf("wifi.connect") >= 0 || backend.busy.indexOf("list:wifi") >= 0 || scanning
+    // The list shows what was last seen straight away; a scan runs beside
+    // it when the page opens, the radio comes on, and every half minute,
+    // and the list reloads when it's done.
+    function scan() { if (page.on) backend.load("wifiScan") }
+    Component.onCompleted: scan()
+    onOnChanged: scan()
+    onScanningChanged: if (!scanning) backend.load("wifi")
+    Timer {
+        interval: 30000
+        running: page.on && win.active
+        repeat: true
+        onTriggered: page.scan()
+    }
 
     function signalGlyph(signal) {
         return signal > 75 ? "\u{F0928}" : signal > 50 ? "\u{F0925}" : signal > 25 ? "\u{F0922}" : "\u{F091F}"
@@ -93,7 +107,7 @@ SettingsPage {
     }
 
     SettingsGroup {
-        visible: page.on
+        visible: page.on && page.known.length > 0
         title: qsTr("Known Networks")
         Repeater {
             model: page.known
@@ -117,7 +131,8 @@ SettingsPage {
     SettingsGroup {
         visible: page.on
         title: qsTr("Other Networks")
-        footer: page.others.length === 0 && !page.working ? qsTr("No other networks found") : ""
+        footer: page.others.length > 0 ? ""
+                : page.working ? qsTr("Looking for networks…") : qsTr("No other networks found")
         Repeater {
             model: page.others
             delegate: NetworkRow {
@@ -133,7 +148,7 @@ SettingsPage {
             label: page.working ? qsTr("Looking for networks…") : qsTr("Look for networks again")
             text: qsTr("Scan")
             busy: page.working
-            onClicked: backend.act("wifi.rescan", [], ["wifi"])
+            onClicked: page.scan()
         }
         ButtonRow {
             label: qsTr("Join a hidden network")

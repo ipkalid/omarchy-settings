@@ -156,6 +156,23 @@ bool Store::isAppImage(const QString &path) {
         && (head[10] == 1 || head[10] == 2);
 }
 
+// Its file name in words, without the version and architecture, the way
+// the launcher's other apps are named: atomic-chat-2.3.5-linux-x86_64 is
+// Atomic Chat. Words already capitalized (LM-Studio) keep their case.
+QString Store::appImageName(const QString &path) {
+    QString base = baseName(path);
+    QString words = base;
+    words.replace(QRegularExpression("x86[_-]64|amd64|aarch64|arm64|armhf|i[36]86", QRegularExpression::CaseInsensitiveOption), " ");
+    QStringList kept;
+    for (const QString &token : words.split(QRegularExpression("[-_ ]+"), Qt::SkipEmptyParts)) {
+        if (versionToken().match(token).hasMatch()
+            || QStringList{"linux", "anylinux", "x64", "appimage"}.contains(token.toLower()))
+            continue;
+        kept << (token == token.toLower() ? token.left(1).toUpper() + token.mid(1) : token);
+    }
+    return kept.isEmpty() ? base : kept.join(' ');
+}
+
 // The .upd_info section, read from the ELF headers without running anything.
 QString Store::appImageUpdateInfo(const QString &path) {
     QFile f(path);
@@ -254,7 +271,21 @@ QList<QVariantMap> Store::appImageItems() const {
             continue;
         seen.insert(program);
         const QString info = appImageUpdateInfo(program);
-        items << QVariantMap{{"path", program}, {"name", entry.value("Name", baseName(program))},
+        // Settings once named the ones it couldn't read a name from after
+        // their file; those get a proper name, in the launcher too.
+        QString name = entry.value("Name", baseName(program));
+        if (entry.value("X-Omasettings-AppImage") == "true" && name == baseName(program) && appImageName(program) != name) {
+            name = appImageName(program);
+            QFile f(file);
+            if (f.open(QIODevice::ReadOnly)) {
+                QString text = QString::fromUtf8(f.readAll());
+                f.close();
+                text.replace(QRegularExpression("^Name=.*$", QRegularExpression::MultilineOption), "Name=" + name);
+                if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+                    f.write(text.toUtf8());
+            }
+        }
+        items << QVariantMap{{"path", program}, {"name", name},
                              {"version", entry.value("X-AppImage-Version", fileVersion(program))}, {"icon", resolveIcon(entry.value("Icon"))},
                              {"publisher", publisher(info)},
                              {"desktop", file}, {"ours", entry.value("X-Omasettings-AppImage") == "true"},
@@ -270,7 +301,7 @@ QList<QVariantMap> Store::appImageItems() const {
                 continue;
             seen.insert(path);
             const QString info = appImageUpdateInfo(path);
-            items << QVariantMap{{"path", path}, {"name", baseName(path)}, {"version", fileVersion(path)}, {"icon", QString()},
+            items << QVariantMap{{"path", path}, {"name", appImageName(path)}, {"version", fileVersion(path)}, {"icon", QString()},
                                  {"publisher", publisher(info)}, {"desktop", QString()}, {"ours", false}, {"updateKind", kind(info)},
                                  {"integrated", false}, {"location", where}, {"modified", fi.lastModified().toMSecsSinceEpoch()}};
         }
@@ -443,7 +474,7 @@ QString Store::integrateAppImage(const QString &path) {
     }
 
     QStringList lines{"[Desktop Entry]", "Type=Application",
-                      "Name=" + embedded.value("Name", baseName(path)),
+                      "Name=" + embedded.value("Name", appImageName(path)),
                       "Exec=" + execQuote(path) + " %U", "TryExec=" + path,
                       "Icon=" + (icon.isEmpty() ? QStringLiteral("application-x-executable") : icon), "Terminal=false"};
     for (const char *key : {"GenericName", "Comment", "Categories", "Keywords", "StartupWMClass", "X-AppImage-Version"})

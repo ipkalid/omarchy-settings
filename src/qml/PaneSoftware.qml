@@ -265,7 +265,7 @@ SettingsPage {
             return waiting > 0 ? added + " · " + qsTr("%n in Downloads", "", waiting) : added
         }
         onToggle: page.toggleGroup("appimages")
-        SettingRow {
+        leading: SettingRow {
             visible: page.query.length === 0
             label: page.checkingImages ? qsTr("Checking for updates…")
                    : page.imageUpdates > 0 ? qsTr("%n updates available", "", page.imageUpdates)

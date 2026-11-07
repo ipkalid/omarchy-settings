@@ -1320,6 +1320,41 @@ private slots:
         QCOMPARE(byName["Fresh"].value("location").toString(), QString("downloads"));
     }
 
+    void anAppImageWithoutANameIsNamedLikeAnApp() {
+        QCOMPARE(Store::appImageName("/a/atomic-chat-2.3.5-linux-x86_64.AppImage"), QString("Atomic Chat"));
+        QCOMPARE(Store::appImageName("/a/LM-Studio-0.3.5-x86_64.AppImage"), QString("LM Studio"));
+        QCOMPARE(Store::appImageName("/a/lichii-linux-x86_64.appimage"), QString("Lichii"));
+        QCOMPARE(Store::appImageName("/a/Fresh-v1.0.AppImage"), QString("Fresh"));
+        QCOMPARE(Store::appImageName("/a/kdenlive_24.12_amd64.AppImage"), QString("Kdenlive"));
+        QCOMPARE(Store::appImageName("/a/x86_64.AppImage"), QString("x86_64"));
+    }
+
+    void appImagesSettingsNamedByTheirFileGetTheirAppName() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths paths = pathsIn(dir);
+        paths.data = dir.path() + "/data";
+        const QString ours = paths.home + "/Applications/atomic-chat-2.3.5-linux-x86_64.AppImage";
+        const QString theirs = paths.home + "/Applications/other-1.0.AppImage";
+        writeText(ours, fakeElf(""));
+        writeText(theirs, fakeElf(""));
+        const QString ourEntry = paths.data + "/applications/appimage-atomic-chat.desktop";
+        writeText(ourEntry, "[Desktop Entry]\nType=Application\nName=atomic-chat-2.3.5-linux-x86_64\nExec=\"" + ours.toUtf8()
+                  + "\" %U\nX-Omasettings-AppImage=true\n");
+        writeText(paths.data + "/applications/other.desktop", "[Desktop Entry]\nName=other-1.0\nExec=\"" + theirs.toUtf8() + "\"\n");
+        writeText(paths.downloads + "/new-tool-2.0-x86_64.AppImage", fakeElf(""));
+        Store store(paths, sys.exec());
+        QStringList names;
+        for (const QVariant &v : store.list("appimages").toList())
+            names << v.toMap().value("name").toString();
+        names.sort();
+        QCOMPARE(names, (QStringList{"Atomic Chat", "New Tool", "other-1.0"}));
+        // The launcher shows the same name: the entry Settings wrote is fixed,
+        // and someone else's is left alone.
+        QVERIFY(readText(ourEntry).contains("\nName=Atomic Chat\n"));
+        QVERIFY(readText(paths.data + "/applications/other.desktop").contains("Name=other-1.0\n"));
+    }
+
     void anAddedAppImageMovesToApplicationsAndTheLauncher() {
         QTemporaryDir dir;
         FakeSystem sys;
@@ -1334,9 +1369,9 @@ private slots:
         const QString to = paths.home + "/Applications/Fresh-1.0.AppImage";
         QVERIFY(!QFileInfo::exists(from));
         QVERIFY(QFileInfo(to).isExecutable());
-        // Nothing could be extracted here, so the name is the file's.
+        // Nothing could be extracted here, so the name comes from the file's.
         const QString entry = readText(paths.data + "/applications/appimage-fresh-1.0.desktop");
-        QVERIFY(entry.contains("Name=Fresh-1.0\n"));
+        QVERIFY(entry.contains("Name=Fresh\n"));
         QVERIFY(entry.contains("Exec=\"" + to + "\" %U"));
         QVERIFY(entry.contains("X-Omasettings-AppImage=true"));
         // Adding it again is refused rather than overwriting it.
