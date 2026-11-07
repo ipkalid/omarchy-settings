@@ -44,6 +44,9 @@ struct Setting {
 // window calls them from worker threads (see Backend) and the CLI directly.
 class Store {
 public:
+    // The installed apps a window class pattern matches: one app's name and
+    // icon (appName, appIcon), or the names of several (appNames).
+    static QVariantMap appForPattern(const QVariantList &installed, const QString &pattern);
     explicit Store(Paths paths = Paths::system(), Exec exec = runProcess);
 
     const QList<Setting> &settings() const { return m_settings; }
@@ -115,6 +118,8 @@ private:
     QVariant listMore(const QString &name);
     QString actMore(const QString &action, const QVariantList &args);
     QVariantList apps() const;
+    // Window rules set by Omarchy or the user's own Hyprland files.
+    QVariantList otherWindowRules() const;
     QString keyboardBacklight() const;
     QString setNightShift(const QString &key, const QVariant &value);
     QString writeNightShift(const QJsonObject &night);

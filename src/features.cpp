@@ -337,6 +337,9 @@ QVariantList Store::apps() const {
             app["name"] = desktop.value("Name");
             app["icon"] = desktop.value("Icon");
             app["exec"] = desktop.value("Exec");
+            // The class its windows carry: what the entry says, or else its
+            // file name, which Wayland apps use as their app id.
+            app["wmClass"] = desktop.value("StartupWMClass", QFileInfo(path).completeBaseName());
             app["mime"] = desktop.value("MimeType").split(';', Qt::SkipEmptyParts);
             app["hidden"] = desktop.value("NoDisplay") == "true" || desktop.value("Hidden") == "true"
                             || desktop.value("Type") != "Application";
@@ -379,6 +382,154 @@ QString Store::normalizeKeys(const QString &keys) {
         else key = p.startsWith("CODE:") ? p.toLower() : p;
     }
     return keysFor(mask, key);
+}
+
+// The window rules Omarchy and the user's own Hyprland files set up, read
+// by running those files in Hyprland's own Lua with an o.window that only
+// records what it's given: the files are code (locals, loops, helpers), so
+// reading them as text would miss rules. The chunks see nothing but that
+// stand-in and the pure string and table libraries.
+static const char *ruleReader = R"lua(
+local out = {}
+local function inert() return setmetatable({}, { __index = function() return inert end, __call = inert }) end
+for _, f in ipairs(FILES) do
+  local o = setmetatable({}, { __index = function() return inert end })
+  local function record(match, rules)
+    if type(match) == "string" then match = { class = match } end
+    if type(match) == "table" and type(rules) == "table" then
+      out[#out + 1] = { file = f.label, source = f.source, match = match, rules = rules }
+    end
+  end
+  o.window = record
+  o.transparent_window = function(match) record(match, { transparent = true }) end
+  local env = setmetatable({ o = o, hl = inert(), require = function() return inert() end, print = inert },
+    { __index = { string = string, table = table, math = math, ipairs = ipairs, pairs = pairs, next = next,
+                  tostring = tostring, tonumber = tonumber, type = type, select = select, unpack = table.unpack } })
+  local chunk = loadfile(f.path, "t", env)
+  if chunk then pcall(chunk) end
+end
+local function json(v)
+  local t = type(v)
+  if t == "table" then
+    local parts = {}
+    if #v > 0 or next(v) == nil then
+      for _, x in ipairs(v) do parts[#parts + 1] = json(x) end
+      return "[" .. table.concat(parts, ",") .. "]"
+    end
+    for k, x in pairs(v) do parts[#parts + 1] = json(tostring(k)) .. ":" .. json(x) end
+    return "{" .. table.concat(parts, ",") .. "}"
+  elseif t == "string" then
+    return '"' .. v:gsub('[%c"\\]', function(c) return string.format("\\u%04x", c:byte()) end) .. '"'
+  elseif t == "number" and v == v and v ~= math.huge and v ~= -math.huge then return tostring(v)
+  elseif t == "boolean" then return tostring(v) end
+  return "null"
+end
+return json(out)
+)lua";
+
+QVariantList Store::otherWindowRules() const {
+    if (!m_paths.hyprland)
+        return {};
+    struct File { QString path, label, source; };
+    QList<File> files{{m_paths.omarchy + "/default/hypr/windows.lua", "windows.lua", "omarchy"}};
+    const QDir appRules(m_paths.omarchy + "/default/hypr/apps");
+    for (const QString &name : appRules.entryList({"*.lua"}, QDir::Files, QDir::Name))
+        files << File{appRules.filePath(name), "apps/" + name, "omarchy"};
+    // The user's own files, but not the one Settings writes: its rules are
+    // listed as Settings' own.
+    const QDir own(m_paths.config + "/hypr");
+    for (const QString &name : own.entryList({"*.lua"}, QDir::Files, QDir::Name))
+        if (name != "omasettings.lua" && name != "hyprland.lua")
+            files << File{own.filePath(name), "~/.config/hypr/" + name, "config"};
+
+    QString code = "local FILES = {\n";
+    for (const File &f : files)
+        code += "{ path = " + Hypr::luaString(f.path) + ", label = " + Hypr::luaString(f.label) + ", source = "
+                + Hypr::luaString(f.source) + " },\n";
+    code += "}\n" + QString::fromUtf8(ruleReader);
+    const QJsonArray found = QJsonDocument::fromJson(run("hyprctl", {"repl", code}, 8000).out).array();
+
+    // What a tag stands for (Omarchy floats and sizes windows tagged
+    // floating-window), so a rule that only adds the tag reads as what it does.
+    QHash<QString, QJsonObject> tagged;
+    for (const QJsonValue &v : found) {
+        const QJsonObject match = v.toObject().value("match").toObject();
+        const QJsonObject rules = v.toObject().value("rules").toObject();
+        if (match.size() == 1 && match.value("tag").isString())
+            for (auto it = rules.begin(); it != rules.end(); ++it)
+                tagged[match.value("tag").toString()].insert(it.key(), it.value());
+    }
+
+    const QVariantList installed = apps();
+    QVariantList out;
+    for (const QJsonValue &v : found) {
+        const QJsonObject r = v.toObject();
+        const QJsonObject match = r.value("match").toObject();
+        // Only rules for particular apps or windows: not tag groups, not
+        // every window, not XWayland internals.
+        bool forApp = !match.isEmpty();
+        for (auto it = match.begin(); it != match.end(); ++it)
+            forApp = forApp && (it.key() == "class" || it.key() == "title") && it.value().isString()
+                     && !QStringList{"", "^$", ".*", "^.*$"}.contains(it.value().toString());
+        if (!forApp)
+            continue;
+        QJsonObject rules = r.value("rules").toObject();
+        const QString tag = rules.value("tag").toString();
+        const QJsonObject fromTag = tag.startsWith('+') ? tagged.value(tag.mid(1)) : QJsonObject();
+        for (auto it = fromTag.begin(); it != fromTag.end(); ++it)
+            if (!rules.contains(it.key()))
+                rules.insert(it.key(), it.value());
+        rules.remove("tag");
+        if (rules.isEmpty())
+            continue;
+        const QString cls = match.value("class").toString(), title = match.value("title").toString();
+        const QString file = r.value("file").toString();
+        // Omarchy sometimes sets one window's rules a line at a time.
+        if (!out.isEmpty()) {
+            QVariantMap last = out.last().toMap();
+            if (last.value("class") == cls && last.value("title") == title && last.value("file") == file) {
+                QVariantMap merged = last.value("rules").toMap();
+                merged.insert(rules.toVariantMap());
+                last.insert("rules", merged);
+                out.last() = last;
+                continue;
+            }
+        }
+        QVariantMap rule{{"class", cls}, {"title", title}, {"rules", rules.toVariantMap()}, {"file", file},
+                         {"source", r.value("source").toString()}};
+        rule.insert(appForPattern(installed, cls));
+        out << rule;
+    }
+    return out;
+}
+
+// The installed apps a class pattern names: one app's name and icon, or
+// the names of the few a pattern for several (every browser) covers.
+QVariantMap Store::appForPattern(const QVariantList &installed, const QString &pattern) {
+    if (pattern.isEmpty())
+        return {};
+    const QRegularExpression re(QRegularExpression::anchoredPattern(pattern));
+    if (!re.isValid())
+        return {};
+    QStringList names;
+    QString icon;
+    for (const QVariant &a : installed) {
+        const QVariantMap app = a.toMap();
+        if (app.value("hidden").toBool())
+            continue;
+        // Hyprland matches the whole class.
+        const QString wmClass = app.value("wmClass").toString(), id = app.value("id").toString();
+        if ((!wmClass.isEmpty() && re.match(wmClass).hasMatch()) || re.match(id).hasMatch()) {
+            if (!names.contains(app.value("name").toString()))
+                names << app.value("name").toString();
+            icon = app.value("icon").toString();
+        }
+    }
+    if (names.isEmpty())
+        return {};
+    if (names.size() == 1)
+        return {{"appName", names.first()}, {"appIcon", icon}};
+    return {{"appNames", names}};
 }
 
 QVariant Store::listMore(const QString &name) {
@@ -495,7 +646,15 @@ QVariant Store::listMore(const QString &name) {
                 classes << QVariantMap{{"class", cls}, {"title", v.toObject().value("title").toString()}};
             }
         }
-        return QVariantMap{{"rules", managedState().value("windowRules").toArray().toVariantList()}, {"windows", classes}};
+        // Settings' own rules, with the app each one is for.
+        const QVariantList installed = apps();
+        QVariantList own;
+        for (const QVariant &r : managedState().value("windowRules").toArray().toVariantList()) {
+            QVariantMap rule = r.toMap();
+            rule.insert(appForPattern(installed, rule.value("class").toString()));
+            own << rule;
+        }
+        return QVariantMap{{"rules", own}, {"windows", classes}, {"others", otherWindowRules()}};
     }
     if (name == "firewall") {
         // ufw keeps its rules world-readable, so showing them needs no
@@ -797,6 +956,20 @@ QString Store::actMore(const QString &action, const QVariantList &args) {
         return updateState([&](QJsonObject &state) {
             QJsonArray rules = state.value("windowRules").toArray();
             rules << rule;
+            state.insert("windowRules", rules);
+            return QString();
+        });
+    }
+    if (action == "rule.update") {
+        const int index = a0.toInt();
+        const QJsonObject rule = QJsonObject::fromVariantMap(args.value(1).toMap());
+        if (rule.value("class").toString().isEmpty() && rule.value("title").toString().isEmpty())
+            return tr("Choose an app the rule is for");
+        return updateState([&](QJsonObject &state) {
+            QJsonArray rules = state.value("windowRules").toArray();
+            if (index < 0 || index >= rules.size())
+                return tr("That rule is gone already");
+            rules[index] = rule;
             state.insert("windowRules", rules);
             return QString();
         });

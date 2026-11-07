@@ -537,6 +537,80 @@ private slots:
         QVERIFY(!readText(store.managedLuaPath()).contains("syncthing"));
     }
 
+    void aRuleCanBeChangedInPlace() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.act("rule.add", {QVariantMap{{"class", "^(mpv)$"}, {"float", true}}}), QString());
+        QCOMPARE(store.act("rule.add", {QVariantMap{{"class", "^(imv)$"}, {"center", true}}}), QString());
+        QCOMPARE(store.act("rule.update", {0, QVariantMap{{"class", "steam"}, {"title", "Steam"}, {"tile", true}}}), QString());
+        const QJsonArray rules = store.managedState().value("windowRules").toArray();
+        QCOMPARE(rules.size(), 2);
+        QCOMPARE(rules[0].toObject().value("class").toString(), QString("steam"));
+        QVERIFY(!rules[0].toObject().contains("float"));
+        QCOMPARE(rules[1].toObject().value("class").toString(), QString("^(imv)$"));
+        const QString lua = readText(store.managedLuaPath());
+        QVERIFY(lua.contains(R"(o.window({ class = "steam", title = "Steam" }, { tile = true }))"));
+        QVERIFY(!lua.contains("mpv"));
+        QVERIFY(store.act("rule.update", {7, QVariantMap{{"class", "x"}, {"float", true}}}).contains("gone"));
+        QVERIFY(store.act("rule.update", {0, QVariantMap{{"float", true}}}).contains("Choose an app"));
+    }
+
+    void aClassPatternNamesTheAppsItMatches() {
+        const QVariantList installed{
+            QVariantMap{{"id", "steam"}, {"name", "Steam"}, {"icon", "steam"}, {"wmClass", "steam"}},
+            QVariantMap{{"id", "brave-browser"}, {"name", "Brave"}, {"wmClass", "brave-browser"}},
+            QVariantMap{{"id", "chromium"}, {"name", "Chromium"}, {"wmClass", "chromium"}},
+            QVariantMap{{"id", "hidden"}, {"name", "Hidden"}, {"wmClass", "steamwebhelper"}, {"hidden", true}},
+        };
+        QCOMPARE(Store::appForPattern(installed, "steam").value("appName").toString(), QString("Steam"));
+        QCOMPARE(Store::appForPattern(installed, "^(steam)$").value("appIcon").toString(), QString("steam"));
+        // Hyprland matches the whole class, so "steam" isn't steamwebhelper.
+        QCOMPARE(Store::appForPattern(installed, "steam.*").value("appName").toString(), QString("Steam"));
+        QCOMPARE(Store::appForPattern(installed, "(chromium|brave-browser)").value("appNames").toStringList(),
+                 QStringList({"Brave", "Chromium"}));
+        QVERIFY(Store::appForPattern(installed, "mpv").isEmpty());
+        QVERIFY(Store::appForPattern(installed, "(").isEmpty());
+    }
+
+    void omarchysOwnRulesAreListed() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        writeText(dir.path() + "/omarchy/default/hypr/apps/steam.lua", "o.window(\"steam\", { float = true })\n");
+        writeText(dir.path() + "/config/hypr/input.lua", "-- mine\n");
+        // What Hyprland's Lua hands back after running the files.
+        sys.answerPrefix("hyprctl repl ", R"([
+            {"file":"apps/steam.lua","source":"omarchy","match":{"class":"steam"},"rules":{"float":true}},
+            {"file":"apps/steam.lua","source":"omarchy","match":{"class":"steam","title":"Steam"},"rules":{"center":true}},
+            {"file":"apps/steam.lua","source":"omarchy","match":{"class":"steam","title":"Steam"},"rules":{"size":[1100,700]}},
+            {"file":"windows.lua","source":"omarchy","match":{"tag":"floating-window"},"rules":{"float":true}},
+            {"file":"windows.lua","source":"omarchy","match":{"class":".*"},"rules":{"suppress_event":"maximize"}},
+            {"file":"apps/bitwarden.lua","source":"omarchy","match":{"class":"^([bB]itwarden)$"},"rules":{"tag":"+floating-window"}},
+            {"file":"~/.config/hypr/input.lua","source":"config","match":{"class":"mpv"},"rules":{"workspace":"3"}}
+        ])");
+        Store store(pathsIn(dir), sys.exec());
+        const QVariantList others = store.list("windowRules").toMap().value("others").toList();
+
+        // The files ran in Hyprland: Omarchy's, then the user's, not Settings' own.
+        const QString call = sys.calls.filter("hyprctl repl ").value(0);
+        QVERIFY(call.contains(dir.path() + "/omarchy/default/hypr/apps/steam.lua"));
+        QVERIFY(call.contains(dir.path() + "/config/hypr/input.lua"));
+        QVERIFY(!call.contains("omasettings.lua"));
+
+        // Rules for every window or a tag alone aren't an app's; the two
+        // lines for Steam's main window read as one rule.
+        QCOMPARE(others.size(), 4);
+        const QVariantMap main = others[1].toMap();
+        QCOMPARE(main.value("title").toString(), QString("Steam"));
+        QVERIFY(main.value("rules").toMap().value("center").toBool());
+        QCOMPARE(main.value("rules").toMap().value("size").toList().value(0).toInt(), 1100);
+        // A rule that only adds a tag reads as what the tag does.
+        const QVariantMap bitwarden = others[2].toMap();
+        QVERIFY(bitwarden.value("rules").toMap().value("float").toBool());
+        QVERIFY(!bitwarden.value("rules").toMap().contains("tag"));
+        QCOMPARE(others[3].toMap().value("source").toString(), QString("config"));
+    }
+
     void nightShiftScheduleOwnsHyprsunsetConf() {
         QTemporaryDir dir;
         FakeSystem sys;

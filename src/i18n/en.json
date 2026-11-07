@@ -1,4 +1,8 @@
 {
+  "%1 and %n more": {
+    "one": "%1 and %n more",
+    "other": "%1 and %n more"
+  },
   "%1 of %n installed": {
     "one": "%1 of %n installed",
     "other": "%1 of %n installed"
@@ -50,6 +54,10 @@
   "%n minutes": {
     "one": "%n minute",
     "other": "%n minutes"
+  },
+  "%n other settings": {
+    "one": "%n other setting",
+    "other": "%n other settings"
   },
   "%n printers": {
     "one": "%n printer",
