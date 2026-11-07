@@ -381,6 +381,9 @@ ApplicationWindow {
                             id: search
                             anchors.left: parent.left
                             anchors.right: parent.right
+                            // The sidebar's search stands a little taller
+                            // than the fields in a page.
+                            implicitHeight: ui.controlHeight + ui.s(4)
                             // Room for the search glyph on both sides, so it
                             // clears the text in either reading direction.
                             leftPadding: ui.s(18) + searchGlyph.width

@@ -7,7 +7,9 @@ import QtQuick.Controls.Basic as Basic
 // focus, which the shell's fields never do.
 Basic.TextField {
     id: field
-    implicitHeight: ui.controlHeight + ui.s(4)
+    // The same height as buttons and choice boxes, so a field lines up
+    // with the controls beside it.
+    implicitHeight: ui.controlHeight
     leftPadding: ui.s(10)
     rightPadding: ui.s(10)
     topPadding: 0
