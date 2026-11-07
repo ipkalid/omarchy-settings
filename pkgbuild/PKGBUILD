@@ -1,5 +1,5 @@
 pkgname=omasettings
-pkgver=1.3.0
+pkgver=1.4.0
 pkgrel=1
 pkgdesc='Settings for Omarchy: change Wi-Fi, sound, displays, keyboard, appearance, and more without editing config files'
 arch=('x86_64' 'aarch64')
