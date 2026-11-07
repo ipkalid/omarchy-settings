@@ -546,7 +546,11 @@ QString Store::actAppImage(const QString &action, const QVariantList &args) {
     if (action == "appimage.add") {
         QStringList paths{path};
         if (path.isEmpty()) {
-            const ProcResult picked = run("omarchy-file-select", {"--title", tr("Choose an AppImage"), "--extensions", "AppImage appimage"}, 600000);
+            // No extension filter: the chooser's is case-sensitive and
+            // omarchy-file-select lowercases it, so it would hide every
+            // .AppImage, and some AppImages have no extension at all. What's
+            // picked is checked to be an AppImage below.
+            const ProcResult picked = run("omarchy-file-select", {"--title", tr("Choose AppImages"), "--multiple"}, 600000);
             if (!picked.ok())
                 return {};
             paths = picked.text().split('\n', Qt::SkipEmptyParts);

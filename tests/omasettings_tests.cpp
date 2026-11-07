@@ -1023,6 +1023,29 @@ private slots:
         QVERIFY(!store.act("appimage.remove", {dir.path() + "/nowhere.AppImage"}).isEmpty());
     }
 
+    void appImagesArePickedWithoutAnExtensionFilter() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths paths = pathsIn(dir);
+        paths.data = dir.path() + "/data";
+        // One named the usual way, one with no extension at all.
+        writeText(paths.downloads + "/Tool-1.0.AppImage", fakeElf(""));
+        writeText(paths.downloads + "/Bare", fakeElf(""));
+        sys.answer("omarchy-file-select --title Choose AppImages --multiple",
+                   (paths.downloads + "/Tool-1.0.AppImage\n" + paths.downloads + "/Bare\n").toUtf8());
+        Store store(paths, sys.exec());
+        QCOMPARE(store.act("appimage.add", {}), QString());
+        QVERIFY(QFileInfo::exists(paths.home + "/Applications/Tool-1.0.AppImage"));
+        QVERIFY(QFileInfo::exists(paths.home + "/Applications/Bare"));
+        QVERIFY(!sys.calls.filter("omarchy-file-select").first().contains("--extensions"));
+
+        // Whatever else is picked is refused.
+        writeText(paths.downloads + "/notes.txt", "hello");
+        sys.answer("omarchy-file-select --title Choose AppImages --multiple", (paths.downloads + "/notes.txt\n").toUtf8());
+        QVERIFY(store.act("appimage.add", {}).contains("not an AppImage"));
+        QVERIFY(QFileInfo::exists(paths.downloads + "/notes.txt"));
+    }
+
     void aDownloadedVersionIsMatchedToTheOneAddedAndReplacesIt() {
         QTemporaryDir dir;
         FakeSystem sys;
