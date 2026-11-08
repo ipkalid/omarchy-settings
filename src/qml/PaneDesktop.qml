@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 SettingsPage {
     id: page
+    configFiles: ["looknfeel", "shell"]
     resetPane: "desktop"
     pane: "desktop"
     title: qsTr("Desktop & Dock")

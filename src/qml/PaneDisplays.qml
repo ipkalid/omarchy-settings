@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 SettingsPage {
     id: page
+    configFiles: ["monitors", "hyprsunset"]
     resetPane: "displays"
     pane: "displays"
     title: qsTr("Displays")

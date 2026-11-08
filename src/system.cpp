@@ -271,11 +271,8 @@ QString Store::actSystem(const QString &action, const QVariantList &args) {
             return tr("Only Omarchy's own plugins can be copied");
         return runOk("omarchy-plugin-clone", {a0}, 30000);
     }
-    if (action == "xcompose.edit") {
-        // A fixed command line: the editor, then the compose daemon picks
-        // up the changes.
-        return launch("bash", {"-c", "omarchy-launch-config-editor ~/.XCompose && omarchy-restart-xcompose"});
-    }
+    if (action == "xcompose.edit")
+        return act("edit", {"xcompose"});
     if (action == "restart.shell")
         return launch("omarchy-restart-shell", {});
     if (action == "restart.nightLight")

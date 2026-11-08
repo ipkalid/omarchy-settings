@@ -540,6 +540,40 @@ private slots:
         QVERIFY(store.act("monitor.apply", {"DP-1;x", QVariantMap{}}).contains("Unknown display"));
         QVERIFY(store.act("launch", {"rm"}).contains("Unknown command"));
         QVERIFY(store.act("background.set", {"/etc/passwd"}).contains("not in the current theme"));
+        QVERIFY(store.act("edit", {"/etc/passwd"}).contains("Unknown file"));
+        QVERIFY(store.act("edit", {"../../etc/passwd"}).contains("Unknown file"));
+    }
+
+    void configFilesListWhereEachPagesFileIs() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        const Paths paths = pathsIn(dir);
+        writeText(paths.config + "/hypr/bindings.lua", "-- mine\n");
+        writeText(paths.home + "/.gitconfig", "[user]\n");
+        Store store(paths, sys.exec());
+        QHash<QString, QVariantMap> byKey;
+        for (const QVariant &v : store.list("configFiles").toList())
+            byKey.insert(v.toMap().value("key").toString(), v.toMap());
+        // Every key a page names is in the table.
+        for (const QString &key : QStringList{"bindings", "input", "looknfeel", "monitors", "hyprsunset", "autostart", "hyprland",
+                                   "managed", "shell", "shelltoml", "menu", "screensaver", "about", "mimeapps",
+                                   "terminals", "fontconfig", "alacritty", "kitty", "ghostty", "foot", "gitconfig",
+                                   "xcompose"})
+            QVERIFY2(byKey.contains(key), qPrintable(key));
+        QCOMPARE(byKey["bindings"].value("name").toString(), QString("bindings.lua"));
+        QVERIFY(byKey["bindings"].value("exists").toBool());
+        QVERIFY(!byKey["input"].value("exists").toBool());
+        // Files under ~ are shown that way; ~/.config may live elsewhere.
+        QCOMPARE(byKey["gitconfig"].value("path").toString(), QString("~/.gitconfig"));
+        QVERIFY(byKey["gitconfig"].value("exists").toBool());
+        QCOMPARE(byKey["menu"].value("path").toString(), paths.config + "/omarchy/extensions/omarchy-menu.jsonc");
+        QCOMPARE(store.configFilePath("xcompose"), paths.home + "/.XCompose");
+        // Git's XDG file counts only when there is no ~/.gitconfig.
+        writeText(paths.config + "/git/config", "[user]\n");
+        QCOMPARE(store.configFilePath("gitconfig"), paths.home + "/.gitconfig");
+        QVERIFY(QFile::remove(paths.home + "/.gitconfig"));
+        QCOMPARE(store.configFilePath("gitconfig"), paths.config + "/git/config");
+        QVERIFY(store.configFilePath("nope").isEmpty());
     }
 
     // ---- Hidden Wi-Fi, VPN, plugins, the bar ----------------------------------------

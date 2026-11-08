@@ -5,6 +5,7 @@ import QtQuick.Layouts
 // undoable), and moving settings to another computer.
 SettingsPage {
     id: page
+    configFiles: ["managed"]
     pane: "general"
     lists: ["managed"]
 

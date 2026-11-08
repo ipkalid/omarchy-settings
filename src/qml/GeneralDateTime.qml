@@ -2,6 +2,7 @@ import QtQuick
 
 SettingsPage {
     id: page
+    configFiles: ["shell"]
     resetPane: "general"
     pane: "general"
     lists: ["timezones"]

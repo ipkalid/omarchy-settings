@@ -22,6 +22,7 @@ Rectangle {
         { keys: ["Ctrl+Z"], action: qsTr("Undo the last change") },
         { keys: ["Ctrl+Shift+Z"], action: qsTr("Redo") },
         { keys: ["Ctrl+R"], action: qsTr("Reload what this pane shows") },
+        { keys: ["Ctrl+E"], action: qsTr("Open this page's config file") },
         { keys: ["Q"], action: qsTr("Quit") },
     ]
 

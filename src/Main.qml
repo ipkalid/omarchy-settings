@@ -339,6 +339,7 @@ ApplicationWindow {
     Shortcut { sequences: [StandardKey.Redo, "Ctrl+Shift+Z"]; context: Qt.ApplicationShortcut; enabled: !win.typing(); onActivated: backend.redo() }
     Shortcut { sequences: ["Alt+Left", "Ctrl+["]; context: Qt.ApplicationShortcut; onActivated: win.back() }
     Shortcut { sequences: ["Alt+Right", "Ctrl+]"]; context: Qt.ApplicationShortcut; onActivated: win.forward() }
+    Shortcut { sequence: "Ctrl+E"; context: Qt.ApplicationShortcut; onActivated: if (pageLoader.item && pageLoader.item.openConfig) pageLoader.item.openConfig() }
     Shortcut { sequences: ["Ctrl+R", "F5"]; context: Qt.ApplicationShortcut; onActivated: { if (pageLoader.item) pageLoader.item.reload(); backend.load("capabilities") } }
     Shortcut {
         sequence: "Escape"

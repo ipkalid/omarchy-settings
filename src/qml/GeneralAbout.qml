@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 SettingsPage {
     id: page
+    configFiles: ["about"]
     pane: "general"
     lists: ["about", "branding"]
 

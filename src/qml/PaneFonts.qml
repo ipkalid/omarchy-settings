@@ -5,6 +5,7 @@ import QtQuick.Layouts
 // Chinese, Japanese, and Korean are drawn, and more fonts to install.
 SettingsPage {
     id: page
+    configFiles: ["fontconfig", "shelltoml", "alacritty", "kitty", "ghostty", "foot"]
     pane: "fonts"
     resetPane: "fonts"
     title: qsTr("Fonts")

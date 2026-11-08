@@ -7,6 +7,7 @@ import QtQuick.Layouts
 // as its menu does, and the status of each is read back here.
 SettingsPage {
     id: page
+    configFiles: ["gitconfig"]
     pane: "security"
     title: qsTr("Login & Security")
     tagline: qsTr("Passwords and keys")

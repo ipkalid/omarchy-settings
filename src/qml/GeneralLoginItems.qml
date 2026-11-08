@@ -4,6 +4,7 @@ import QtQuick.Layouts
 // Apps and commands that start when you log in.
 SettingsPage {
     id: page
+    configFiles: ["autostart"]
     pane: ""
     lists: ["loginItems", "apps"]
 
@@ -72,11 +73,6 @@ SettingsPage {
         Repeater {
             model: page.fromFile
             delegate: SettingRow { required property string modelData; label: modelData; dimmed: true }
-        }
-        ButtonRow {
-            label: ""
-            text: qsTr("Edit autostart.lua")
-            onClicked: backend.act("edit", ["autostart"])
         }
     }
 }

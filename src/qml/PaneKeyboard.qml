@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 SettingsPage {
     id: page
+    configFiles: ["input", "xcompose"]
     resetPane: "keyboard"
     pane: "keyboard"
     title: qsTr("Keyboard")

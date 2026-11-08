@@ -885,7 +885,7 @@ QStringList Store::listNames() const {
             "powerProfiles", "vpn", "plugins", "pluginUpdates", "bar", "apps", "fileTypes", "webapps", "dock",
             "wifiBand", "power", "crashMutes", "shortcuts", "loginItems", "windowRules", "firewall", "printers",
             "storage", "homeUsage", "snapshots", "managed", "menuSearch",
-            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom", "software", "defaultApps", "appimages", "appimageUpdates", "sync", "syncPreview"};
+            "security", "system", "branding", "bootScreens", "menu", "hardware", "reminders", "fontCatalog", "menuCustom", "software", "defaultApps", "appimages", "appimageUpdates", "sync", "syncPreview", "configFiles"};
 }
 
 static QVariantList pactlDevices(const QByteArray &json, const QString &defaultName, bool skipMonitors) {
@@ -900,6 +900,72 @@ static QVariantList pactlDevices(const QByteArray &json, const QString &defaultN
             : Store::parsePercent(volume.begin().value().toObject().value("value_percent").toString());
         out << entry({{"name", name}, {"description", o.value("description").toString()},
                       {"volume", percent}, {"muted", o.value("mute").toBool()}, {"isDefault", name == defaultName}});
+    }
+    return out;
+}
+
+// --- Config files -----------------------------------------------------------
+
+// The files a page's settings live in, which it offers to open in the
+// person's editor. The key is all a page or the CLI can name.
+namespace {
+struct ConfigFile {
+    const char *key;
+    bool inHome; // under ~ rather than ~/.config
+    const char *path;
+};
+const ConfigFile configFiles[] = {
+    {"hyprland", false, "hypr/hyprland.lua"},
+    {"bindings", false, "hypr/bindings.lua"},
+    {"input", false, "hypr/input.lua"},
+    {"looknfeel", false, "hypr/looknfeel.lua"},
+    {"monitors", false, "hypr/monitors.lua"},
+    {"autostart", false, "hypr/autostart.lua"},
+    {"hyprsunset", false, "hypr/hyprsunset.conf"},
+    {"managed", false, "hypr/omasettings.lua"},
+    {"shell", false, "omarchy/shell.json"},
+    {"shelltoml", false, "omarchy/shell.toml"},
+    {"menu", false, "omarchy/extensions/omarchy-menu.jsonc"},
+    {"screensaver", false, "omarchy/branding/screensaver.txt"},
+    {"about", false, "omarchy/branding/about.txt"},
+    {"mimeapps", false, "mimeapps.list"},
+    {"terminals", false, "xdg-terminals.list"},
+    {"fontconfig", false, "fontconfig/fonts.conf"},
+    {"alacritty", false, "alacritty/alacritty.toml"},
+    {"kitty", false, "kitty/kitty.conf"},
+    {"ghostty", false, "ghostty/config"},
+    {"foot", false, "foot/foot.ini"},
+    {"gitconfig", true, ".gitconfig"},
+    {"xcompose", true, ".XCompose"},
+};
+} // namespace
+
+QString Store::configFilePath(const QString &key) const {
+    // Git's global file is ~/.gitconfig, or its XDG one when only that is
+    // there, the way `git config --global` picks.
+    if (key == "gitconfig") {
+        const QString xdg = m_paths.config + "/git/config";
+        return !QFileInfo::exists(m_paths.home + "/.gitconfig") && QFileInfo::exists(xdg) ? xdg : m_paths.home + "/.gitconfig";
+    }
+    for (const ConfigFile &f : configFiles)
+        if (key == QLatin1String(f.key))
+            return (f.inHome ? m_paths.home : m_paths.config) + "/" + QString::fromLatin1(f.path);
+    return {};
+}
+
+QVariant Store::listConfigFiles() const {
+    QVariantList out;
+    for (const ConfigFile &f : configFiles) {
+        const QString path = configFilePath(QString::fromLatin1(f.key));
+        QString shown = path;
+        if (!m_paths.home.isEmpty() && path.startsWith(m_paths.home + "/"))
+            shown = "~" + path.mid(m_paths.home.size());
+        // A bare "config" says more with its folder: git/config.
+        const QFileInfo info(path);
+        const QString name = info.suffix().isEmpty() && !info.fileName().startsWith('.')
+                                 ? info.dir().dirName() + "/" + info.fileName() : info.fileName();
+        out << entry({{"key", QString::fromLatin1(f.key)}, {"name", name},
+                      {"path", shown}, {"exists", QFileInfo(path).isFile()}});
     }
     return out;
 }
@@ -1134,6 +1200,8 @@ QVariant Store::list(const QString &name) {
     }
     if (name == "keyboardLayouts")
         return parseXkbLayouts(readFile("/usr/share/X11/xkb/rules/base.lst"));
+    if (name == "configFiles")
+        return listConfigFiles();
     if (name == "keybindings")
         return parseKeybindings(output("omarchy-menu-keybindings", {"--print"}, 10000));
     static const QStringList more{"apps", "fileTypes", "webapps", "dock", "wifiBand", "power", "crashMutes", "shortcuts",
@@ -1595,14 +1663,15 @@ QString Store::act(const QString &action, const QVariantList &args) {
     }
 
     if (action == "edit") {
-        static const QMap<QString, QString> files{
-            {"bindings", "/hypr/bindings.lua"}, {"input", "/hypr/input.lua"}, {"looknfeel", "/hypr/looknfeel.lua"},
-            {"monitors", "/hypr/monitors.lua"}, {"shell", "/omarchy/shell.json"}, {"managed", "/hypr/omasettings.lua"},
-            {"autostart", "/hypr/autostart.lua"}, {"menu", "/omarchy/extensions/omarchy-menu.jsonc"},
-            {"hyprland", "/hypr/hyprland.lua"}, {"hyprsunset", "/hypr/hyprsunset.conf"}};
-        if (!files.contains(a0))
+        // Only the files in the table, never a path from the caller.
+        const QString path = configFilePath(a0);
+        if (path.isEmpty())
             return tr("Unknown file %1").arg(a0);
-        return launch("omarchy-launch-editor", {m_paths.config + files.value(a0)});
+        // A fixed command line with the path passed as an argument. Compose
+        // sequences take effect once the compose daemon reads them again.
+        if (a0 == "xcompose")
+            return launch("bash", {"-c", "omarchy-launch-config-editor \"$1\" && omarchy-restart-xcompose", "bash", path});
+        return launch("omarchy-launch-config-editor", {path});
     }
 
     if (action == "hypr.reset")

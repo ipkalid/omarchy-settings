@@ -6,6 +6,7 @@ import QtQuick.Layouts
 // o.rebind, so they replace whatever had the same keys.
 SettingsPage {
     id: page
+    configFiles: ["bindings"]
     pane: ""
     lists: ["shortcuts", "apps"]
 
@@ -140,11 +141,6 @@ SettingsPage {
                     onClicked: backend.act("shortcut.disable", [modelData.keys], ["shortcuts"])
                 }
             }
-        }
-        ButtonRow {
-            label: ""
-            text: qsTr("Edit bindings.lua")
-            onClicked: backend.act("edit", ["bindings"])
         }
     }
 

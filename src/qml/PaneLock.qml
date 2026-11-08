@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 SettingsPage {
     id: page
+    configFiles: ["shell", "screensaver"]
     resetPane: "lock"
     pane: "lock"
     title: qsTr("Lock Screen")

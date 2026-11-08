@@ -6,6 +6,7 @@ import QtQuick.Layouts
 // documents it; the menu picks the change up on its own.
 SettingsPage {
     id: page
+    configFiles: ["menu"]
     pane: "menu"
     title: qsTr("Omarchy Menu")
     tagline: qsTr("%n hidden", "", page.items.filter(i => i.hidden).length)
@@ -316,11 +317,6 @@ SettingsPage {
             text: qsTr("Restore Default…")
             enabled: page.items.some(i => i.hidden) && !page.working
             onClicked: restoreDialog.open()
-        }
-        ButtonRow {
-            label: qsTr("Edit the menu file")
-            text: qsTr("Open…")
-            onClicked: backend.act("edit", ["menu"])
         }
     }
 

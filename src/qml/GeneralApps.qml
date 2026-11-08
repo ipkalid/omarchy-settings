@@ -2,6 +2,7 @@ import QtQuick
 
 SettingsPage {
     id: page
+    configFiles: ["mimeapps", "terminals"]
     pane: "general"
     lists: ["fileTypes", "software", "defaultApps"]
 

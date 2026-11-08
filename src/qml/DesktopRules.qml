@@ -8,6 +8,7 @@ import QtQuick.Layouts
 // later in the config and wins where the two differ.
 SettingsPage {
     id: page
+    configFiles: ["hyprland", "looknfeel"]
     pane: ""
     lists: ["windowRules", "apps"]
 

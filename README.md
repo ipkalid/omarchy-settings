@@ -22,6 +22,9 @@ monospace font.
   web apps, AppImages), themes, plugins, and chosen dotfiles in a private
   GitHub repository. Changes upload on their own; another computer matches
   it with one click, after showing what will change. Hardware stays behind.
+- **The files behind each page**: a page whose settings live in a config
+  file lists it at the bottom with an Open button, and Ctrl+E opens it in
+  your default editor, for anything the page can't change itself.
 - **Safe changes**: a backup before every rewrite, Ctrl+Z for everything,
   Hyprland changes rolled back if Hyprland rejects them, and display changes
   undone unless you keep them.
@@ -181,6 +184,7 @@ holds plain files, so its history on GitHub reads like a changelog:
 | `Esc` | Clear the search, or go back |
 | `Ctrl+Z`, `Ctrl+Shift+Z` | Undo and redo |
 | `Ctrl+R` | Reload what the pane shows |
+| `Ctrl+E` | Open the page's config file in your editor |
 | `Q` | Quit |
 
 ## For scripts and agents

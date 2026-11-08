@@ -20,6 +20,12 @@ ScrollView {
     property int pollMs: 0
     // The pane whose settings Restore Defaults puts back to Omarchy's.
     property string resetPane: ""
+    // The config files this page's settings live in, by their key in the
+    // backend's table, the main one first. They are offered at the bottom
+    // to open in the person's editor, and Ctrl+E opens the first.
+    property var configFiles: []
+    readonly property var shownConfigFiles: configFiles.length === 0 ? []
+        : configFiles.map(k => (backend.lists.configFiles || []).find(f => f.key === k)).filter(f => f && f.exists)
     default property alias content: column.data
 
     function reload() {
@@ -29,6 +35,16 @@ ScrollView {
             backend.load(list)
         for (const id of settings)
             backend.refresh(id)
+        if (configFiles.length > 0)
+            backend.load("configFiles")
+    }
+
+    // Opens the page's main config file; false when it has none.
+    function openConfig() {
+        if (shownConfigFiles.length === 0)
+            return false
+        backend.act("edit", [shownConfigFiles[0].key])
+        return true
     }
 
     // Scrolls so `item` shows, a little below the top.
@@ -129,6 +145,24 @@ ScrollView {
             textFormat: Text.PlainText
         }
     }
+
+      // The files behind this page, for anything it can't change itself.
+      SettingsGroup {
+        visible: page.shownConfigFiles.length > 0
+        title: qsTr("Config Files")
+        footer: qsTr("Opens in your default editor, chosen in General › Default Apps.")
+        Repeater {
+          model: page.shownConfigFiles
+          delegate: ButtonRow {
+            required property var modelData
+            glyph: "\u{F0DC9}"
+            label: modelData.name
+            sublabel: modelData.path
+            text: qsTr("Open…")
+            onClicked: backend.act("edit", [modelData.key])
+          }
+        }
+      }
 
       // Restore Defaults, below everything a pane shows.
       SettingsGroup {

@@ -44,7 +44,8 @@ SettingsPage {
                 { label: "looknfeel.lua", detail: qsTr("Gaps, borders, and animations"), file: "looknfeel" },
                 { label: "monitors.lua", detail: qsTr("Displays"), file: "monitors" },
                 { label: "autostart.lua", detail: qsTr("Programs started at login"), file: "autostart" },
-                { label: "hyprsunset.conf", detail: qsTr("Night Shift"), file: "hyprsunset" }
+                { label: "hyprsunset.conf", detail: qsTr("Night Shift"), file: "hyprsunset" },
+                { label: "shell.json", detail: qsTr("The bar, dock, and idle times"), file: "shell" }
             ]
             delegate: ButtonRow {
                 required property var modelData

@@ -67,6 +67,8 @@ public:
     QJsonObject managedState() const;
     QString managedLuaPath() const { return m_paths.config + "/hypr/omasettings.lua"; }
     QString statePath() const { return m_paths.config + "/omarchy/omasettings.json"; }
+    // A config file a page offers to open, by its key; empty if unknown.
+    QString configFilePath(const QString &key) const;
 
     // Hands a Hyprland option back to the user's own config.
     QString resetHypr(const QString &option);
@@ -127,6 +129,7 @@ private:
     bool flag(const QString &relative) const;
 
     // extras.cpp: VPN connections, shell plugins, the bar's layout.
+    QVariant listConfigFiles() const;
     QVariant listVpn();
     QVariant listPlugins();
     QVariant listPluginUpdates();

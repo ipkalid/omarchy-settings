@@ -6,6 +6,7 @@ import QtQuick.Layouts
 // stays the one that writes its layout.
 SettingsPage {
     id: page
+    configFiles: ["shell"]
     resetPane: "bar"
     pane: "bar"
     title: qsTr("Bar")

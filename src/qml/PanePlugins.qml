@@ -6,6 +6,7 @@ import QtQuick.Layouts
 // through `omarchy plugin`, as the shell's own plugin menu does.
 SettingsPage {
     id: page
+    configFiles: ["shell"]
     pane: "plugins"
     title: qsTr("Plugins")
     tagline: qsTr("%n enabled", "", page.plugins.filter(p => p.enabled).length)
