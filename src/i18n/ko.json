@@ -566,6 +566,7 @@
   "Kernel": "커널",
   "Key": "키",
   "Key repeat rate": "키 반복 속도",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "키 바인딩, 입력, 모양, 자동 시작 등 ~/.config/hypr의 나머지 (디스플레이 제외)",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "~/.config/hypr의 단축키, 모니터, 입력 및 모양 설정",
   "Keyboard": "키보드",
   "Keyboard Shortcuts": "키보드 단축키",

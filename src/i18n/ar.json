@@ -736,6 +736,7 @@
   "Kernel": "النواة",
   "Key": "المفتاح",
   "Key repeat rate": "معدل تكرار المفاتيح",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "اختصارات لوحة المفاتيح والإدخال والمظهر والتشغيل التلقائي وبقية ~/.config/hypr، ما عدا الشاشات",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "الاختصارات والشاشات والإدخال والمظهر في ~/.config/hypr",
   "Keyboard": "لوحة المفاتيح",
   "Keyboard Shortcuts": "اختصارات لوحة المفاتيح",

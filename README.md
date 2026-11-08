@@ -144,6 +144,7 @@ holds plain files, so its history on GitHub reads like a changelog:
 | --- | --- |
 | `settings.json` | Everything Export writes: settings, shortcuts, login items, window rules |
 | `desktop/` | The Omarchy menu file, the dock and bar layout, apps for file types, branding |
+| `hypr/` | `~/.config/hypr`: your keybindings, input, look and feel, autostart, `hyprland.lua`, and the rest, except `monitors.lua` (and backups) |
 | `apps/` | Omarchy's apps, the pacman and AUR packages you added, Flatpak apps, mise tools, web apps, AppImages that publish updates |
 | `themes.json`, `wallpapers/` | Themes added by git URL, wallpapers you added |
 | `plugins.json` | Shell plugins by git URL, and which are on |

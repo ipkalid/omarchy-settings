@@ -634,6 +634,7 @@
   "Kernel": "Kernel",
   "Key": "Tasto",
   "Key repeat rate": "Velocità di ripetizione dei tasti",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "Scorciatoie da tastiera, input, aspetto, avvio automatico e il resto di ~/.config/hypr, tranne gli schermi",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "Scorciatoie, monitor, input e aspetto in ~/.config/hypr",
   "Keyboard": "Tastiera",
   "Keyboard Shortcuts": "Scorciatoie da tastiera",

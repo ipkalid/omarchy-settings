@@ -600,6 +600,7 @@
   "Kernel": "Çekirdek",
   "Key": "Tuş",
   "Key repeat rate": "Tuş tekrar hızı",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "Klavye kısayolları, giriş, görünüm, otomatik başlatma ve ~/.config/hypr içindeki diğer her şey; ekranlar hariç",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "~/.config/hypr içindeki tuş atamaları, monitörler, giriş ve görünüm",
   "Keyboard": "Klavye",
   "Keyboard Shortcuts": "Klavye kısayolları",

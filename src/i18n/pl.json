@@ -668,6 +668,7 @@
   "Kernel": "Jądro",
   "Key": "Klawisz",
   "Key repeat rate": "Szybkość powtarzania klawiszy",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "Skróty klawiszowe, wprowadzanie, wygląd, autostart i reszta ~/.config/hypr, poza ekranami",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "Skróty klawiszowe, monitory, wejście i wygląd w ~/.config/hypr",
   "Keyboard": "Klawiatura",
   "Keyboard Shortcuts": "Skróty klawiszowe",

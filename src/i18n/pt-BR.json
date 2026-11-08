@@ -634,6 +634,7 @@
   "Kernel": "Kernel",
   "Key": "Tecla",
   "Key repeat rate": "Taxa de repetição de teclas",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "Atalhos de teclado, entrada, aparência, inicialização automática e o resto de ~/.config/hypr, exceto as telas",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "Atalhos de teclado, monitores, entrada e aparência em ~/.config/hypr",
   "Keyboard": "Teclado",
   "Keyboard Shortcuts": "Atalhos de teclado",

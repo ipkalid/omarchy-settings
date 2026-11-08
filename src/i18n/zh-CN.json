@@ -566,6 +566,7 @@
   "Kernel": "内核",
   "Key": "按键",
   "Key repeat rate": "按键重复速率",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "快捷键、输入、外观、自动启动以及 ~/.config/hypr 中的其余内容(显示器除外)",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "~/.config/hypr 中的快捷键、显示器、输入和外观",
   "Keyboard": "键盘",
   "Keyboard Shortcuts": "键盘快捷键",

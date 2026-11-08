@@ -668,6 +668,7 @@
   "Kernel": "Ядро",
   "Key": "Клавиша",
   "Key repeat rate": "Скорость повтора клавиш",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "Сочетания клавиш, ввод, внешний вид, автозапуск и остальное из ~/.config/hypr, кроме дисплеев",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "Сочетания клавиш, мониторы, ввод и внешний вид в ~/.config/hypr",
   "Keyboard": "Клавиатура",
   "Keyboard Shortcuts": "Сочетания клавиш",

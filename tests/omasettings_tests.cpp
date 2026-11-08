@@ -989,6 +989,9 @@ private slots:
         writeText(p.config + "/omarchy/shell.json", R"({"bar":{"position":"bottom"},"idle":{"lock":300},"dock":{"pinned":["a"]}})");
         writeText(p.config + "/omarchy/extensions/omarchy-menu.jsonc", "{\n  \"setup\": { \"when\": \"false\" }\n}\n");
         writeText(p.config + "/mise/config.toml", "[tools]\nnode = \"22\"\n\"npm:x\" = \"latest\"\n[settings]\nfoo = 1\n");
+        for (const char *f : {"bindings.lua", "monitors.lua", "omasettings.lua", "hyprsunset.conf", "bindings.lua.bak.1788345603",
+                              "hyprland.lua.omasettings.bak", "keybindings-editor/overrides.lua", "keybindings-editor/.lock"})
+            writeText(p.config + "/hypr/" + f, QByteArray("-- ") + f);
         const QString out = dir.path() + "/snap";
         writeText(out + "/dotfiles/kept.txt", "from another computer");
 
@@ -1004,6 +1007,10 @@ private slots:
         QCOMPARE(readText(out + "/apps/pacman.txt"), QString("ripgrep\nslack-desktop\n"));
         QCOMPARE(readText(out + "/apps/aur.txt"), QString("zoom\n"));
         QCOMPARE(readText(out + "/apps/mise.txt"), QString("node@22\nnpm:x@latest\n"));
+        // Hyprland's files travel, but not the displays, what Settings
+        // generates, backups, or locks.
+        QCOMPARE(QDir(out + "/hypr").entryList(QDir::Files | QDir::Hidden), QStringList{"bindings.lua"});
+        QCOMPARE(QDir(out + "/hypr/keybindings-editor").entryList(QDir::Files | QDir::Hidden), QStringList{"overrides.lua"});
         // Left out here, so what the repository has stays.
         QCOMPARE(readText(out + "/dotfiles/kept.txt"), QString("from another computer"));
     }
@@ -1041,8 +1048,13 @@ private slots:
         writeText(repo + "/dotfiles/.zshrc", "new");
         writeText(p.home + "/.zshrc", "old");
         writeText(repo + "/desktop/mimeapps.list", "[Default Applications]\n");
+        writeText(repo + "/hypr/bindings.lua", "-- theirs");
+        writeText(p.config + "/hypr/bindings.lua", "-- mine");
+        writeText(repo + "/hypr/input.lua", "-- same");
+        writeText(p.config + "/hypr/input.lua", "-- same");
 
         const QVariantMap plan = store.syncPlan();
+        QCOMPARE(plan.value("hypr").toStringList(), QStringList{"bindings.lua"});
         QCOMPARE(plan.value("pacman").toStringList(), QStringList{"fd"});
         QCOMPARE(plan.value("mise").toStringList(), QStringList{"go@latest"});
         QCOMPARE(plan.value("dotfiles").toStringList(), QStringList{".zshrc"});

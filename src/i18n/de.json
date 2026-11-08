@@ -600,6 +600,7 @@
   "Kernel": "Kernel",
   "Key": "Taste",
   "Key repeat rate": "Wiederholrate",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "Tastenkürzel, Eingabe, Aussehen, Autostart und der Rest von ~/.config/hypr, außer Bildschirmen",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "Tastenkürzel, Monitore, Eingabe und Aussehen in ~/.config/hypr",
   "Keyboard": "Tastatur",
   "Keyboard Shortcuts": "Tastenkürzel",

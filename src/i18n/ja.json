@@ -566,6 +566,7 @@
   "Kernel": "カーネル",
   "Key": "キー",
   "Key repeat rate": "キーのリピート速度",
+  "Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays": "キーバインド、入力、外観、自動起動など ~/.config/hypr の内容(ディスプレイを除く)",
   "Keybindings, monitors, input, and look in ~/.config/hypr": "~/.config/hypr 内のキーバインド、モニター、入力、外観",
   "Keyboard": "キーボード",
   "Keyboard Shortcuts": "キーボードショートカット",

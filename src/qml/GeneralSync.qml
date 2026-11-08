@@ -34,6 +34,8 @@ SettingsPage {
           about: qsTr("Everything in Settings that isn't hardware, with shortcuts, login items, and window rules") },
         { key: "desktop", title: qsTr("Desktop"), glyph: "\u{F01C4}",
           about: qsTr("The Omarchy menu, dock and bar, apps for file types, branding") },
+        { key: "hypr", title: qsTr("Hyprland"), glyph: "\u{F030C}",
+          about: qsTr("Keybindings, input, look and feel, autostart, and the rest of ~/.config/hypr, except displays") },
         { key: "apps", title: qsTr("Apps"), glyph: "\u{F003B}",
           about: qsTr("Omarchy's apps, pacman and AUR packages, Flatpak, mise tools, web apps, AppImages") },
         { key: "themes", title: qsTr("Themes & Wallpapers"), glyph: "\u{F03D8}",

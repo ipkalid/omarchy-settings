@@ -9,6 +9,7 @@
 //   sync.json            who uploaded it, when, from which Omarchy
 //   settings.json        the same document Export writes, without its date
 //   desktop/             the Omarchy menu file, the dock and bar, file types, branding
+//   hypr/                ~/.config/hypr: keybindings, input, look and feel, ... not monitors
 //   apps/                Omarchy's apps, pacman, AUR, Flatpak, mise, web apps, AppImages
 //   themes.json          themes added by git URL
 //   wallpapers/          wallpapers added to themes
@@ -156,6 +157,7 @@ const QList<QPair<QString, QStringList>> &categories() {
     static const QList<QPair<QString, QStringList>> list{
         {"settings", {"settings.json"}},
         {"desktop", {"desktop"}},
+        {"hypr", {"hypr"}},
         {"apps", {"apps"}},
         {"themes", {"themes.json", "wallpapers"}},
         {"plugins", {"plugins.json"}},
@@ -163,6 +165,23 @@ const QList<QPair<QString, QStringList>> &categories() {
         {"dotfiles", {"dotfiles", "dotfiles.json"}},
     };
     return list;
+}
+
+// Files in ~/.config/hypr that stay behind: the displays, what Settings
+// writes from settings that sync on their own (omasettings.lua, Night
+// Shift's hyprsunset.conf), backups, and lock files.
+bool hyprLocal(const QString &rel) {
+    static const QRegularExpression skip(R"((^|/)(monitors\.lua|omasettings\.lua|hyprsunset\.conf|\.lock)$|\.bak($|[.-])|\.omasettings\.bak$|~$)");
+    return skip.match(rel).hasMatch();
+}
+
+// ~/.config/hypr's files that sync, relative to it.
+QStringList hyprFiles(const QString &root) {
+    QStringList out;
+    for (const QString &rel : filesUnder(root))
+        if (!hyprLocal(rel) && QFileInfo(root + "/" + rel).size() <= maxFileSize)
+            out << rel;
+    return out;
 }
 
 // The parts of shell.json that are taste rather than hardware.
@@ -360,6 +379,12 @@ QString Store::writeSyncSnapshot(const QString &dir, const QStringList &skip, co
             copyTree(m_paths.config + "/mimeapps.list", dir + "/desktop/mimeapps.list");
         for (const char *name : {"about.txt", "screensaver.txt"})
             copyTree(m_paths.config + "/omarchy/branding/" + name, dir + "/desktop/branding/" + name);
+    }
+
+    if (wanted("hypr")) {
+        const QString root = m_paths.config + "/hypr";
+        for (const QString &rel : hyprFiles(root))
+            copyTree(root + "/" + rel, dir + "/hypr/" + rel);
     }
 
     if (wanted("apps")) {
@@ -638,6 +663,7 @@ QString Store::syncUpload(bool force, bool automatic) {
                              "| Path | What it is |\n| --- | --- |\n"
                              "| settings.json | Settings, shortcuts, login items, window rules |\n"
                              "| desktop/ | Omarchy menu, dock and bar, file types, branding |\n"
+                             "| hypr/ | ~/.config/hypr: keybindings, input, look and feel, autostart (not monitors) |\n"
                              "| apps/ | Omarchy apps, pacman, AUR, Flatpak, mise, web apps, AppImages |\n"
                              "| themes.json, wallpapers/ | Themes added by URL, wallpapers you added |\n"
                              "| plugins.json | Shell plugins and whether they're on |\n"
@@ -733,6 +759,14 @@ QVariantMap Store::syncPlan() {
                 break;
             }
         plan["desktop"] = desktop;
+    }
+
+    if (wanted("hypr")) {
+        QStringList hypr;
+        for (const QString &rel : filesUnder(dir + "/hypr"))
+            if (!hyprLocal(rel) && !sameFile(dir + "/hypr/" + rel, m_paths.config + "/hypr/" + rel))
+                hypr << rel;
+        plan["hypr"] = hypr;
     }
 
     if (wanted("apps")) {
@@ -885,6 +919,7 @@ static QVariantList planGroups(const QVariantMap &plan) {
     for (const QString &key : plan.value("desktop").toStringList())
         desktop << QVariantMap{{"label", desktopName(key)}};
     group("desktop", desktop);
+    group("hypr", rows(plan.value("hypr").toStringList(), tr("Replaced; the old one is kept beside it")));
 
     QVariantList apps;
     for (const QVariant &v : plan.value("omarchy").toList())
@@ -1178,6 +1213,17 @@ QString Store::syncApply() {
         });
     }
 
+    // Hyprland's own files, then one reload (settings below reload it again
+    // only if they change something).
+    const QStringList hypr = plan.value("hypr").toStringList();
+    for (const QString &rel : hypr) {
+        const QString target = m_paths.config + "/hypr/" + rel;
+        backUp(target);
+        note(rel, saveBytes(target, readBytes(dir + "/hypr/" + rel)));
+    }
+    if (!hypr.isEmpty() && m_paths.hyprland)
+        run("hyprctl", {"reload"}, 10000);
+
     // Settings last, once the theme, plugins, and fonts they name are here.
     if (!syncSkipped().contains("settings") && (!plan.value("settings").toList().isEmpty() || !plan.value("managed").toStringList().isEmpty()))
         note(tr("Settings"), importSettings(loadJson(dir + "/settings.json").toObject()));
@@ -1217,6 +1263,7 @@ QVariant Store::listSync() {
         {"settings", loadJson(dir + "/settings.json").toObject().value("settings").toObject().size()},
         {"desktop", QDir(dir + "/desktop").entryList(QDir::Files | QDir::NoDotAndDotDot).size()
                         + (QFileInfo(dir + "/desktop/branding").isDir() ? 1 : 0)},
+        {"hypr", filesUnder(dir + "/hypr").size()},
         {"apps", apps},
         {"themes", loadJson(dir + "/themes.json").toArray().size() + filesUnder(dir + "/wallpapers").size()},
         {"plugins", loadJson(dir + "/plugins.json").toArray().size()},
