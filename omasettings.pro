@@ -1,4 +1,4 @@
-QT += core gui qml quick quickcontrols2 concurrent network
+QT += core gui qml quick quickcontrols2 concurrent network dbus
 
 CONFIG += c++17 release
 TARGET = omasettings
@@ -9,6 +9,7 @@ HEADERS += \
     src/cli.h \
     src/hyprconf.h \
     src/monitorlayout.h \
+    src/nmsecrets.h \
     src/proc.h \
     src/sidebuttons.h \
     src/store.h \
@@ -27,6 +28,7 @@ SOURCES += \
     src/sync.cpp \
     src/hyprconf.cpp \
     src/monitorlayout.cpp \
+    src/nmsecrets.cpp \
     src/proc.cpp \
     src/store.cpp \
     src/theme.cpp \

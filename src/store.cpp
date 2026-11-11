@@ -69,8 +69,8 @@ static QVariantMap entry(std::initializer_list<std::pair<QString, QVariant>> ite
     return m;
 }
 
-Store::Store(Paths paths, Exec exec)
-    : m_paths(std::move(paths)), m_exec(std::move(exec)),
+Store::Store(Paths paths, Exec exec, SecretWriter secrets)
+    : m_paths(std::move(paths)), m_exec(std::move(exec)), m_secrets(std::move(secrets)),
       m_launch([](const QString &program, const QStringList &args) { return QProcess::startDetached(program, args); }) {
     build();
 }
@@ -1476,28 +1476,18 @@ QString Store::monitorAction(const QString &action, const QVariantList &args) {
     return {};
 }
 
-// nmcli takes a password as an argument, where any local account can read it
-// while the command runs, so it goes through nmcli's connection editor on
-// standard input instead. Asked for on a line of its own, the editor keeps
-// the value as typed, spaces included; only backslashes are escapes.
-QString Store::setNmSecret(const QString &uuid, const QString &property, const QString &value) {
+// nmcli shows a password to other local accounts whichever way it is given:
+// as an argument, in the process list while the command runs; typed into
+// its connection editor, in the history file the editor keeps. So secrets
+// go to NetworkManager directly instead (see nmsecrets.h).
+QString Store::setNmSecret(const QString &uuid, const QString &setting, const QString &key, const QString &value) {
     for (const QChar c : value)
         if (c.unicode() < 0x20 || c.unicode() == 0x7f)
             return tr("A password can't contain tabs or line breaks");
-    QString escaped = value;
-    escaped.replace("\\", "\\\\");
-    const QByteArray script = ("set " + property + "\n" + escaped + "\nsave persistent\nquit\n").toUtf8();
-    const ProcResult r = run("nmcli", {"connection", "edit", "uuid", uuid}, 15000, script);
-    QString error;
-    for (const QString &line : QString::fromUtf8(r.out + r.err).split('\n'))
-        if (const int at = line.indexOf("Error:"); at >= 0 && error.isEmpty())
-            error = line.mid(at + 6).trimmed();
-    if (error.isEmpty() && !r.ok())
-        error = r.failure("nmcli");
-    // An error may quote what was typed; never show the password.
-    for (const QString &secret : {value, value.section('=', 1)})
-        if (!secret.isEmpty())
-            error.replace(secret, QStringLiteral("…"));
+    QString error = m_secrets(uuid, setting, key, value);
+    // An error may quote what it was given; never show the password.
+    if (!value.isEmpty())
+        error.replace(value, QStringLiteral("…"));
     return error;
 }
 
@@ -1554,9 +1544,9 @@ QString Store::joinWifi(const QString &ssid, const QString &password, bool hidde
         const bool key = password.size() == 5 || password.size() == 13 || hexKey.match(password).hasMatch();
         error = runOk("nmcli", {"connection", "modify", "uuid", uuid, "wifi-sec.wep-key-type", key ? "1" : "2"}, 15000);
         if (error.isEmpty())
-            error = setNmSecret(uuid, "802-11-wireless-security.wep-key0", password);
+            error = setNmSecret(uuid, "802-11-wireless-security", "wep-key0", password);
     } else {
-        error = setNmSecret(uuid, "802-11-wireless-security.psk", password);
+        error = setNmSecret(uuid, "802-11-wireless-security", "psk", password);
     }
     if (error.isEmpty())
         error = runOk("nmcli", {"--wait", "30", "connection", "up", "uuid", uuid}, 40000);

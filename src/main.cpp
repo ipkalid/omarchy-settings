@@ -11,6 +11,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QStandardPaths>
 #include <QUrl>
 #include <memory>
 #include <unistd.h>
@@ -57,6 +58,9 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < argc; ++i)
         args << QString::fromLocal8Bit(argv[i]);
 
+    // Passwords an earlier version left in nmcli's history come out of it.
+    scrubNmcliHistory(QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + "/nmcli-history");
+
     // Commands for scripts and agents need no display at all.
     if (isCliCommand(args)) {
         QCoreApplication app(argc, argv);
@@ -76,7 +80,7 @@ int main(int argc, char *argv[]) {
 
     app.setApplicationName("omasettings");
     app.setApplicationDisplayName("Settings");
-    app.setApplicationVersion("1.6.0");
+    app.setApplicationVersion("1.6.1");
 
     // Matches the window to omasettings.desktop, so the compositor (Wayland
     // app_id) and the launcher pick up the installed icon.

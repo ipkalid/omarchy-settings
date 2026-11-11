@@ -11,6 +11,7 @@
 #include <QVariant>
 #include <functional>
 
+#include "nmsecrets.h"
 #include "proc.h"
 
 // Where Settings reads and writes. Tests point these at temp directories.
@@ -49,7 +50,7 @@ public:
     // The installed apps a window class pattern matches: one app's name and
     // icon (appName, appIcon), or the names of several (appNames).
     static QVariantMap appForPattern(const QVariantList &installed, const QString &pattern);
-    explicit Store(Paths paths = Paths::system(), Exec exec = runProcess);
+    explicit Store(Paths paths = Paths::system(), Exec exec = runProcess, SecretWriter secrets = writeNmSecret);
 
     const QList<Setting> &settings() const { return m_settings; }
     const Setting *setting(const QString &id) const;
@@ -232,9 +233,9 @@ public:
 
 private:
     QString monitorAction(const QString &action, const QVariantList &args);
-    // Sets a secret on a NetworkManager connection through nmcli's editor on
-    // standard input, so it never shows in a process list.
-    QString setNmSecret(const QString &uuid, const QString &property, const QString &value);
+    // Saves a secret on a NetworkManager connection (see nmsecrets.h for how
+    // the names read). It never goes through nmcli.
+    QString setNmSecret(const QString &uuid, const QString &setting, const QString &key, const QString &value);
     QString joinWifi(const QString &ssid, const QString &password, bool hidden);
     QString launchInTerminal(const QString &id);
 
@@ -245,6 +246,7 @@ private:
 
     Paths m_paths;
     Exec m_exec;
+    SecretWriter m_secrets;
     std::function<bool(const QString &, const QStringList &)> m_launch;
     QList<Setting> m_settings;
     mutable QMutex m_stateLock;

@@ -54,6 +54,16 @@ struct FakeSystem {
     // For calls whose arguments are generated, such as a script.
     QHash<QString, ProcResult> prefixAnswers;
     void answerPrefix(const QString &prefix, const QByteArray &out) { prefixAnswers.insert(prefix, ProcResult{true, 0, out, {}}); }
+
+    // Secrets saved on NetworkManager connections, as "uuid setting key value".
+    QStringList secrets;
+    QString secretError;
+    SecretWriter secretWriter() {
+        return [this](const QString &uuid, const QString &setting, const QString &key, const QString &value) {
+            secrets << QStringList{uuid, setting, key, value}.join(' ');
+            return secretError;
+        };
+    }
 };
 
 static QString readText(const QString &path) {
@@ -493,16 +503,18 @@ private slots:
         sys.answer("nmcli -t -f SSID,SECURITY device wifi list --rescan no", "Cafe:WPA2\nHome\\:5G:WPA3\n");
         sys.answer("nmcli connection add type wifi con-name Cafe ssid Cafe wifi-sec.key-mgmt wpa-psk",
                    "Connection 'Cafe' (11111111-2222-3333-4444-555555555555) successfully added.\n");
-        Store store(pathsIn(dir), sys.exec());
+        Store store(pathsIn(dir), sys.exec(), sys.secretWriter());
         const QString password = R"(  my "pass" \word  )";
         QCOMPARE(store.act("wifi.connect", {"Cafe", password}), QString());
-        const QString edit = "nmcli connection edit uuid 11111111-2222-3333-4444-555555555555";
-        // Asked for on its own line; backslashes escaped, spaces kept.
-        QCOMPARE(QString::fromUtf8(sys.inputs.value(edit)),
-                 QString("set 802-11-wireless-security.psk\n" R"(  my "pass" \\word  )" "\nsave persistent\nquit\n"));
+        // Saved as typed, and not through nmcli at all: not in its
+        // arguments, not on its standard input, not in its editor.
+        QCOMPARE(sys.secrets, QStringList{"11111111-2222-3333-4444-555555555555 802-11-wireless-security psk " + password});
         QVERIFY(sys.calls.contains("nmcli --wait 30 connection up uuid 11111111-2222-3333-4444-555555555555"));
-        for (const QString &call : sys.calls)
+        for (const QString &call : sys.calls) {
             QVERIFY2(!call.contains("pass"), qPrintable(call));
+            QVERIFY2(!call.contains("connection edit"), qPrintable(call));
+        }
+        QVERIFY(sys.inputs.isEmpty());
 
         // A network secured with WPA3 alone is joined with SAE; one that
         // fails is not left behind as a saved profile.
@@ -513,20 +525,43 @@ private slots:
         QVERIFY(sys.calls.contains("nmcli connection delete uuid 66666666-2222-3333-4444-555555555555"));
         QVERIFY(store.act("wifi.connect", {"Cafe", "tab\there!"}).contains("line breaks"));
 
-        // VPN: the user name in vpn.data, the password only on stdin.
+        // VPN: the user name in vpn.data, the password never near nmcli.
         const QString vpn = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
         QCOMPARE(store.act("vpn.credentials", {vpn, "me", "s3cret pass"}), QString());
-        QCOMPARE(QString::fromUtf8(sys.inputs.value("nmcli connection edit uuid " + vpn)),
-                 QString("set vpn.secrets\npassword=s3cret pass\nsave persistent\nquit\n"));
-        for (const QString &call : sys.calls)
+        QCOMPARE(sys.secrets.last(), vpn + " vpn password s3cret pass");
+        for (const QString &call : sys.calls) {
             QVERIFY2(!call.contains("s3cret"), qPrintable(call));
+            QVERIFY2(!call.contains("connection edit"), qPrintable(call));
+        }
+        QVERIFY(sys.inputs.isEmpty());
+    }
+
+    void passwordsAnEarlierVersionLeftInNmcliHistoryAreRemoved() {
+        QTemporaryDir dir;
+        const QString path = dir.path() + "/nmcli-history";
+        writeText(path, "[11111111-2222-3333-4444-555555555555]\n"
+                        "0=set 802-11-wireless-security.psk\n1=wifi pass\n2=save persistent\n3=quit\n"
+                        "4=set ipv4.method auto\n5=set wifi-sec.psk inline pass\n"
+                        "\n[aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee]\n"
+                        "0=set vpn.data password-flags=0\n1=set vpn.secrets\n2=password=vpn pass\n3=save persistent\n");
+        QFile::setPermissions(path, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther);
+        QVERIFY(scrubNmcliHistory(path));
+        QCOMPARE(readText(path), QString("[11111111-2222-3333-4444-555555555555]\n"
+                                         "2=save persistent\n3=quit\n"
+                                         "4=set ipv4.method auto\n"
+                                         "\n[aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee]\n"
+                                         "0=set vpn.data password-flags=0\n3=save persistent\n"));
+        QCOMPARE(QFile::permissions(path) & (QFileDevice::ReadGroup | QFileDevice::ReadOther), QFileDevice::Permissions());
+        // Nothing left to take out: the file is left alone.
+        QVERIFY(!scrubNmcliHistory(path));
+        QVERIFY(!scrubNmcliHistory(dir.path() + "/missing"));
     }
 
     void secretErrorsNeverShowThePassword() {
         QTemporaryDir dir;
         FakeSystem sys;
-        sys.answerPrefix("nmcli connection edit", "nmcli> Error: failed to set 'password' property: 'hunter22' is invalid\n");
-        Store store(pathsIn(dir), sys.exec());
+        sys.secretError = "failed to set 'password' property: 'hunter22' is invalid";
+        Store store(pathsIn(dir), sys.exec(), sys.secretWriter());
         const QString error = store.act("vpn.credentials", {"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "me", "hunter22"});
         QVERIFY(error.contains("is invalid"));
         QVERIFY(!error.contains("hunter22"));
@@ -582,10 +617,9 @@ private slots:
         FakeSystem sys;
         sys.answer("nmcli connection add type wifi con-name Secret Lab ssid Secret Lab wifi-sec.key-mgmt wpa-psk 802-11-wireless.hidden yes",
                    "Connection 'Secret Lab' (77777777-2222-3333-4444-555555555555) successfully added.\n");
-        Store store(pathsIn(dir), sys.exec());
+        Store store(pathsIn(dir), sys.exec(), sys.secretWriter());
         QCOMPARE(store.act("wifi.connectHidden", {"Secret Lab", "hunter22"}), QString());
-        QCOMPARE(QString::fromUtf8(sys.inputs.value("nmcli connection edit uuid 77777777-2222-3333-4444-555555555555")),
-                 QString("set 802-11-wireless-security.psk\nhunter22\nsave persistent\nquit\n"));
+        QCOMPARE(sys.secrets, QStringList{"77777777-2222-3333-4444-555555555555 802-11-wireless-security psk hunter22"});
         QVERIFY(sys.calls.contains("nmcli --wait 30 connection up uuid 77777777-2222-3333-4444-555555555555"));
         QVERIFY(!sys.calls.join('\n').contains("hunter22"));
         QCOMPARE(store.act("wifi.connectHidden", {"Open Lab", ""}), QString());
@@ -603,7 +637,7 @@ private slots:
                     "Office:11111111-2222-3333-4444-555555555555:vpn::no\n").toUtf8());
         sys.answer("nmcli -g vpn.service-type connection show uuid 11111111-2222-3333-4444-555555555555",
                    "org.freedesktop.NetworkManager.openvpn");
-        Store store(pathsIn(dir), sys.exec());
+        Store store(pathsIn(dir), sys.exec(), sys.secretWriter());
         const QVariantList c = store.list("vpn").toMap().value("connections").toList();
         QCOMPARE(c.size(), 2);
         QCOMPARE(c[0].toMap().value("kind").toString(), QString("wireguard"));
@@ -616,8 +650,7 @@ private slots:
         QCOMPARE(store.act("vpn.credentials", {uuid, "me", "pw"}), QString());
         QVERIFY(sys.calls.contains("nmcli connection modify uuid " + uuid + " +vpn.data username=me"));
         QVERIFY(sys.calls.contains("nmcli connection modify uuid " + uuid + " +vpn.data password-flags=0"));
-        QCOMPARE(QString::fromUtf8(sys.inputs.value("nmcli connection edit uuid " + uuid)),
-                 QString("set vpn.secrets\npassword=pw\nsave persistent\nquit\n"));
+        QCOMPARE(sys.secrets, QStringList{uuid + " vpn password pw"});
         QVERIFY(store.act("vpn.credentials", {uuid, "a,b", ""}).contains("commas"));
     }
 

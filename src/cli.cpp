@@ -140,7 +140,7 @@ int runCli(const QStringList &all, Store &store) {
         return 0;
     }
     if (command == "--version") {
-        out() << "omasettings 1.6.0\n";
+        out() << "omasettings 1.6.1\n";
         return 0;
     }
     if (command == "icon") {

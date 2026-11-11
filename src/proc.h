@@ -20,8 +20,7 @@ struct ProcResult {
 
 // Every command the app runs goes through one of these, so tests can hand the
 // store a fake system instead of the real one. `input` is written to the
-// command's standard input: secrets go there, never into the arguments,
-// which any local account can read while the command runs.
+// command's standard input.
 using Exec = std::function<ProcResult(const QString &program, const QStringList &args, int timeoutMs,
                                       const QByteArray &input)>;
 
