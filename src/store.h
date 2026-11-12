@@ -208,6 +208,7 @@ private:
     QString syncBranch() const;
     QString syncRemoteHead() const;
     QString syncConnect(const QString &url);
+    void makeSyncDirPrivate() const;
     QString syncCreate(const QString &name);
     QString syncCheck();
     QString syncUpload(bool force, bool automatic);

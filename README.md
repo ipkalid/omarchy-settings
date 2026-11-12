@@ -169,7 +169,8 @@ holds plain files, so its history on GitHub reads like a changelog:
   the hardware (kernels, firmware, microcode, graphics drivers).
 - Each part can be turned off for one computer; the repository keeps it for
   the others. `~/.ssh`, `~/.gnupg`, and other keys can't be added as
-  dotfiles, and Sync refuses a public repository.
+  dotfiles, and Sync refuses a public repository. The local copy
+  (`~/.local/share/omasettings/sync`) can only be opened by your account.
 
 ## Keyboard
 

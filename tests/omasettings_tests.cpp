@@ -1101,6 +1101,46 @@ private slots:
         QVERIFY(store.syncAuto());
     }
 
+    void syncCopyIsOnlyOpenToYou() {
+        const QFileDevice::Permissions ownerOnly = QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner;
+        const QFileDevice::Permissions all = ownerOnly | QFileDevice::ReadGroup | QFileDevice::ExeGroup |
+                                             QFileDevice::ReadOther | QFileDevice::ExeOther;
+        auto mode = [](const QString &path) {
+            return QFileInfo(path).permissions() & ~(QFileDevice::ReadUser | QFileDevice::WriteUser | QFileDevice::ExeUser);
+        };
+        QTemporaryDir dir;
+        Paths p = pathsIn(dir);
+        p.data = dir.path() + "/data";
+
+        // Connecting clones into a folder that is already private.
+        const QString syncDir = p.data + "/omasettings/sync";
+        {
+            FakeSystem sys;
+            const Exec fake = sys.exec();
+            QFileDevice::Permissions modeAtClone;
+            Exec exec = [&](const QString &program, const QStringList &args, int t, const QByteArray &in) {
+                if (args.contains("clone")) {
+                    modeAtClone = mode(syncDir);
+                    QDir().mkpath(syncDir + "/.git");
+                }
+                return fake(program, args, t, in);
+            };
+            Store store(p, exec);
+            QCOMPARE(store.syncDir(), syncDir);
+            QCOMPARE(store.act("sync.connect", {"https://github.com/me/omarchy-sync"}), QString());
+            QCOMPARE(modeAtClone, ownerOnly);
+            QCOMPARE(mode(syncDir), ownerOnly);
+        }
+
+        // A copy an earlier version left open is closed on start.
+        QFile::setPermissions(syncDir, all);
+        writeText(syncDir + "/.config/tool/api-key", "secret");
+        QCOMPARE(mode(syncDir), all);
+        FakeSystem sys;
+        Store store(p, sys.exec());
+        QCOMPARE(mode(store.syncDir()), ownerOnly);
+    }
+
     void syncPlanOnlyAddsWhatIsMissing() {
         QTemporaryDir dir;
         FakeSystem sys;

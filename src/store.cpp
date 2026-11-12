@@ -73,6 +73,8 @@ Store::Store(Paths paths, Exec exec, SecretWriter secrets)
     : m_paths(std::move(paths)), m_exec(std::move(exec)), m_secrets(std::move(secrets)),
       m_launch([](const QString &program, const QStringList &args) { return QProcess::startDetached(program, args); }) {
     build();
+    // A copy of Sync an earlier version left open to other accounts is closed.
+    makeSyncDirPrivate();
 }
 
 ProcResult Store::run(const QString &program, const QStringList &args, int timeoutMs, const QByteArray &input) const {

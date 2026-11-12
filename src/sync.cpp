@@ -289,6 +289,14 @@ QStringList Store::miseTools(const QString &toml) {
 QString Store::syncDir() const { return m_paths.data + "/omasettings/sync"; }
 QString Store::syncStatePath() const { return m_paths.state + "/omasettings/sync.json"; }
 
+// The local copy holds the files Sync carries, which can include keys, so
+// only this account may enter it. git checks files out with the umask, often
+// readable by everyone, so the folder around them is what keeps them private.
+void Store::makeSyncDirPrivate() const {
+    if (QFileInfo(syncDir()).isDir())
+        QFile::setPermissions(syncDir(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+}
+
 QJsonObject Store::syncState() const {
     return QJsonDocument::fromJson(readBytes(syncStatePath())).object();
 }
@@ -512,7 +520,9 @@ QString Store::syncConnect(const QString &rawUrl) {
 
     QMutexLocker lock(&m_syncLock);
     QDir(syncDir()).removeRecursively();
-    QDir().mkpath(QFileInfo(syncDir()).absolutePath());
+    // git clones into an empty folder that is there, so it is made private first.
+    QDir().mkpath(syncDir());
+    makeSyncDirPrivate();
     QStringList clone{"clone", "--quiet", url, syncDir()};
     const QString gh = QStandardPaths::findExecutable("gh");
     QStringList args;
