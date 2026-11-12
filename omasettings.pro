@@ -10,6 +10,7 @@ HEADERS += \
     src/hyprconf.h \
     src/monitorlayout.h \
     src/nmsecrets.h \
+    src/version.h \
     src/proc.h \
     src/sidebuttons.h \
     src/store.h \

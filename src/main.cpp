@@ -16,6 +16,7 @@
 #include <memory>
 #include <unistd.h>
 
+#include "version.h"
 #include "backend.h"
 #include "cli.h"
 #include "sidebuttons.h"
@@ -65,6 +66,7 @@ int main(int argc, char *argv[]) {
     if (isCliCommand(args)) {
         QCoreApplication app(argc, argv);
         app.setApplicationName("omasettings");
+        app.setApplicationVersion(OMASETTINGS_VERSION);
         Store store;
         const int code = runCli(args, store);
         return code < 0 ? 2 : code;
@@ -80,7 +82,7 @@ int main(int argc, char *argv[]) {
 
     app.setApplicationName("omasettings");
     app.setApplicationDisplayName("Settings");
-    app.setApplicationVersion("1.6.1");
+    app.setApplicationVersion(OMASETTINGS_VERSION);
 
     // Matches the window to omasettings.desktop, so the compositor (Wayland
     // app_id) and the launcher pick up the installed icon.

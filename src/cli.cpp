@@ -1,3 +1,4 @@
+#include "version.h"
 #include "cli.h"
 
 #include "store.h"
@@ -140,7 +141,7 @@ int runCli(const QStringList &all, Store &store) {
         return 0;
     }
     if (command == "--version") {
-        out() << "omasettings 1.6.2\n";
+        out() << "omasettings " OMASETTINGS_VERSION "\n";
         return 0;
     }
     if (command == "icon") {
