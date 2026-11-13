@@ -13,7 +13,10 @@
 #include <QQuickStyle>
 #include <QStandardPaths>
 #include <QUrl>
+#include <QDir>
+#include <QFile>
 #include <memory>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "version.h"
@@ -28,14 +31,37 @@
 // launcher, or `omasettings open vpn`) hands what it was asked to show to
 // the window that's open and brings that window forward. OMASETTINGS_INSTANCE
 // names a separate one, for running a copy beside the real window.
-static QString instanceSocket() {
+// The socket lives in a folder only this user can enter: a bare name would
+// land in /tmp, where another account could take it first and be handed
+// every later launch.
+static QString privateSocketDir() {
     const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    const QString name = "omasettings" + (qEnvironmentVariableIsEmpty("OMASETTINGS_INSTANCE")
-                                              ? QString() : "-" + qEnvironmentVariable("OMASETTINGS_INSTANCE"));
-    return runtime.isEmpty() ? QStringLiteral("%1-%2").arg(name).arg(getuid()) : runtime + "/" + name + ".sock";
+    if (!runtime.isEmpty())
+        return runtime;
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + "/omasettings-run";
+    QDir().mkpath(dir);
+    const QByteArray native = QFile::encodeName(dir);
+    ::chmod(native.constData(), 0700);
+    // Not a link, ours, and closed to everyone else, or no single window.
+    struct stat st;
+    if (::lstat(native.constData(), &st) != 0 || !S_ISDIR(st.st_mode) || st.st_uid != getuid() || (st.st_mode & 077))
+        return {};
+    return dir;
+}
+
+static QString instanceSocket() {
+    static const QString path = [] {
+        const QString dir = privateSocketDir();
+        const QString name = "omasettings" + (qEnvironmentVariableIsEmpty("OMASETTINGS_INSTANCE")
+                                                  ? QString() : "-" + qEnvironmentVariable("OMASETTINGS_INSTANCE"));
+        return dir.isEmpty() ? QString() : dir + "/" + name + ".sock";
+    }();
+    return path;
 }
 
 static bool handToOpenWindow(const QString &target) {
+    if (instanceSocket().isEmpty())
+        return false;
     QLocalSocket socket;
     socket.connectToServer(instanceSocket());
     if (!socket.waitForConnected(500))
@@ -125,8 +151,10 @@ int main(int argc, char *argv[]) {
     // Later launches arrive here, one line each: what to show.
     QLocalServer server;
     server.setSocketOptions(QLocalServer::UserAccessOption);
-    QLocalServer::removeServer(instanceSocket()); // nothing answered on it, so it's left over
-    server.listen(instanceSocket());
+    if (!instanceSocket().isEmpty()) {
+        QLocalServer::removeServer(instanceSocket()); // nothing answered on it, so it's left over
+        server.listen(instanceSocket());
+    }
     QObject::connect(&server, &QLocalServer::newConnection, &server, [&server, &backend] {
         while (QLocalSocket *client = server.nextPendingConnection()) {
             QObject::connect(client, &QLocalSocket::readyRead, client, [client, &backend] {
