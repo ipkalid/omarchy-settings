@@ -1474,5 +1474,14 @@
   "vpn wireguard openvpn private network tunnel": "vpn wireguard openvpn شبكة خاصة نفق",
   "web apps websites sites": "تطبيقات الويب مواقع الويب مواقع",
   "window rules floating workspace size app": "قواعد النوافذ عائمة مساحة العمل الحجم تطبيق",
-  "~/.config/tmux": "~/.config/tmux"
+  "~/.config/tmux": "~/.config/tmux",
+  "On after you restart: until then docker needs sudo": "يعمل بعد إعادة التشغيل: حتى ذلك الحين يحتاج docker إلى sudo",
+  "Off after you restart: until then docker works without sudo": "متوقف بعد إعادة التشغيل: حتى ذلك الحين يعمل docker دون sudo",
+  "Origin not checked": "المصدر غير متحقَّق منه",
+  "Settings can't check where this download came from or that it really is %1: it goes by the file's own name and update information. Replace it only if you got it from %1's makers.": "لا تستطيع الإعدادات التحقق من مصدر هذا التنزيل أو من أنه %1 فعلًا: فهي تعتمد على اسم الملف ومعلومات التحديث التي يحملها. لا تستبدله إلا إذا حصلت عليه من صانعي %1.",
+  "%1 isn't a file in the repository": "%1 ليس ملفًا في المستودع",
+  "Uploaded from this computer from now on": "يُرفع من هذا الحاسوب من الآن فصاعدًا",
+  "The repository changed since you looked; open it again to see what's new": "تغيّر المستودع منذ أن اطّلعت عليه؛ افتحه مجددًا لترى الجديد",
+  "%1 has a name the app launcher can't use": "اسم %1 لا يمكن لمشغّل التطبيقات استخدامه",
+  "Replacing an AppImage with a download needs confirming that its origin isn't checked": "استبدال AppImage بملف منزَّل يتطلب تأكيد أن مصدره غير متحقَّق منه"
 }

@@ -1294,5 +1294,14 @@
   "vpn wireguard openvpn private network tunnel": "vpn wireguard openvpn 专用网络 隧道",
   "web apps websites sites": "网页应用 网站 站点",
   "window rules floating workspace size app": "窗口规则 浮动 工作区 大小 应用",
-  "~/.config/tmux": "~/.config/tmux"
+  "~/.config/tmux": "~/.config/tmux",
+  "On after you restart: until then docker needs sudo": "重启后打开：在此之前 docker 需要 sudo",
+  "Off after you restart: until then docker works without sudo": "重启后关闭：在此之前 docker 无需 sudo 即可使用",
+  "Origin not checked": "来源未核实",
+  "Settings can't check where this download came from or that it really is %1: it goes by the file's own name and update information. Replace it only if you got it from %1's makers.": "“设置”无法核实这个下载来自哪里，也无法确认它真的是 %1：它只依据文件自身的名称和更新信息。只有从 %1 的开发者那里获得时才替换。",
+  "%1 isn't a file in the repository": "%1 不是仓库中的文件",
+  "Uploaded from this computer from now on": "今后也从这台电脑上传",
+  "The repository changed since you looked; open it again to see what's new": "你查看之后仓库有了变化；请重新打开查看新内容",
+  "%1 has a name the app launcher can't use": "%1 的名称无法用于应用启动器",
+  "Replacing an AppImage with a download needs confirming that its origin isn't checked": "用下载的文件替换 AppImage 需要确认其来源未经核实"
 }

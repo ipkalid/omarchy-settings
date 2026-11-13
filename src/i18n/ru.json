@@ -1402,5 +1402,14 @@
   "vpn wireguard openvpn private network tunnel": "vpn wireguard openvpn частная сеть туннель private network tunnel",
   "web apps websites sites": "веб-приложения веб-сайты сайты web apps websites sites",
   "window rules floating workspace size app": "правила окон плавающее рабочее пространство размер приложение window rules floating workspace size app",
-  "~/.config/tmux": "~/.config/tmux"
+  "~/.config/tmux": "~/.config/tmux",
+  "On after you restart: until then docker needs sudo": "Вкл. после перезапуска: до тех пор для docker нужен sudo",
+  "Off after you restart: until then docker works without sudo": "Выкл. после перезапуска: до тех пор docker работает без sudo",
+  "Origin not checked": "Источник не проверен",
+  "Settings can't check where this download came from or that it really is %1: it goes by the file's own name and update information. Replace it only if you got it from %1's makers.": "Настройки не могут проверить, откуда эта загрузка и действительно ли это %1: они полагаются на имя файла и его собственные сведения об обновлении. Заменяйте, только если получили его от создателей %1.",
+  "%1 isn't a file in the repository": "%1 — не файл в репозитории",
+  "Uploaded from this computer from now on": "Отныне выгружается и с этого компьютера",
+  "The repository changed since you looked; open it again to see what's new": "Репозиторий изменился с тех пор, как вы его смотрели; откройте его снова, чтобы увидеть новое",
+  "%1 has a name the app launcher can't use": "У %1 имя, которое не может использовать панель запуска приложений",
+  "Replacing an AppImage with a download needs confirming that its origin isn't checked": "Чтобы заменить AppImage загруженным файлом, нужно подтвердить, что его источник не проверен"
 }

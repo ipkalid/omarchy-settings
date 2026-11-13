@@ -1294,5 +1294,14 @@
   "vpn wireguard openvpn private network tunnel": "vpn wireguard openvpn プライベートネットワーク トンネル",
   "web apps websites sites": "ウェブアプリ ウェブサイト サイト",
   "window rules floating workspace size app": "ウィンドウルール フロート ワークスペース サイズ アプリ",
-  "~/.config/tmux": "~/.config/tmux"
+  "~/.config/tmux": "~/.config/tmux",
+  "On after you restart: until then docker needs sudo": "再起動後にオン: それまでは docker に sudo が必要です",
+  "Off after you restart: until then docker works without sudo": "再起動後にオフ: それまでは docker を sudo なしで使えます",
+  "Origin not checked": "入手元は未確認",
+  "Settings can't check where this download came from or that it really is %1: it goes by the file's own name and update information. Replace it only if you got it from %1's makers.": "設定アプリでは、このダウンロードの入手元や、本当に %1 かどうかを確認できません。ファイル自身の名前と更新情報に頼っています。%1 の開発元から入手した場合にのみ置き換えてください。",
+  "%1 isn't a file in the repository": "%1 はリポジトリ内のファイルではありません",
+  "Uploaded from this computer from now on": "今後はこのコンピューターからもアップロードされます",
+  "The repository changed since you looked; open it again to see what's new": "確認した後にリポジトリが変更されました。もう一度開いて新しい内容を確認してください",
+  "%1 has a name the app launcher can't use": "%1 はアプリランチャーで使えない名前です",
+  "Replacing an AppImage with a download needs confirming that its origin isn't checked": "AppImage をダウンロードで置き換えるには、入手元が未確認であることを確認する必要があります"
 }

@@ -1157,9 +1157,23 @@ QVariantMap Store::appImageSource(const QString &updateInfo) const {
             const QString url = asset.toObject().value("browser_download_url").toString();
             if (!match.match(name).hasMatch() || !plainName.match(name).hasMatch() || !url.startsWith("https://"))
                 continue;
-            // GitHub publishes each asset's SHA-256.
+            // GitHub publishes each asset's SHA-256; for older releases, the
+            // .zsync file beside the asset lists its SHA-1.
             const QString digest = asset.toObject().value("digest").toString();
-            return {{"url", url}, {"file", name}, {"sha256", digest.startsWith("sha256:") ? digest.mid(7) : QString()}};
+            QString sha1;
+            if (!digest.startsWith("sha256:"))
+                for (const QJsonValue &z : release.value("assets").toArray())
+                    if (z.toObject().value("name").toString() == name + ".zsync") {
+                        const QString zurl = z.toObject().value("browser_download_url").toString();
+                        if (zurl.startsWith("https://"))
+                            for (const QString &line : QString::fromUtf8(fetch({"-r", "0-4095", zurl}).out).split('\n')) {
+                                if (line.trimmed().isEmpty())
+                                    break;
+                                if (line.section(':', 0, 0).trimmed() == "SHA-1")
+                                    sha1 = line.section(':', 1).trimmed().toLower();
+                            }
+                    }
+            return {{"url", url}, {"file", name}, {"sha256", digest.startsWith("sha256:") ? digest.mid(7) : QString()}, {"sha1", sha1}};
         }
         return {};
     }
@@ -1245,14 +1259,19 @@ QString Store::syncInstallScript(const QVariantMap &plan) {
                 continue;
             }
             const QString dest = appImagesDir() + "/" + QFileInfo(source.value("file").toString()).fileName();
-            // The download is checked against the hash its publisher lists,
-            // when there is one, before it is kept.
+            // The download is checked against the hash its publisher lists
+            // before it is kept.
             static const QRegularExpression hex40("^[0-9a-f]{40}$"), hex64("^[0-9a-f]{64}$");
             const QString sha1 = source.value("sha1").toString(), sha256 = source.value("sha256").toString();
             const QString check = hex64.match(sha256).hasMatch()
                 ? QStringLiteral("echo %1 | sha256sum -c --quiet -; ").arg(shellQuote(sha256 + "  " + dest + ".part"))
                 : hex40.match(sha1).hasMatch() ? QStringLiteral("echo %1 | sha1sum -c --quiet -; ").arg(shellQuote(sha1 + "  " + dest + ".part"))
                 : QString();
+            // Without a hash nothing says the file is the publisher's.
+            if (check.isEmpty()) {
+                body << QStringLiteral("echo %1; failed+=(%2)").arg(shellQuote(tr("Could not find a download for %1").arg(name)), shellQuote(name));
+                continue;
+            }
             body << QStringLiteral("( set -e; echo %1; mkdir -p %2; curl -fL --proto =https --proto-redir =https --progress-bar -o %3.part %4; "
                                    "%7chmod +x %3.part; mv -f %3.part %3; %5 act appimage.integrate %3 ) || { rm -f %3.part; failed+=(%6); }")
                         .arg(shellQuote("· " + name), shellQuote(appImagesDir()), shellQuote(dest),

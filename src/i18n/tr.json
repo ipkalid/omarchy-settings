@@ -1330,5 +1330,14 @@
   "vpn wireguard openvpn private network tunnel": "vpn wireguard openvpn özel ağ tünel",
   "web apps websites sites": "web uygulamaları web siteleri siteler",
   "window rules floating workspace size app": "pencere kuralları yüzen çalışma alanı boyut uygulama",
-  "~/.config/tmux": "~/.config/tmux"
+  "~/.config/tmux": "~/.config/tmux",
+  "On after you restart: until then docker needs sudo": "Yeniden başlattıktan sonra açık: o zamana kadar docker sudo gerektirir",
+  "Off after you restart: until then docker works without sudo": "Yeniden başlattıktan sonra kapalı: o zamana kadar docker sudo olmadan çalışır",
+  "Origin not checked": "Kaynak doğrulanmadı",
+  "Settings can't check where this download came from or that it really is %1: it goes by the file's own name and update information. Replace it only if you got it from %1's makers.": "Ayarlar bu indirmenin nereden geldiğini veya gerçekten %1 olduğunu doğrulayamaz: dosyanın kendi adına ve güncelleme bilgisine dayanır. Yalnızca %1 yapımcılarından aldıysanız değiştirin.",
+  "%1 isn't a file in the repository": "%1 depoda bir dosya değil",
+  "Uploaded from this computer from now on": "Bundan sonra bu bilgisayardan da yüklenir",
+  "The repository changed since you looked; open it again to see what's new": "Depo, siz baktıktan sonra değişti; yenilikleri görmek için yeniden açın",
+  "%1 has a name the app launcher can't use": "%1 adı uygulama başlatıcının kullanamayacağı bir ad",
+  "Replacing an AppImage with a download needs confirming that its origin isn't checked": "Bir AppImage'ı indirilen bir dosyayla değiştirmek, kaynağının doğrulanmadığını onaylamayı gerektirir"
 }

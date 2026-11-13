@@ -1402,5 +1402,14 @@
   "vpn wireguard openvpn private network tunnel": "vpn wireguard openvpn sieć prywatna tunel",
   "web apps websites sites": "aplikacje webowe strony witryny",
   "window rules floating workspace size app": "reguły okien pływające obszar roboczy rozmiar aplikacja",
-  "~/.config/tmux": "~/.config/tmux"
+  "~/.config/tmux": "~/.config/tmux",
+  "On after you restart: until then docker needs sudo": "Wł. po ponownym uruchomieniu: do tego czasu docker wymaga sudo",
+  "Off after you restart: until then docker works without sudo": "Wył. po ponownym uruchomieniu: do tego czasu docker działa bez sudo",
+  "Origin not checked": "Pochodzenie niesprawdzone",
+  "Settings can't check where this download came from or that it really is %1: it goes by the file's own name and update information. Replace it only if you got it from %1's makers.": "Ustawienia nie mogą sprawdzić, skąd pochodzi ten plik ani czy to naprawdę %1: opierają się na nazwie i informacjach o aktualizacji zapisanych w samym pliku. Zastąp tylko wtedy, gdy masz go od twórców %1.",
+  "%1 isn't a file in the repository": "%1 nie jest plikiem w repozytorium",
+  "Uploaded from this computer from now on": "Od teraz wysyłane z tego komputera",
+  "The repository changed since you looked; open it again to see what's new": "Repozytorium zmieniło się, odkąd je przeglądałeś; otwórz je ponownie, aby zobaczyć nowości",
+  "%1 has a name the app launcher can't use": "%1 ma nazwę, której program uruchamiający aplikacje nie może użyć",
+  "Replacing an AppImage with a download needs confirming that its origin isn't checked": "Zastąpienie AppImage pobranym plikiem wymaga potwierdzenia, że jego pochodzenie nie jest sprawdzone"
 }

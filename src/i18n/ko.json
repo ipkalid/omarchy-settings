@@ -1294,5 +1294,14 @@
   "vpn wireguard openvpn private network tunnel": "vpn wireguard openvpn 사설 네트워크 터널",
   "web apps websites sites": "웹 앱 웹사이트 사이트",
   "window rules floating workspace size app": "창 규칙 플로팅 워크스페이스 크기 앱",
-  "~/.config/tmux": "~/.config/tmux"
+  "~/.config/tmux": "~/.config/tmux",
+  "On after you restart: until then docker needs sudo": "다시 시작하면 켜짐: 그때까지 docker에 sudo 필요",
+  "Off after you restart: until then docker works without sudo": "다시 시작하면 꺼짐: 그때까지 docker를 sudo 없이 사용 가능",
+  "Origin not checked": "출처 확인 안 됨",
+  "Settings can't check where this download came from or that it really is %1: it goes by the file's own name and update information. Replace it only if you got it from %1's makers.": "설정 앱은 이 다운로드의 출처나 실제로 %1인지 확인할 수 없습니다. 파일 자체의 이름과 업데이트 정보를 기준으로 합니다. %1 제작자에게서 받은 경우에만 교체하세요.",
+  "%1 isn't a file in the repository": "%1은(는) 저장소의 파일이 아닙니다",
+  "Uploaded from this computer from now on": "이제부터 이 컴퓨터에서 업로드됨",
+  "The repository changed since you looked; open it again to see what's new": "확인한 이후 저장소가 바뀌었습니다. 다시 열어 새 내용을 확인하세요",
+  "%1 has a name the app launcher can't use": "%1의 이름은 앱 실행기에서 사용할 수 없습니다",
+  "Replacing an AppImage with a download needs confirming that its origin isn't checked": "AppImage를 다운로드로 교체하려면 출처가 확인되지 않았음을 확인해야 합니다"
 }

@@ -41,7 +41,7 @@ ICONS="$TARGET_HOME/.local/share/icons/hicolor/scalable/apps"
 STATE="$TARGET_HOME/.local/share/omasettings"
 BUILD="${XDG_CACHE_HOME:-$TARGET_HOME/.cache}/omasettings-build"
 
-TOOLS=(gcc make qt6-base qt6-declarative qt6-wayland qt6-imageformats)
+TOOLS=(gcc make qt6-base qt6-declarative qt6-wayland qt6-imageformats squashfs-tools)
 
 # What is being installed: the git commit when the plugin is a checkout, so
 # `omarchy plugin update` triggers a rebuild, or the manifest's version.
