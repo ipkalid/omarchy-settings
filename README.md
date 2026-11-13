@@ -168,9 +168,47 @@ holds plain files, so its history on GitHub reads like a changelog:
   firewall, the computer's name and time zone, and packages that belong to
   the hardware (kernels, firmware, microcode, graphics drivers).
 - Each part can be turned off for one computer; the repository keeps it for
-  the others. `~/.ssh`, `~/.gnupg`, and other keys can't be added as
-  dotfiles, and Sync refuses a public repository. The local copy
-  (`~/.local/share/omasettings/sync`) can only be opened by your account.
+  the others. Folders that hold keys (`~/.ssh`, `~/.gnupg`,
+  `~/.password-store`, `~/.local/share/keyrings`, `~/.pki`, `~/.aws`,
+  `~/.kube`, `~/.docker`) can't be added as dotfiles, and they never travel
+  either way: not on upload, not on apply.
+- **Public repositories**: for a GitHub repository, when `gh` is installed,
+  Sync asks GitHub whether it is public and refuses it if so. A repository
+  on any other host, or on GitHub without `gh`, is used as given, so make
+  sure it's private yourself.
+- The local copy (`~/.local/share/omasettings/sync`) can only be opened by
+  your account.
+
+## Privileges
+
+Settings runs as you. It never runs as root, and `plugin/install` and
+`plugin/uninstall` refuse to. These are the only places it asks for more:
+
+- **pkexec**, which shows the system's password prompt: turning the
+  firewall on and off and opening or closing a port (`ufw enable`,
+  `ufw disable`, `ufw allow`, `ufw delete`), removing a printer
+  (`lpadmin -x`), and listing and taking snapshots (`snapper list`,
+  `snapper create`).
+- **sudo in a terminal**: these run Omarchy's own script in a floating
+  terminal, and sudo asks for your password there: sudo without a
+  password, Docker without sudo (the docker group; the change takes effect
+  after a restart), switching the kernel, the boot screen, factory reset,
+  direct boot, setting up and removing hibernation, and installing a font.
+  The other setup that opens a terminal (the SSH server, fingerprint and
+  security keys, updates, firmware, the drive password, hybrid graphics,
+  and adding printing, firewall, or VPN tools) works the same way.
+- **Sync's Apply**: after you review the list, missing apps install in one
+  terminal through Omarchy's scripts, which ask for sudo once: pacman
+  packages with `omarchy-pkg-add` (`sudo pacman -S`), AUR packages with
+  `omarchy-pkg-aur-add` (`yay -S --noconfirm`), and Omarchy's apps with the
+  install action from Omarchy's menu.
+- **The plugin** builds and installs under `~/.local` without a password.
+  Only when a build tool is missing does it add it with `omarchy-pkg-add`,
+  in a terminal.
+- **`bin/install`** is for working on Settings, not used by the plugin: it
+  builds the working tree with `makepkg` and installs the package with
+  `sudo pacman -U` (makepkg's `-si`, which also installs missing build
+  tools with sudo).
 
 ## Keyboard
 

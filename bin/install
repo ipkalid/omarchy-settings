@@ -1,6 +1,13 @@
 #!/bin/sh
 set -eu
 
+# makepkg refuses root too, but only after the build has run as root and
+# left root-owned files in the working tree.
+if [ "$(id -u)" -eq 0 ]; then
+  echo "install: run this as yourself; it asks for sudo when it installs." >&2
+  exit 1
+fi
+
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 "$ROOT/bin/build"
 cd "$ROOT/pkgbuild"

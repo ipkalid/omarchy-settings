@@ -7,8 +7,32 @@
 
 set -euo pipefail
 
+# Settings lives in one person's home; as root this would clean up root's.
+if (( EUID == 0 )); then
+  echo "uninstall: run this as yourself, not as root." >&2
+  exit 1
+fi
+
 TARGET_HOME="$HOME"
-[[ ${1:-} == --home ]] && TARGET_HOME="$2"
+if [[ ${1:-} == --home ]]; then
+  TARGET_HOME="$2"
+  # A test home doesn't share this session's XDG folders.
+  unset XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME
+fi
+if [[ $TARGET_HOME != /?* ]]; then
+  echo "uninstall: the home folder '$TARGET_HOME' isn't an absolute path." >&2
+  exit 1
+fi
+
+# An XDG folder counts only when it is an absolute path, as the spec says, so
+# an empty or relative one falls back instead of pointing at / or here.
+xdg() {
+  if [[ $1 == /?* ]]; then echo "$1"; else echo "$2"; fi
+}
+CONFIG=$(xdg "${XDG_CONFIG_HOME:-}" "$TARGET_HOME/.config")
+DATA=$(xdg "${XDG_DATA_HOME:-}" "$TARGET_HOME/.local/share")
+STATE=$(xdg "${XDG_STATE_HOME:-}" "$TARGET_HOME/.local/state")
+CACHE=$(xdg "${XDG_CACHE_HOME:-}" "$TARGET_HOME/.cache")
 
 BIN="$TARGET_HOME/.local/bin/omasettings"
 
@@ -20,8 +44,21 @@ BIN="$TARGET_HOME/.local/bin/omasettings"
 rm -f "$BIN" \
   "$TARGET_HOME/.local/share/applications/omasettings.desktop" \
   "$TARGET_HOME/.local/share/icons/hicolor/scalable/apps/omasettings.svg" \
-  "$TARGET_HOME/.config/omarchy/hooks/theme-set.d/omasettings-icon"
-rm -rf "$TARGET_HOME/.local/share/omasettings" "${XDG_CACHE_HOME:-$TARGET_HOME/.cache}/omasettings-build"
+  "$TARGET_HOME/.config/omarchy/hooks/theme-set.d/omasettings-icon" \
+  "$DATA/icons/hicolor/scalable/apps/omasettings.svg" \
+  "$CONFIG/omarchy/hooks/theme-set.d/omasettings-icon"
+# What Settings keeps for itself: the plugin's install record (always under
+# ~/.local/share, where plugin/install puts it), Sync's local copy of your
+# repository and its status, and the build folder. The repository you sync
+# with stays as it is.
+rm -rf -- "$TARGET_HOME/.local/share/omasettings" \
+  "$DATA/omasettings" \
+  "$STATE/omasettings" \
+  "$CACHE/omasettings-build" "$CACHE/omasettings-build.lock"
+# The agent skill from `omasettings skill install` only drives the binary
+# that is now gone.
+rm -f -- "$TARGET_HOME/.claude/skills/omasettings/SKILL.md"
+rmdir -- "$TARGET_HOME/.claude/skills/omasettings" 2>/dev/null || true
 
 command -v update-desktop-database >/dev/null && update-desktop-database -q "$TARGET_HOME/.local/share/applications" 2>/dev/null || true
 
