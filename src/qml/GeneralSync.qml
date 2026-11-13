@@ -261,7 +261,7 @@ SettingsPage {
         acceptText: qsTr("Apply")
         canAccept: !loading && !preview.error && groups.length > 0
         onOpened: backend.load("syncPreview")
-        onAccepted: backend.act("sync.apply", [], ["sync", "software", "webapps", "themes", "plugins", "menu"])
+        onAccepted: backend.act("sync.apply", [preview.commit || ""], ["sync", "software", "webapps", "themes", "plugins", "menu"])
 
         RowLayout {
             visible: applyDialog.loading

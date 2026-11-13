@@ -272,7 +272,7 @@ QString Store::softwareCommand(const QString &action, const QString &arg, QStrin
                 command = {"omarchy-launch-floating-terminal-with-presentation", agentRemoval(arg.section('.', 1))};
                 return {};
             }
-            command = {"omarchy-launch-floating-terminal-with-presentation", "omarchy-pkg-drop " + item.value("package").toString()};
+            command = {"omarchy-launch-floating-terminal-with-presentation", "omarchy-pkg-drop " + shellQuote(item.value("package").toString())};
             return {};
         }
         return tr("Unknown app %1").arg(arg);

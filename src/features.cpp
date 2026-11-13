@@ -243,7 +243,7 @@ void Store::buildMore() {
             // Custom asks for the servers, so it gets a terminal, as in the
             // shell's network panel; the presets ask polkit if they must.
             if (v.toString() == "Custom")
-                return launch("omarchy-launch-floating-terminal-with-presentation", {"omarchy-dns", "Custom"});
+                return launchTerminal({"omarchy-dns", "Custom"});
             return runOk("omarchy-dns", {v.toString()}, 120000);
         };
         add(s);
@@ -1216,20 +1216,102 @@ QJsonObject Store::exportSettings() {
     }
     const QJsonObject state = managedState();
     QJsonObject managed;
-    for (const char *key : {"bindings", "unbinds", "autostart", "windowRules", "gestures", "nightShift"})
+    for (const QString &key : importableManaged())
         if (state.contains(key))
             managed.insert(key, state.value(key));
     return QJsonObject{{"app", "omasettings"}, {"version", 1}, {"exported", QDateTime::currentDateTime().toString(Qt::ISODate)},
                        {"settings", settings}, {"managed", managed}};
 }
 
-QString Store::importSettings(const QJsonObject &doc) {
+const QStringList &importableManaged() {
+    static const QStringList keys{"bindings", "unbinds", "autostart", "windowRules", "gestures", "nightShift"};
+    return keys;
+}
+
+// A part of the state from a file, kept only as far as it passes the checks
+// the app's own actions make: a file can come from anyone.
+QJsonValue Store::cleanManaged(const QString &key, const QJsonValue &value) const {
+    auto oneLine = [](const QString &s) { return !s.trimmed().isEmpty() && !s.contains('\n') && !s.contains('\r'); };
+    QJsonArray out;
+    if (key == "bindings") {
+        for (const QJsonValue &v : value.toArray()) {
+            const QJsonObject b = v.toObject();
+            const QString keys = normalizeKeys(b.value("keys").toString()), kind = b.value("kind").toString();
+            const QString target = b.value("value").toString();
+            if (!Hypr::validKeys(keys) || !QStringList{"launch", "command", "webapp", "menu"}.contains(kind) || !oneLine(target))
+                continue;
+            if (kind == "webapp" && !target.startsWith("https://") && !target.startsWith("http://"))
+                continue;
+            out << QJsonObject{{"keys", keys}, {"description", b.value("description").toString().simplified()}, {"kind", kind}, {"value", target}};
+        }
+        return out;
+    }
+    if (key == "unbinds") {
+        for (const QJsonValue &v : value.toArray())
+            if (Hypr::validKeys(normalizeKeys(v.toString())))
+                out << normalizeKeys(v.toString());
+        return out;
+    }
+    if (key == "autostart") {
+        for (const QJsonValue &v : value.toArray()) {
+            const QString command = v.toObject().value("command").toString().trimmed();
+            if (oneLine(command))
+                out << QJsonObject{{"command", command}, {"name", v.toObject().value("name").toString(command).simplified()}};
+        }
+        return out;
+    }
+    if (key == "windowRules") {
+        for (const QJsonValue &v : value.toArray())
+            if (v.isObject() && (!v.toObject().value("class").toString().isEmpty() || !v.toObject().value("title").toString().isEmpty()))
+                out << v;
+        return out;
+    }
+    if (key == "gestures")
+        return QJsonObject{{"workspaceSwipe", value.toObject().value("workspaceSwipe").toBool()}};
+    if (key == "nightShift") {
+        static const QRegularExpression time("^([01]\\d|2[0-3]):[0-5]\\d$");
+        const QJsonObject n = value.toObject();
+        const QString start = n.value("start").toString("20:00"), end = n.value("end").toString("07:00");
+        if (!time.match(start).hasMatch() || !time.match(end).hasMatch())
+            return QJsonValue::Undefined;
+        return QJsonObject{{"schedule", n.value("schedule").toBool()}, {"start", start}, {"end", end},
+                           {"temperature", qBound(1000, n.value("temperature").toInt(4000), 6500)}};
+    }
+    return QJsonValue::Undefined;
+}
+
+QString Store::importSettings(const QJsonObject &doc, bool withCommands) {
     QStringList failed;
-    const QJsonObject managed = doc.value("managed").toObject();
+    QJsonObject managed;
+    const QJsonObject given = doc.value("managed").toObject();
+    for (const QString &key : importableManaged())
+        if (given.contains(key))
+            if (const QJsonValue v = cleanManaged(key, given.value(key)); !v.isUndefined())
+                managed.insert(key, v);
     if (!managed.isEmpty()) {
         const QString error = updateState([&](QJsonObject &state) {
-            for (auto it = managed.begin(); it != managed.end(); ++it)
-                state.insert(it.key(), it.value());
+            for (auto it = managed.begin(); it != managed.end(); ++it) {
+                if (withCommands || (it.key() != "autostart" && it.key() != "bindings")) {
+                    state.insert(it.key(), it.value());
+                    continue;
+                }
+                // A command this computer doesn't run yet isn't added from a
+                // file no one has looked at; it is named in the result.
+                const QString field = it.key() == "autostart" ? "command" : "value";
+                QStringList mine;
+                for (const QJsonValue &v : state.value(it.key()).toArray())
+                    mine << v.toObject().value(field).toString();
+                QJsonArray kept;
+                for (const QJsonValue &v : it.value().toArray()) {
+                    const QJsonObject o = v.toObject();
+                    const bool runs = it.key() == "autostart" || o.value("kind").toString() == "command";
+                    if (runs && !mine.contains(o.value(field).toString()))
+                        failed << (it.key() == "autostart" ? tr("Login items") : tr("Keyboard shortcuts")) + ": " + o.value(field).toString();
+                    else
+                        kept << v;
+                }
+                state.insert(it.key(), kept);
+            }
             return QString();
         });
         if (!error.isEmpty())

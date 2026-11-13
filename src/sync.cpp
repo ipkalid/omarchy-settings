@@ -61,6 +61,59 @@ QString saveBytes(const QString &path, const QByteArray &data) {
     return {};
 }
 
+// Whether a path in the snapshot is a plain file that is really inside it:
+// not a link, and not reached through a linked folder. git checks out links
+// the repository holds (Settings asks it not to, see Store::git), and one
+// would let the repository read any file of this account.
+bool insideSnapshot(const QString &root, const QString &path) {
+    const QFileInfo info(path);
+    if (!info.isFile() || info.isSymLink())
+        return false;
+    const QString canonicalRoot = QFileInfo(root).canonicalFilePath();
+    return !canonicalRoot.isEmpty() && info.canonicalFilePath().startsWith(canonicalRoot + "/");
+}
+
+// Takes out any link in the local copy. A link the repository holds would
+// make Sync read or write, or empty, whatever it points at; checked out as
+// the plain file core.symlinks=false makes of it, it's harmless, and copies
+// made by an earlier version of Settings are cleaned the same way.
+void dropLinks(const QString &root) {
+    QDirIterator it(root, QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    QStringList links;
+    while (it.hasNext()) {
+        const QString path = it.next();
+        if (it.fileInfo().isSymLink())
+            links << path;
+    }
+    for (const QString &link : links)
+        QFile::remove(link);
+}
+
+// Puts a file from the snapshot in place. It can be a key: a file that
+// isn't here yet is made for this account only before anything is written
+// to it, since it would otherwise take the umask, often readable by
+// everyone. One that is here keeps the permissions it has.
+QString restoreFile(const QString &path, const QString &from, const QString &root) {
+    if (!insideSnapshot(root, from))
+        return tr("%1 isn't a file in the repository").arg(QFileInfo(from).fileName());
+    const QByteArray data = readBytes(from);
+    const bool isNew = !QFileInfo::exists(path);
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly))
+        return tr("Could not write %1").arg(path);
+    if (isNew) {
+        QFileDevice::Permissions mode = QFileDevice::ReadOwner | QFileDevice::WriteOwner;
+        if (QFileInfo(from).isExecutable())
+            mode |= QFileDevice::ExeOwner;
+        if (!file.setPermissions(mode))
+            return tr("Could not write %1").arg(path);
+    }
+    if (file.write(data) != data.size() || !file.commit())
+        return tr("Could not write %1").arg(path);
+    return {};
+}
+
 QString saveJson(const QString &path, const QJsonValue &value) {
     const QJsonDocument doc = value.isArray() ? QJsonDocument(value.toArray()) : QJsonDocument(value.toObject());
     return saveBytes(path, doc.toJson(QJsonDocument::Indented));
@@ -131,8 +184,11 @@ int copyTree(const QString &from, const QString &to) {
 QStringList filesUnder(const QString &root) {
     QStringList out;
     QDirIterator it(root, QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
-    while (it.hasNext())
-        out << QDir(root).relativeFilePath(it.next());
+    while (it.hasNext()) {
+        const QString path = it.next();
+        if (!it.fileInfo().isSymLink())
+            out << QDir(root).relativeFilePath(path);
+    }
     out.sort();
     return out;
 }
@@ -297,6 +353,29 @@ void Store::makeSyncDirPrivate() const {
         QFile::setPermissions(syncDir(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
 }
 
+// Why a path, relative to the home folder, can't sync, or nothing when it
+// can. Every path is checked here, wherever it comes from: picked on this
+// computer, or listed by the repository, which may have been written by
+// someone else. Keys and passwords never go to a repository, in a folder
+// of their own or inside one that holds them.
+QString Store::dotfileError(const QString &rel) const {
+    static const QStringList secrets{".ssh", ".gnupg", ".password-store", ".local/share/keyrings", ".pki", ".aws", ".kube",
+                                     ".docker", ".config/gh", ".git-credentials", ".netrc"};
+    const QString clean = QDir::cleanPath(rel);
+    if (rel.isEmpty() || clean == "." || clean == ".." || clean.startsWith("../") || QDir::isAbsolutePath(rel)
+        || rel.split('/').contains("..") || clean != rel)
+        return tr("Choose something inside your home folder");
+    auto within = [](const QString &path, const QString &folder) { return path == folder || path.startsWith(folder + "/"); };
+    for (const QString &secret : secrets)
+        if (within(clean, secret) || within(secret, clean))
+            return tr("%1 holds keys or passwords; it stays on this computer").arg(clean);
+    const QString absolute = m_paths.home + "/" + clean;
+    for (const QString &own : {m_paths.data + "/omasettings", m_paths.state + "/omasettings", m_paths.home + "/.cache"})
+        if (within(absolute, own) || within(own, absolute))
+            return tr("%1 can't be synced").arg(clean);
+    return {};
+}
+
 QJsonObject Store::syncState() const {
     return QJsonDocument::fromJson(readBytes(syncStatePath())).object();
 }
@@ -320,15 +399,25 @@ QStringList Store::syncSkipped() const {
     return out;
 }
 
+// git options that sign in to GitHub with the gh login, and nowhere else.
+// Helpers from the user's own git config are cleared first, and gh answers
+// only for https://github.com: given another host, gh would hand over a
+// GitHub Enterprise token from the environment (GH_ENTERPRISE_TOKEN), so a
+// non-GitHub server picked for Sync would receive it.
+static QStringList ghCredentialArgs() {
+    const QString gh = QStandardPaths::findExecutable("gh");
+    if (gh.isEmpty())
+        return {};
+    return {"-c", "credential.helper=", "-c", "credential.https://github.com.helper=!" + shellQuote(gh) + " auth git-credential"};
+}
+
 // git in the local copy. Commands that reach the server sign in with the gh
 // login, since nothing here can answer a password prompt.
 ProcResult Store::git(const QStringList &args, int timeoutMs, bool network) const {
-    QStringList full{"-C", syncDir()};
-    if (network) {
-        const QString gh = QStandardPaths::findExecutable("gh");
-        if (!gh.isEmpty())
-            full << "-c" << "credential.helper=" << "-c" << "credential.helper=!" + shellQuote(gh) + " auth git-credential";
-    }
+    // Links in the repository arrive as plain files holding the link's text.
+    QStringList full{"-C", syncDir(), "-c", "core.symlinks=false"};
+    if (network)
+        full << ghCredentialArgs();
     return run("git", full + args, timeoutMs);
 }
 
@@ -364,8 +453,11 @@ QString Store::writeSyncSnapshot(const QString &dir, const QStringList &skip, co
         if (!wanted(category))
             continue;
         for (const QString &p : paths) {
+            // A link is removed itself, never what it points at.
             QFileInfo info(dir + "/" + p);
-            if (info.isDir())
+            if (info.isSymLink())
+                QFile::remove(info.filePath());
+            else if (info.isDir())
                 QDir(info.filePath()).removeRecursively();
             else if (info.exists())
                 QFile::remove(info.filePath());
@@ -491,6 +583,8 @@ QString Store::writeSyncSnapshot(const QString &dir, const QStringList &skip, co
     if (wanted("dotfiles")) {
         QJsonArray listed;
         for (const QString &rel : dotfiles) {
+            if (!dotfileError(rel).isEmpty())
+                continue;
             if (copyTree(m_paths.home + "/" + rel, dir + "/dotfiles/" + rel) > 0)
                 listed.append(rel);
         }
@@ -524,12 +618,10 @@ QString Store::syncConnect(const QString &rawUrl) {
     QDir().mkpath(syncDir());
     makeSyncDirPrivate();
     QStringList clone{"clone", "--quiet", url, syncDir()};
-    const QString gh = QStandardPaths::findExecutable("gh");
-    QStringList args;
-    if (!gh.isEmpty())
-        args << "-c" << "credential.helper=" << "-c" << "credential.helper=!" + shellQuote(gh) + " auth git-credential";
-    if (const ProcResult r = run("git", args + clone, 180000); !r.ok())
+    if (const ProcResult r = run("git", QStringList{"-c", "core.symlinks=false"} + ghCredentialArgs() + clone, 180000); !r.ok())
         return tr("Could not get %1: %2").arg(url, r.failure("git clone"));
+    git({"config", "core.symlinks", "false"});
+    dropLinks(syncDir());
 
     // Its default branch, or for a new, empty repository the one git starts.
     QString branch = git({"symbolic-ref", "--short", "refs/remotes/origin/HEAD"}).text().trimmed().section('/', 1);
@@ -627,6 +719,7 @@ QString Store::syncUpload(bool force, bool automatic) {
         git({"reset", "--quiet", "--hard", head});
     }
     git({"clean", "-fdq"});
+    dropLinks(syncDir());
 
     // Apps being installed from the repository aren't here yet; until
     // they are, the repository's list of them is kept as it is.
@@ -748,9 +841,30 @@ QVariantMap Store::syncPlan() {
         QStringList managed;
         const QJsonObject state = managedState(), theirs = doc.value("managed").toObject();
         for (auto it = theirs.begin(); it != theirs.end(); ++it)
-            if (state.value(it.key()) != it.value())
+            if (importableManaged().contains(it.key()) && state.value(it.key()) != it.value())
                 managed << it.key();
         plan["managed"] = managed;
+        // Commands that would be new here: each login item, and each
+        // shortcut that runs one.
+        QVariantList commands;
+        auto commandsIn = [](const QJsonArray &list, const QString &field) {
+            QStringList out;
+            for (const QJsonValue &v : list) {
+                const QJsonObject o = v.toObject();
+                if (field == "command" ? !o.value("command").toString().isEmpty() : o.value("kind").toString() == "command")
+                    out << o.value(field == "command" ? "command" : "value").toString();
+            }
+            return out;
+        };
+        const QStringList mineStart = commandsIn(state.value("autostart").toArray(), "command");
+        for (const QString &c : commandsIn(theirs.value("autostart").toArray(), "command"))
+            if (!mineStart.contains(c))
+                commands << QVariantMap{{"label", tr("Login items")}, {"command", c}};
+        const QStringList mineKeys = commandsIn(state.value("bindings").toArray(), "value");
+        for (const QString &c : commandsIn(theirs.value("bindings").toArray(), "value"))
+            if (!mineKeys.contains(c))
+                commands << QVariantMap{{"label", tr("Keyboard shortcuts")}, {"command", c}};
+        plan["commands"] = commands;
     }
 
     if (wanted("desktop")) {
@@ -795,10 +909,13 @@ QVariantMap Store::syncPlan() {
 
         const QStringList installedList = output("pacman", {"-Qq"}, 15000).split('\n', Qt::SkipEmptyParts);
         const QSet<QString> installed(installedList.begin(), installedList.end());
+        // Names go to installers as arguments; one that could be read as
+        // an option, or isn't a name at all, is left out.
+        static const QRegularExpression packageName(R"(^[a-z0-9@_+][a-z0-9@._+-]*$)");
         for (const char *kind : {"pacman", "aur"}) {
             QStringList missing;
             for (const QString &p : loadLines(dir + "/apps/" + kind + ".txt"))
-                if (!installed.contains(p))
+                if (packageName.match(p).hasMatch() && !installed.contains(p))
                     missing << p;
             plan[kind] = missing;
         }
@@ -807,8 +924,9 @@ QVariantMap Store::syncPlan() {
         QStringList flatpaks;
         if (!theirFlatpaks.isEmpty()) {
             const QStringList mine = output("flatpak", {"list", "--app", "--columns=application"}, 15000).split('\n', Qt::SkipEmptyParts);
+            static const QRegularExpression appId(R"(^[A-Za-z0-9_][A-Za-z0-9_.-]*$)");
             for (const QString &id : theirFlatpaks)
-                if (!mine.contains(id))
+                if (appId.match(id).hasMatch() && !mine.contains(id))
                     flatpaks << id;
         }
         plan["flatpak"] = flatpaks;
@@ -818,8 +936,9 @@ QVariantMap Store::syncPlan() {
             for (const QString &t : miseTools(readText(m_paths.config + "/mise/" + file)))
                 mineTools.insert(t.section('@', 0, 0));
         QStringList mise;
+        static const QRegularExpression tool(R"(^[A-Za-z0-9_@][A-Za-z0-9_@.:/+-]*$)");
         for (const QString &t : loadLines(dir + "/apps/mise.txt"))
-            if (!mineTools.contains(t.section('@', 0, 0)))
+            if (tool.match(t).hasMatch() && !mineTools.contains(t.section('@', 0, 0)))
                 mise << t;
         plan["mise"] = mise;
 
@@ -884,9 +1003,17 @@ QVariantMap Store::syncPlan() {
     if (wanted("dotfiles")) {
         QStringList dotfiles;
         for (const QString &rel : filesUnder(dir + "/dotfiles"))
-            if (!sameFile(dir + "/dotfiles/" + rel, m_paths.home + "/" + rel))
+            if (dotfileError(rel).isEmpty() && !sameFile(dir + "/dotfiles/" + rel, m_paths.home + "/" + rel))
                 dotfiles << rel;
         plan["dotfiles"] = dotfiles;
+        // Paths the repository lists that this computer doesn't sync yet:
+        // once applied, they are uploaded from here too, so they are shown.
+        const QJsonArray mine = syncState().value("dotfiles").toArray();
+        QStringList adopted;
+        for (const QJsonValue &v : loadJson(dir + "/dotfiles.json").toArray())
+            if (dotfileError(v.toString()).isEmpty() && !mine.contains(v) && !adopted.contains(v.toString()))
+                adopted << v.toString();
+        plan["dotfilesAdded"] = adopted;
     }
     return plan;
 }
@@ -919,6 +1046,9 @@ static QVariantList planGroups(const QVariantMap &plan) {
     };
     for (const QString &key : plan.value("managed").toStringList())
         settings << QVariantMap{{"label", managedName(key)}};
+    // What login items and shortcuts would run, word for word.
+    for (const QVariant &v : plan.value("commands").toList())
+        settings << QVariantMap{{"label", v.toMap().value("label")}, {"detail", v.toMap().value("command")}};
     group("settings", settings);
 
     auto desktopName = [](const QString &key) {
@@ -942,12 +1072,12 @@ static QVariantList planGroups(const QVariantMap &plan) {
         apps << QVariantMap{{"label", v.toMap().value("title").toString().isEmpty() ? v.toMap().value("name") : v.toMap().value("title")},
                             {"detail", tr("Web app")}};
     for (const QVariant &v : plan.value("appimages").toList())
-        apps << QVariantMap{{"label", v.toMap().value("name")}, {"detail", "AppImage"}};
+        apps << QVariantMap{{"label", v.toMap().value("name")}, {"detail", "AppImage · " + v.toMap().value("update").toString()}};
     group("apps", apps);
 
     QVariantList themes;
     for (const QVariant &v : plan.value("themes").toList())
-        themes << QVariantMap{{"label", v.toMap().value("slug")}, {"detail", tr("Theme")}};
+        themes << QVariantMap{{"label", v.toMap().value("slug")}, {"detail", tr("Theme") + " · " + v.toMap().value("url").toString()}};
     themes += rows(plan.value("wallpapers").toStringList(), tr("Wallpaper"));
     group("themes", themes);
 
@@ -955,7 +1085,8 @@ static QVariantList planGroups(const QVariantMap &plan) {
     for (const QVariant &v : plan.value("plugins").toList()) {
         const QVariantMap p = v.toMap();
         plugins << QVariantMap{{"label", p.value("id")},
-                               {"detail", !p.value("installed").toBool() ? tr("Add") : p.value("enabled").toBool() ? tr("Turn on") : tr("Turn off")}};
+                               {"detail", !p.value("installed").toBool() ? tr("Add") + " · " + p.value("url").toString()
+                                          : p.value("enabled").toBool() ? tr("Turn on") : tr("Turn off")}};
     }
     group("plugins", plugins);
 
@@ -967,7 +1098,9 @@ static QVariantList planGroups(const QVariantMap &plan) {
         git << QVariantMap{{"label", tr("Email on your git commits")}, {"detail", g.value("email")}};
     group("git", git);
 
-    group("dotfiles", rows(plan.value("dotfiles").toStringList(), tr("Replaced; the old one is kept beside it")));
+    QVariantList dotfiles = rows(plan.value("dotfiles").toStringList(), tr("Replaced; the old one is kept beside it"));
+    dotfiles += rows(plan.value("dotfilesAdded").toStringList(), tr("Uploaded from this computer from now on"));
+    group("dotfiles", dotfiles);
     return groups;
 }
 
@@ -983,6 +1116,7 @@ QVariant Store::listSyncPreview() {
     git({"checkout", "--quiet", "-B", syncBranch(), head});
     git({"reset", "--quiet", "--hard", head});
     git({"clean", "-fdq"});
+    dropLinks(syncDir());
     const QJsonObject remote = loadJson(syncDir() + "/sync.json").toObject();
     const QVariantList groups = planGroups(syncPlan());
     int total = 0;
@@ -997,7 +1131,12 @@ QVariant Store::listSyncPreview() {
 // Where an AppImage's newest file is, from the update information it
 // carries: a GitHub release's asset, or what a .zsync file names.
 QVariantMap Store::appImageSource(const QString &updateInfo) const {
-    auto fetch = [this](const QStringList &args) { return run("curl", QStringList{"-fsSL", "--max-time", "20"} + args, 25000); };
+    // https only, redirects included, so no one on the network can answer.
+    auto fetch = [this](const QStringList &args) {
+        return run("curl", QStringList{"-fsSL", "--proto", "=https", "--proto-redir", "=https", "--max-time", "20"} + args, 25000);
+    };
+    // The file is named by the publisher; a name that is only a file name.
+    static const QRegularExpression plainName(R"(^[A-Za-z0-9_][A-Za-z0-9_.+ -]*\.AppImage$)", QRegularExpression::CaseInsensitiveOption);
     const QStringList info = updateInfo.split('|');
     QString zsyncUrl;
     if (info.value(0) == "gh-releases-zsync" && info.size() >= 5) {
@@ -1015,8 +1154,12 @@ QVariantMap Store::appImageSource(const QString &updateInfo) const {
         const QRegularExpression match(QRegularExpression::wildcardToRegularExpression(pattern));
         for (const QJsonValue &asset : release.value("assets").toArray()) {
             const QString name = asset.toObject().value("name").toString();
-            if (match.match(name).hasMatch())
-                return {{"url", asset.toObject().value("browser_download_url").toString()}, {"file", name}};
+            const QString url = asset.toObject().value("browser_download_url").toString();
+            if (!match.match(name).hasMatch() || !plainName.match(name).hasMatch() || !url.startsWith("https://"))
+                continue;
+            // GitHub publishes each asset's SHA-256.
+            const QString digest = asset.toObject().value("digest").toString();
+            return {{"url", url}, {"file", name}, {"sha256", digest.startsWith("sha256:") ? digest.mid(7) : QString()}};
         }
         return {};
     }
@@ -1024,7 +1167,7 @@ QVariantMap Store::appImageSource(const QString &updateInfo) const {
         zsyncUrl = info.mid(1).join('|');
     if (!zsyncUrl.startsWith("https://"))
         return {};
-    QString url, file;
+    QString url, file, sha1;
     for (const QString &line : QString::fromUtf8(fetch({"-r", "0-4095", zsyncUrl}).out).split('\n')) {
         if (line.trimmed().isEmpty())
             break;
@@ -1033,10 +1176,14 @@ QVariantMap Store::appImageSource(const QString &updateInfo) const {
             url = QUrl(zsyncUrl).resolved(QUrl(value)).toString();
         else if (key == "Filename")
             file = value;
+        else if (key == "SHA-1")
+            sha1 = value.toLower();
     }
-    if (!url.startsWith("https://"))
+    if (file.isEmpty())
+        file = QFileInfo(QUrl(url).path()).fileName();
+    if (!url.startsWith("https://") || !plainName.match(file).hasMatch())
         return {};
-    return {{"url", url}, {"file", file.isEmpty() ? QFileInfo(QUrl(url).path()).fileName() : file}};
+    return {{"url", url}, {"file", file}, {"sha1", sha1}};
 }
 
 // One terminal installs everything missing that needs a password or a
@@ -1080,11 +1227,11 @@ QString Store::syncInstallScript(const QVariantMap &plan) {
     }
     if (!flatpaks.isEmpty()) {
         body << "step Flatpak";
-        body << QStringLiteral("for a in %1; do flatpak install -y --noninteractive flathub \"$a\" || failed+=(\"$a\"); done").arg(quoteAll(flatpaks));
+        body << QStringLiteral("for a in %1; do flatpak install -y --noninteractive flathub -- \"$a\" || failed+=(\"$a\"); done").arg(quoteAll(flatpaks));
     }
     if (!mise.isEmpty()) {
         body << "step mise";
-        body << QStringLiteral("for t in %1; do mise use --global \"$t\" || failed+=(\"$t\"); done").arg(quoteAll(mise));
+        body << QStringLiteral("for t in %1; do mise use --global -- \"$t\" || failed+=(\"$t\"); done").arg(quoteAll(mise));
     }
     const QString self = QCoreApplication::applicationFilePath();
     if (!images.isEmpty()) {
@@ -1098,10 +1245,18 @@ QString Store::syncInstallScript(const QVariantMap &plan) {
                 continue;
             }
             const QString dest = appImagesDir() + "/" + QFileInfo(source.value("file").toString()).fileName();
-            body << QStringLiteral("( set -e; echo %1; mkdir -p %2; curl -fL --progress-bar -o %3.part %4; chmod +x %3.part; "
-                                   "mv -f %3.part %3; %5 act appimage.integrate %3 ) || { rm -f %3.part; failed+=(%6); }")
+            // The download is checked against the hash its publisher lists,
+            // when there is one, before it is kept.
+            static const QRegularExpression hex40("^[0-9a-f]{40}$"), hex64("^[0-9a-f]{64}$");
+            const QString sha1 = source.value("sha1").toString(), sha256 = source.value("sha256").toString();
+            const QString check = hex64.match(sha256).hasMatch()
+                ? QStringLiteral("echo %1 | sha256sum -c --quiet -; ").arg(shellQuote(sha256 + "  " + dest + ".part"))
+                : hex40.match(sha1).hasMatch() ? QStringLiteral("echo %1 | sha1sum -c --quiet -; ").arg(shellQuote(sha1 + "  " + dest + ".part"))
+                : QString();
+            body << QStringLiteral("( set -e; echo %1; mkdir -p %2; curl -fL --proto =https --proto-redir =https --progress-bar -o %3.part %4; "
+                                   "%7chmod +x %3.part; mv -f %3.part %3; %5 act appimage.integrate %3 ) || { rm -f %3.part; failed+=(%6); }")
                         .arg(shellQuote("· " + name), shellQuote(appImagesDir()), shellQuote(dest),
-                             shellQuote(source.value("url").toString()), shellQuote(self), shellQuote(name));
+                             shellQuote(source.value("url").toString()), shellQuote(self), shellQuote(name), check);
         }
     }
 
@@ -1138,7 +1293,9 @@ QString Store::syncInstallScript(const QVariantMap &plan) {
     return {};
 }
 
-QString Store::syncApply() {
+// `reviewed` is the commit the confirmation showed. When given, that commit
+// is what is applied: something pushed since then hasn't been looked at.
+QString Store::syncApply(const QString &reviewed) {
     QMutexLocker lock(&m_syncLock);
     if (syncState().value("url").toString().isEmpty())
         return tr("Sync isn't connected to a repository");
@@ -1147,9 +1304,12 @@ QString Store::syncApply() {
     const QString head = syncRemoteHead();
     if (head.isEmpty())
         return tr("The repository is empty; upload from this computer first");
+    if (!reviewed.isEmpty() && reviewed != head)
+        return tr("The repository changed since you looked; open it again to see what's new");
     git({"checkout", "--quiet", "-B", syncBranch(), head});
     git({"reset", "--quiet", "--hard", head});
     git({"clean", "-fdq"});
+    dropLinks(syncDir());
 
     const QString dir = syncDir();
     const QVariantMap plan = syncPlan();
@@ -1170,15 +1330,20 @@ QString Store::syncApply() {
     for (const QVariant &v : plan.value("themes").toList())
         note(v.toMap().value("slug").toString(), runOk("omarchy-theme-install", {v.toMap().value("url").toString()}, 300000));
     for (const QString &rel : plan.value("wallpapers").toStringList())
-        copyTree(dir + "/wallpapers/" + rel, m_paths.config + "/omarchy/backgrounds/" + rel);
+        if (insideSnapshot(dir, dir + "/wallpapers/" + rel))
+            copyTree(dir + "/wallpapers/" + rel, m_paths.config + "/omarchy/backgrounds/" + rel);
     for (const QVariant &v : plan.value("webapps").toList()) {
         const QVariantMap w = v.toMap();
-        const QString icon = w.value("icon").toString().isEmpty() ? QStringLiteral("applications-internet") : dir + "/apps/" + w.value("icon").toString();
+        // The icon is one Sync kept in apps/webapp-icons, and nothing else.
+        static const QRegularExpression keptIcon(R"(^webapp-icons/[^/]+$)");
+        const QString kept = w.value("icon").toString();
+        const QString icon = keptIcon.match(kept).hasMatch() && insideSnapshot(dir, dir + "/apps/" + kept)
+            ? dir + "/apps/" + kept : QStringLiteral("applications-internet");
         note(w.value("name").toString(), runOk("omarchy-webapp-install", {w.value("name").toString(), w.value("url").toString(), icon}, 60000));
     }
 
     const QStringList desktop = plan.value("desktop").toStringList();
-    if (desktop.contains("menu")) {
+    if (desktop.contains("menu") && insideSnapshot(dir, dir + "/desktop/menu.jsonc")) {
         backUp(menuFile());
         note(tr("Omarchy menu"), saveBytes(menuFile(), readBytes(dir + "/desktop/menu.jsonc")));
     }
@@ -1192,11 +1357,11 @@ QString Store::syncApply() {
     }
     if (desktop.contains("mime")) {
         backUp(m_paths.config + "/mimeapps.list");
-        note(tr("Apps that open each file type"), saveBytes(m_paths.config + "/mimeapps.list", readBytes(dir + "/desktop/mimeapps.list")));
+        note(tr("Apps that open each file type"), restoreFile(m_paths.config + "/mimeapps.list", dir + "/desktop/mimeapps.list", dir));
     }
     if (desktop.contains("branding"))
         for (const char *name : {"about.txt", "screensaver.txt"})
-            if (QFileInfo(dir + "/desktop/branding/" + name).isFile())
+            if (insideSnapshot(dir, dir + "/desktop/branding/" + name))
                 copyTree(dir + "/desktop/branding/" + name, m_paths.config + "/omarchy/branding/" + name);
 
     const QVariantMap g = plan.value("git").toMap();
@@ -1206,14 +1371,14 @@ QString Store::syncApply() {
         note(tr("Email on your git commits"), write("security.gitEmail", g.value("email")));
 
     for (const QString &rel : plan.value("dotfiles").toStringList()) {
+        if (!dotfileError(rel).isEmpty())
+            continue;
         const QString target = m_paths.home + "/" + rel;
         backUp(target);
-        note(rel, saveBytes(target, readBytes(dir + "/dotfiles/" + rel)));
+        note(rel, restoreFile(target, dir + "/dotfiles/" + rel, dir));
     }
     if (!syncSkipped().contains("dotfiles")) {
-        QStringList theirs;
-        for (const QJsonValue &v : loadJson(dir + "/dotfiles.json").toArray())
-            theirs << v.toString();
+        const QStringList theirs = plan.value("dotfilesAdded").toStringList();
         updateSyncState([&](QJsonObject &s) {
             QJsonArray mine = s.value("dotfiles").toArray();
             for (const QString &rel : theirs)
@@ -1229,14 +1394,14 @@ QString Store::syncApply() {
     for (const QString &rel : hypr) {
         const QString target = m_paths.config + "/hypr/" + rel;
         backUp(target);
-        note(rel, saveBytes(target, readBytes(dir + "/hypr/" + rel)));
+        note(rel, restoreFile(target, dir + "/hypr/" + rel, dir));
     }
     if (!hypr.isEmpty() && m_paths.hyprland)
         run("hyprctl", {"reload"}, 10000);
 
     // Settings last, once the theme, plugins, and fonts they name are here.
     if (!syncSkipped().contains("settings") && (!plan.value("settings").toList().isEmpty() || !plan.value("managed").toStringList().isEmpty()))
-        note(tr("Settings"), importSettings(loadJson(dir + "/settings.json").toObject()));
+        note(tr("Settings"), importSettings(loadJson(dir + "/settings.json").toObject(), true));
 
     note(tr("Apps"), syncInstallScript(plan));
 
@@ -1294,7 +1459,7 @@ QString Store::actSync(const QString &action, const QVariantList &args) {
     if (action == "sync.upload")
         return syncUpload(a0 == "force", a0 == "auto");
     if (action == "sync.apply")
-        return syncApply();
+        return syncApply(a0);
     if (action == "sync.disconnect") {
         QMutexLocker lock(&m_syncLock);
         QDir(syncDir()).removeRecursively();
@@ -1334,18 +1499,12 @@ QString Store::actSync(const QString &action, const QVariantList &args) {
             paths = picked.text().split('\n', Qt::SkipEmptyParts);
         }
         const QDir home(m_paths.home);
-        // Keys and passwords never go to a repository.
-        static const QRegularExpression secret(R"(^(\.ssh|\.gnupg|\.password-store|\.local/share/keyrings|\.pki|\.aws|\.kube|\.docker)(/|$))");
         QStringList added;
         for (const QString &p : paths) {
             const QString absolute = QFileInfo(p).isAbsolute() ? QFileInfo(p).absoluteFilePath() : home.absoluteFilePath(p);
             const QString rel = home.relativeFilePath(absolute);
-            if (rel.startsWith("..") || rel == "." || rel.isEmpty())
-                return tr("Choose something inside your home folder");
-            if (secret.match(rel).hasMatch())
-                return tr("%1 holds keys or passwords; it stays on this computer").arg(rel);
-            if (absolute.startsWith(syncDir()) || rel.startsWith(".cache"))
-                return tr("%1 can't be synced").arg(rel);
+            if (const QString error = dotfileError(rel); !error.isEmpty())
+                return error;
             if (!QFileInfo::exists(absolute))
                 return tr("%1 doesn't exist").arg(rel);
             added << rel;
@@ -1378,7 +1537,7 @@ QString Store::actSync(const QString &action, const QVariantList &args) {
         // Settings that needed what was just installed (a font, the
         // default agent) get another try.
         if (!syncSkipped().contains("settings") && QFileInfo(syncDir() + "/settings.json").isFile())
-            importSettings(loadJson(syncDir() + "/settings.json").toObject());
+            importSettings(loadJson(syncDir() + "/settings.json").toObject(), true);
         return {};
     }
     return tr("Unknown action %1").arg(action);

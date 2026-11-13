@@ -102,6 +102,16 @@ QString Store::launch(const QString &program, const QStringList &args) const {
     return {};
 }
 
+// Omarchy's floating terminal runs what it's given as one line of shell
+// ("$*" into bash -c), so each word is quoted: a value such as a theme's
+// folder name or a font's name stays one argument, whatever it holds.
+QString Store::launchTerminal(const QStringList &command) const {
+    QStringList words;
+    for (const QString &word : command)
+        words << "'" + QString(word).replace("'", "'\\''") + "'";
+    return launch("omarchy-launch-floating-terminal-with-presentation", {words.join(' ')});
+}
+
 QString Store::runOk(const QString &program, const QStringList &args, int timeoutMs) const {
     const ProcResult r = run(program, args, timeoutMs);
     return r.ok() ? QString() : r.failure(program);
@@ -446,6 +456,15 @@ void Store::addHypr(const QString &id, const QString &pane, const QString &type,
 
 // A setting backed by an Omarchy command that prints the current value with
 // no arguments and sets it with one.
+// omarchy-font-set puts the family name into sed expressions and terminal
+// configs as it is, and a font's family comes from the font file, so anyone
+// who can get a font installed chooses it. Only plain names go through:
+// nothing sed, a config file, or fontconfig's XML would read as syntax.
+bool safeFontName(const QString &name) {
+    static const QRegularExpression plain(R"(^[\p{L}\p{N}][\p{L}\p{N} ._+-]{0,99}$)");
+    return plain.match(name).hasMatch() && !name.endsWith(' ');
+}
+
 static Setting commandSetting(const QString &id, const QString &pane, const QString &label,
                               const QVariantList &choices, std::function<QString()> get,
                               std::function<QString(const QString &)> set) {
@@ -627,7 +646,11 @@ void Store::build() {
     }
     add(commandSetting("appearance.font", "fonts", "Monospace font", {},
         [this] { return output("omarchy-font-current", {}); },
-        [this](const QString &v) { return runOk("omarchy-font-set", {v}, 60000); }));
+        [this](const QString &v) {
+            if (!safeFontName(v))
+                return tr("%1 is not one of the choices for %2").arg(v, QStringLiteral("appearance.font"));
+            return runOk("omarchy-font-set", {v}, 60000);
+        }));
     m_settings.last().choicesList = "fonts";
     {
         Setting s;
@@ -1182,7 +1205,8 @@ QVariant Store::list(const QString &name) {
     if (name == "fonts") {
         QVariantList out;
         for (const QString &f : output("omarchy-font-list", {}, 10000).split('\n', Qt::SkipEmptyParts))
-            out << f;
+            if (safeFontName(f))
+                out << f;
         return out;
     }
     if (name == "languages") {
@@ -1281,15 +1305,15 @@ QString Store::launchInTerminal(const QString &id) {
         const QString channel = id.section(':', 1);
         if (!QStringList{"stable", "rc", "edge"}.contains(channel))
             return tr("Unknown channel %1").arg(channel);
-        return launch("omarchy-launch-floating-terminal-with-presentation", {"omarchy-channel-set", channel});
+        return launchTerminal({"omarchy-channel-set", channel});
     }
     if (!commands.contains(id)) {
         const QStringList command = terminalCommand(id);
         if (command.isEmpty())
             return tr("Unknown command %1").arg(id);
-        return launch("omarchy-launch-floating-terminal-with-presentation", command);
+        return launchTerminal(command);
     }
-    return launch("omarchy-launch-floating-terminal-with-presentation", commands.value(id));
+    return launchTerminal(commands.value(id));
 }
 
 // The name Settings saves a display under: its description, which follows

@@ -117,6 +117,7 @@ private:
                    const QByteArray &input = {}) const;
     QString runOk(const QString &program, const QStringList &args, int timeoutMs = 5000) const;
     QString launch(const QString &program, const QStringList &args) const;
+    QString launchTerminal(const QStringList &command) const;
     QString output(const QString &program, const QStringList &args, int timeoutMs = 5000) const;
 
     QVariant hyprGet(const QString &option) const;
@@ -196,9 +197,12 @@ public:
     QString iconPath() const;
     QString writeThemedIcon();
     QString ensureIconHook();
+    // Commands a file brings (login items, shortcuts that run one) are only
+    // added when they were shown first, as Sync's confirmation does.
+    QString importSettings(const QJsonObject &doc, bool withCommands = false);
 
 private:
-    QString importSettings(const QJsonObject &doc);
+    QJsonValue cleanManaged(const QString &key, const QJsonValue &value) const;
     QString normalize(const Setting &setting, const QVariant &value, QVariant &out) const;
 
     QJsonObject syncState() const;
@@ -209,10 +213,11 @@ private:
     QString syncRemoteHead() const;
     QString syncConnect(const QString &url);
     void makeSyncDirPrivate() const;
+    QString dotfileError(const QString &rel) const;
     QString syncCreate(const QString &name);
     QString syncCheck();
     QString syncUpload(bool force, bool automatic);
-    QString syncApply();
+    QString syncApply(const QString &reviewed = {});
     QString syncInstallScript(const QVariantMap &plan);
     QVariantMap appImageSource(const QString &updateInfo) const;
     QVariant listSync();
@@ -258,3 +263,11 @@ private:
     QRecursiveMutex m_syncLock;
     QMutex m_syncStateLock;
 };
+
+// The parts of Settings' own state a settings file or Sync may bring: what
+// exportSettings writes, and nothing else.
+const QStringList &importableManaged();
+
+// Whether a font family name is plain enough to hand to omarchy-font-set,
+// which pastes it into sed expressions and config files as it is.
+bool safeFontName(const QString &name);
