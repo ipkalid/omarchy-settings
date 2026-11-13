@@ -49,13 +49,24 @@ QHash<QString, QString> desktopEntry(const QString &path) {
     return out;
 }
 
-// The program an Exec line runs: its first word, quoted or not.
-QString execProgram(const QString &exec) {
+QString desktopUnescape(const QString &s);
+
+// The program an Exec line runs: its first word, quoted or not, undoing the
+// escapes the Desktop Entry spec puts in it.
+QString execProgram(const QString &value) {
+    const QString exec = desktopUnescape(value);
+    QString program;
     if (exec.startsWith('"')) {
-        const int end = exec.indexOf('"', 1);
-        return end > 0 ? exec.mid(1, end - 1) : QString();
+        for (int i = 1; i < exec.size(); ++i) {
+            if (exec[i] == '"')
+                return program.replace("%%", "%");
+            if (exec[i] == '\\' && i + 1 < exec.size())
+                ++i;
+            program += exec[i];
+        }
+        return {};
     }
-    return exec.section(' ', 0, 0);
+    return exec.section(' ', 0, 0).replace("%%", "%");
 }
 
 QString execQuote(const QString &path) {
@@ -63,6 +74,59 @@ QString execQuote(const QString &path) {
     for (const char *c : {"\\", "\"", "`", "$"})
         escaped.replace(QString::fromLatin1(c), "\\" + QString::fromLatin1(c));
     return "\"" + escaped + "\"";
+}
+
+// A newline in a file name would start a new line, and a new key, in the
+// launcher entry written for it.
+bool hasControl(const QString &s) {
+    for (const QChar c : s)
+        if (c.unicode() < 0x20 || c.unicode() == 0x7f)
+            return true;
+    return false;
+}
+
+// A value as the Desktop Entry spec writes it.
+QString desktopEscape(const QString &s) {
+    QString out;
+    for (const QChar c : s) {
+        if (c == '\\') out += "\\\\";
+        else if (c == '\n') out += "\\n";
+        else if (c == '\t') out += "\\t";
+        else if (c == '\r') out += "\\r";
+        else out += c;
+    }
+    return out;
+}
+
+QString desktopUnescape(const QString &s) {
+    QString out;
+    for (int i = 0; i < s.size(); ++i) {
+        if (s[i] != '\\' || i + 1 == s.size()) {
+            out += s[i];
+            continue;
+        }
+        const QChar c = s[++i];
+        out += c == 's' ? QChar(' ') : c == 'n' ? QChar('\n') : c == 't' ? QChar('\t') : c == 'r' ? QChar('\r') : c;
+    }
+    return out;
+}
+
+// Where the AppImage's squashfs starts: right after its runtime, whose ELF
+// file ends with the section header table. 0 when it isn't an ELF one.
+quint64 squashfsOffset(const QString &path) {
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return 0;
+    const QByteArray ident = f.read(64);
+    if (ident.size() < 52 || !ident.startsWith("\x7f" "ELF") || ident[5] != 1)
+        return 0;
+    const bool is64 = ident[4] == 2;
+    const uchar *h = reinterpret_cast<const uchar *>(ident.constData());
+    const quint64 shoff = is64 ? qFromLittleEndian<quint64>(h + 0x28) : qFromLittleEndian<quint32>(h + 0x20);
+    const quint16 shentsize = qFromLittleEndian<quint16>(h + (is64 ? 0x3A : 0x2E));
+    const quint16 shnum = qFromLittleEndian<quint16>(h + (is64 ? 0x3C : 0x30));
+    const quint64 end = shoff + quint64(shentsize) * shnum;
+    return shoff == 0 || shnum == 0 || end >= quint64(f.size()) ? 0 : end;
 }
 
 // A name for files Settings writes about an AppImage, stable across updates
@@ -274,15 +338,18 @@ QList<QVariantMap> Store::appImageItems() const {
         // Settings once named the ones it couldn't read a name from after
         // their file; those get a proper name, in the launcher too.
         QString name = entry.value("Name", baseName(program));
-        if (entry.value("X-Omasettings-AppImage") == "true" && name == baseName(program) && appImageName(program) != name) {
+        if (entry.value("X-Omasettings-AppImage") == "true" && name == baseName(program) && appImageName(program) != name
+            && !hasControl(appImageName(program))) {
             name = appImageName(program);
             QFile f(file);
             if (f.open(QIODevice::ReadOnly)) {
-                QString text = QString::fromUtf8(f.readAll());
+                QStringList lines = QString::fromUtf8(f.readAll()).split('\n');
                 f.close();
-                text.replace(QRegularExpression("^Name=.*$", QRegularExpression::MultilineOption), "Name=" + name);
+                for (QString &line : lines)
+                    if (line.startsWith("Name="))
+                        line = "Name=" + desktopEscape(name);
                 if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
-                    f.write(text.toUtf8());
+                    f.write(lines.join('\n').toUtf8());
             }
         }
         items << QVariantMap{{"path", program}, {"name", name},
@@ -311,7 +378,9 @@ QList<QVariantMap> Store::appImageItems() const {
 
     // A download that is another version of an app already added: the same
     // publisher when both say who that is, or else the same file name once
-    // the version and architecture are taken out.
+    // the version and architecture are taken out. Both are only what the
+    // download says of itself, so a match is never marked verified: nothing
+    // checks where it came from.
     for (QVariantMap &download : items) {
         if (download.value("location") != "downloads")
             continue;
@@ -328,6 +397,7 @@ QList<QVariantMap> Store::appImageItems() const {
             download["replaces"] = added.value("path");
             download["replacesName"] = added.value("name");
             download["replacesVersion"] = from;
+            download["verified"] = false;
             download["compare"] = from.isEmpty() || to.isEmpty() ? QStringLiteral("unknown")
                                 : QStringList{"older", "same", "newer"}.value(compareVersions(to, from) + 1);
             break;
@@ -348,7 +418,10 @@ QVariant Store::listAppImages() {
 QVariant Store::listAppImageUpdates() {
     QVariantMap out;
     QHash<QString, QVariantMap> found;
-    auto fetch = [this](const QStringList &args) { return run("curl", QStringList{"-fsSL", "--max-time", "20"} + args, 25000); };
+    // HTTPS only, redirects included, so nothing on the way can swap the answer.
+    auto fetch = [this](const QStringList &args) {
+        return run("curl", QStringList{"-fsSL", "--proto", "=https", "--proto-redir", "=https", "--max-time", "20"} + args, 25000);
+    };
     for (const QVariantMap &item : appImageItems()) {
         const QString path = item.value("path").toString();
         const QStringList info = appImageUpdateInfo(path).split('|');
@@ -416,11 +489,14 @@ QVariant Store::listAppImageUpdates() {
 }
 
 // Adds an AppImage to the app launcher, with the name and icon it carries.
-// Reading them means running the AppImage's own extractor, as the app
-// launcher's AppImage tools do: the same trust as opening the app.
+// They are read straight out of its squashfs with unsquashfs, so nothing in
+// the AppImage runs: adding one is not the same as opening it.
 QString Store::integrateAppImage(const QString &path) {
     if (!isAppImage(path))
         return tr("%1 is not an AppImage").arg(path);
+    // Its path goes into the launcher entry, where a newline would start a new key.
+    if (hasControl(path))
+        return tr("%1 has a name the app launcher can't use").arg(QFileInfo(path).fileName().simplified());
     QFile::setPermissions(path, QFile::permissions(path) | QFile::ExeOwner | QFile::ExeUser);
     const QString applications = m_paths.data + "/applications";
     const QString id = appImageId(path);
@@ -434,52 +510,79 @@ QString Store::integrateAppImage(const QString &path) {
     }
 
     QTemporaryDir tmp;
-    const QString root = tmp.path() + "/squashfs-root";
-    auto extract = [&](const QString &pattern) {
-        run("bash", {"-c", "cd -- \"$1\" && \"$2\" --appimage-extract \"$3\" >/dev/null 2>&1", "omasettings",
-                     tmp.path(), path, pattern}, 60000);
+    const quint64 offset = squashfsOffset(path);
+    bool missing = false;
+    int pass = 0;
+    // Each pass extracts into a fresh folder, so none writes through a link
+    // an earlier one left behind.
+    auto extract = [&](const QStringList &patterns) {
+        const QString root = tmp.path() + "/" + QString::number(pass++) + "/squashfs-root";
+        QDir().mkpath(QFileInfo(root).absolutePath());
+        const ProcResult r = run("unsquashfs", QStringList{"-no-xattrs", "-o", QString::number(offset), "-d", root,
+                                                           QFileInfo(path).absoluteFilePath()} + patterns, 60000);
+        missing = missing || !r.started;
+        return root;
     };
     QHash<QString, QString> embedded;
-    if (tmp.isValid()) {
-        extract("*.desktop");
-        const QStringList found = QDir(root).entryList({"*.desktop"}, QDir::Files);
-        if (!found.isEmpty())
-            embedded = desktopEntry(root + "/" + found.first());
-    }
-
-    // The icon: .DirIcon, which is often a link to the real one inside.
     QString icon;
-    if (tmp.isValid()) {
-        extract(".DirIcon");
+    if (tmp.isValid() && offset > 0) {
+        const QString root = extract({"*.desktop", ".DirIcon"});
+        if (missing)
+            return tr("%1 is not installed").arg("unsquashfs");
+        // A .desktop that is a link could point at any file on this computer.
+        for (const QFileInfo &fi : QDir(root).entryInfoList({"*.desktop"}, QDir::Files, QDir::Name))
+            if (!fi.isSymLink()) {
+                embedded = desktopEntry(fi.filePath());
+                break;
+            }
+
+        // The icon: .DirIcon, which is often a link to the real one inside.
+        // Only links that stay inside the AppImage are followed, by
+        // extracting what they point to.
+        QString iconRoot = root;
         QFileInfo dirIcon(root + "/.DirIcon");
-        // Only links that stay inside the AppImage are followed.
         for (int hops = 0; hops < 4 && dirIcon.isSymLink(); ++hops) {
             const QString target = QDir::cleanPath(dirIcon.symLinkTarget());
-            if (!target.startsWith(root + "/"))
+            if (!target.startsWith(iconRoot + "/"))
                 break;
-            extract(target.mid(root.size() + 1));
-            dirIcon = QFileInfo(target);
+            const QString inside = target.mid(iconRoot.size() + 1);
+            iconRoot = extract({inside});
+            dirIcon = QFileInfo(iconRoot + "/" + inside);
         }
-        if (!dirIcon.isSymLink() && dirIcon.isFile() && dirIcon.size() > 0 && dirIcon.size() < 8 * 1024 * 1024) {
-            QFile f(dirIcon.absoluteFilePath());
+        // A folder on the way can still be a link out, so where the icon
+        // really is gets checked, not just its path.
+        const QString real = dirIcon.canonicalFilePath(), inside = QFileInfo(iconRoot).canonicalFilePath();
+        const QFileInfo found(real);
+        if (!dirIcon.isSymLink() && !real.isEmpty() && !inside.isEmpty() && real.startsWith(inside + "/")
+            && found.isFile() && found.size() > 0 && found.size() < 8 * 1024 * 1024) {
+            QFile f(real);
             const bool svg = f.open(QIODevice::ReadOnly) && f.read(512).contains("<svg");
             const QString iconDir = m_paths.data + "/icons/omasettings-appimages";
             QDir().mkpath(iconDir);
             for (const char *ext : {"png", "svg"})
                 QFile::remove(iconDir + "/" + id + "." + ext);
             icon = iconDir + "/" + id + (svg ? ".svg" : ".png");
-            if (!QFile::copy(dirIcon.absoluteFilePath(), icon))
+            if (!QFile::copy(real, icon))
                 icon.clear();
         }
     }
 
+    // What the AppImage's own entry says, as it is written there, unless it
+    // hides a line break or another control character.
+    auto embeddedValue = [&](const char *key) {
+        const QString raw = embedded.value(QString::fromLatin1(key));
+        return hasControl(raw) || hasControl(desktopUnescape(raw)) ? QString() : raw;
+    };
+    const QString name = embeddedValue("Name");
+    // Exec is read as a value, then as a command line where % starts a
+    // field code; TryExec only as a value.
     QStringList lines{"[Desktop Entry]", "Type=Application",
-                      "Name=" + embedded.value("Name", appImageName(path)),
-                      "Exec=" + execQuote(path) + " %U", "TryExec=" + path,
-                      "Icon=" + (icon.isEmpty() ? QStringLiteral("application-x-executable") : icon), "Terminal=false"};
+                      "Name=" + (name.isEmpty() ? desktopEscape(appImageName(path)) : name),
+                      "Exec=" + desktopEscape(execQuote(path).replace('%', "%%")) + " %U", "TryExec=" + desktopEscape(path),
+                      "Icon=" + (icon.isEmpty() ? QStringLiteral("application-x-executable") : desktopEscape(icon)), "Terminal=false"};
     for (const char *key : {"GenericName", "Comment", "Categories", "Keywords", "StartupWMClass", "X-AppImage-Version"})
-        if (!embedded.value(key).isEmpty())
-            lines << QString::fromLatin1(key) + "=" + embedded.value(key);
+        if (const QString value = embeddedValue(key); !value.isEmpty())
+            lines << QString::fromLatin1(key) + "=" + value;
     lines << "X-Omasettings-AppImage=true";
     QDir().mkpath(applications);
     QFile out(ownEntry);
@@ -507,7 +610,7 @@ QString Store::appImageUpdateCommand(const QString &path, QStringList &command) 
     // The new file replaces the old one only once it's whole and matches
     // the published checksum; a running copy keeps the old one.
     const QString script = QStringLiteral(
-        "( set -e; echo %1; curl -fL --progress-bar -o %2 %3; echo %4 | sha1sum -c --quiet; "
+        "( set -e; echo %1; curl -fL --proto =https --proto-redir =https --progress-bar -o %2 %3; echo %4 | sha1sum -c --quiet; "
         "chmod +x %2; mv -f %2 %5; %6 act appimage.integrate %5 || true; echo %7 ) || { rm -f %2; false; }")
         .arg(shellQuote(tr("Downloading %1").arg(update.value("file").toString())), shellQuote(part),
              shellQuote(update.value("url").toString()), shellQuote(update.value("sha1").toString() + "  " + part),
@@ -589,6 +692,8 @@ QString Store::actAppImage(const QString &action, const QVariantList &args) {
         for (const QString &from : paths) {
             if (!isAppImage(from))
                 return tr("%1 is not an AppImage").arg(QFileInfo(from).fileName());
+            if (hasControl(from))
+                return tr("%1 has a name the app launcher can't use").arg(QFileInfo(from).fileName().simplified());
             QString to = from;
             if (QFileInfo(from).absolutePath() != appImagesDir()) {
                 to = appImagesDir() + "/" + QFileInfo(from).fileName();
@@ -609,8 +714,13 @@ QString Store::actAppImage(const QString &action, const QVariantList &args) {
     }
     if (action == "appimage.integrate")
         return integrateAppImage(path);
-    if (action == "appimage.replace")
+    if (action == "appimage.replace") {
+        // Nothing proves a download is the app it says it is, so replacing
+        // one with it only happens when that was said plainly.
+        if (args.value(1).toString() != "unverified")
+            return tr("Replacing an AppImage with a download needs confirming that its origin isn't checked");
         return replaceAppImage(path);
+    }
     if (!listed(path))
         return tr("Unknown AppImage %1").arg(path);
     if (action == "appimage.remove") {
