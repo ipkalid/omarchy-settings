@@ -13,6 +13,13 @@
 
 set -euo pipefail
 
+# Everything goes into one person's home; as root it would land in root's,
+# owned by root.
+if (( EUID == 0 )); then
+  echo "install: run this as yourself, not as root." >&2
+  exit 1
+fi
+
 SRC="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 TARGET_HOME="$HOME"
 MODE=install
@@ -115,8 +122,35 @@ put() {
   mv -f "$to.new" "$to"
 }
 
+# The binary's path as one Exec= argument, quoted as the Desktop Entry spec
+# asks: inside double quotes \ " ` $ take a backslash and % is doubled, then
+# every backslash is doubled again because the file's own string escapes are
+# undone first. So a home folder with spaces or symbols still launches.
+desktop_exec_arg() {
+  local s="$1"
+  s=${s//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//\`/\\\`}
+  s=${s//\$/\\\$}
+  s=${s//%/%%}
+  s=${s//\\/\\\\}
+  printf '"%s"' "$s"
+}
+
+# A line break can't be written into a launcher entry at all.
+if [[ $BIN == *$'\n'* ]]; then
+  echo "The install path has a line break in it, which a launcher entry can't hold: $BIN" >&2
+  exit 1
+fi
+
 put 755 "$BUILD/omasettings" "$BIN"
-sed "s|^Exec=omasettings|Exec=$BIN|" "$SRC/pkgbuild/omasettings.desktop" >"$BUILD/omasettings.desktop"
+# Written line by line rather than with sed, so nothing in the path can be
+# read as part of a sed command.
+exec_arg=$(desktop_exec_arg "$BIN")
+while IFS= read -r line || [[ -n $line ]]; do
+  [[ $line == Exec=omasettings* ]] && line="Exec=$exec_arg${line#Exec=omasettings}"
+  printf '%s\n' "$line"
+done <"$SRC/pkgbuild/omasettings.desktop" >"$BUILD/omasettings.desktop"
 put 644 "$BUILD/omasettings.desktop" "$APPS/omasettings.desktop"
 # Settings draws its icon in the theme's colors when it starts; until then
 # the packaged one stands in.

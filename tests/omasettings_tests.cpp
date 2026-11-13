@@ -1261,6 +1261,24 @@ private slots:
         QVERIFY(sec.value("dockerSudoless").toBool());
         QVERIFY(!sec.value("passwordlessSudo").toBool());
         QVERIFY(sec.value("directBoot").toBool());
+        // Added to the docker group, but this session started without it.
+        QVERIFY(sec.value("dockerAfterRestart").toBool());
+    }
+
+    void dockerTurnedOffShowsUntilRestart() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        // The account left the docker group; this session still has it.
+        sys.answer("id -Gn", "me wheel docker\n");
+        Store store(pathsIn(dir), sys.exec());
+        QVariantMap sec = store.list("security").toMap();
+        QVERIFY(!sec.value("dockerSudoless").toBool());
+        QVERIFY(sec.value("dockerAfterRestart").toBool());
+
+        // After the restart the session matches the account.
+        sys.answer("id -Gn", "me wheel\n");
+        sec = store.list("security").toMap();
+        QVERIFY(!sec.value("dockerAfterRestart").toBool());
     }
 
     // ---- The Omarchy menu --------------------------------------------------------

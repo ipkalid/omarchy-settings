@@ -109,7 +109,13 @@ SettingsPage {
         SetupRow {
             visible: page.sec.docker === true
             label: qsTr("Docker without sudo")
-            sublabel: page.sec.dockerSudoless ? qsTr("On: you're in the docker group") : qsTr("Off: docker needs sudo")
+            // The session keeps the groups it started with, so a change shows
+            // as pending until the next restart.
+            sublabel: page.sec.dockerSudoless
+                      ? (page.sec.dockerAfterRestart ? qsTr("On after you restart: until then docker needs sudo")
+                                                     : qsTr("On: you're in the docker group"))
+                      : (page.sec.dockerAfterRestart ? qsTr("Off after you restart: until then docker works without sudo")
+                                                     : qsTr("Off: docker needs sudo"))
             glyph: "\u{F0868}"
             on: page.sec.dockerSudoless === true
             setup: "dockerSetup"

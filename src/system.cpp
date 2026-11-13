@@ -158,14 +158,19 @@ static const QList<QStringList> &fontCatalog() {
 
 QVariant Store::listSystem(const QString &name) {
     if (name == "security") {
+        // omarchy-sudo-docker --configured fails once the account is in the
+        // docker group. A session keeps the groups it started with, so this
+        // one (and Settings) can differ from the account until a restart;
+        // `id -Gn` with no user names the groups of this process.
+        const bool dockerSudoless = !run("omarchy-sudo-docker", {"--configured"}).ok();
+        const bool sessionHasDocker = output("id", {"-Gn"}).split(' ', Qt::SkipEmptyParts).contains("docker");
         return QVariantMap{
             {"sshd", output("systemctl", {"is-enabled", "sshd"}) == "enabled"},
             {"fingerprint", run("omarchy-pkg-present", {"fprintd"}).ok()},
             {"fido2", run("omarchy-pkg-present", {"pam-u2f"}).ok()},
             {"docker", !QStandardPaths::findExecutable("docker").isEmpty()},
-            // omarchy-sudo-docker --configured fails once the user is in the
-            // docker group.
-            {"dockerSudoless", !run("omarchy-sudo-docker", {"--configured"}).ok()},
+            {"dockerSudoless", dockerSudoless},
+            {"dockerAfterRestart", dockerSudoless != sessionHasDocker},
             {"passwordlessSudo", run("omarchy-sudo-passwordless", {"--active"}, 5000).ok()},
             {"directBoot", !output("omarchy-boot-direct", {"--number"}).isEmpty()},
             {"directBootSupported", directBootProblem().isEmpty()},
