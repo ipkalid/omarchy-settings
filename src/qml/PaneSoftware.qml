@@ -110,15 +110,18 @@ SettingsPage {
         iconSource: image.icon ? "file://" + image.icon : ""
         glyph: image.icon ? "" : "\u{F03D7}"
         busy: page.checkingImages && !!image.updateKind
+        // Which app a download is comes from its own name and update
+        // information, which anyone can write: it says so.
+        readonly property string origin: image.verified === false ? " · " + qsTr("Origin not checked") : ""
         sublabel: {
             if (another) {
                 if (image.compare === "newer")
-                    return qsTr("Newer version of %1 (%2 → %3)").arg(image.replacesName, image.replacesVersion, image.version)
+                    return qsTr("Newer version of %1 (%2 → %3)").arg(image.replacesName, image.replacesVersion, image.version) + origin
                 if (image.compare === "same")
-                    return qsTr("The same version as your %1 (%2)").arg(image.replacesName, image.version)
+                    return qsTr("The same version as your %1 (%2)").arg(image.replacesName, image.version) + origin
                 if (image.compare === "older")
-                    return qsTr("Older than your %1 (%2)").arg(image.replacesName, image.replacesVersion)
-                return qsTr("Another copy of %1").arg(image.replacesName)
+                    return qsTr("Older than your %1 (%2)").arg(image.replacesName, image.replacesVersion) + origin
+                return qsTr("Another copy of %1").arg(image.replacesName) + origin
             }
             if (loose) return qsTr("In Downloads")
             if (update.status === "available") return qsTr("Update available · %1").arg(update.file)
@@ -134,7 +137,6 @@ SettingsPage {
         OmaButton {
             visible: irow.replaceable
             text: qsTr("Replace")
-            highlighted: irow.image.compare === "newer"
             anchors.verticalCenter: parent.verticalCenter
             onClicked: { replaceDialog.image = irow.image; replaceDialog.open() }
         }
@@ -383,7 +385,18 @@ SettingsPage {
         property var image: ({ replacesName: "", path: "" })
         title: qsTr("Replace %1?").arg(image.replacesName)
         acceptText: qsTr("Replace")
-        onAccepted: backend.act("appimage.replace", [image.path], ["appimages"])
+        // Accepting here is the confirmation the store asks for: the download is unverified.
+        onAccepted: backend.act("appimage.replace", [image.path, "unverified"], ["appimages"])
+        Text {
+            Layout.fillWidth: true
+            text: qsTr("Settings can't check where this download came from or that it really is %1: it goes by the file's own name and update information. Replace it only if you got it from %1's makers.").arg(replaceDialog.image.replacesName)
+            horizontalAlignment: Text.AlignLeft
+            color: ui.fg
+            font.family: ui.font
+            font.pixelSize: ui.small
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+        }
         Text {
             Layout.fillWidth: true
             text: qsTr("The download takes the place of the one you have, in the app launcher too. The old file goes to the trash, so you can get it back.")

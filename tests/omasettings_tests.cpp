@@ -1,3 +1,4 @@
+#include <functional>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -30,11 +31,15 @@ struct FakeSystem {
     QHash<QString, ProcResult> answers;
     QString configErrorsAfterReload;
     bool reloaded = false;
+    // Side effects a pretend command has, such as the files unsquashfs writes.
+    std::function<void(const QString &, const QStringList &)> onRun;
 
     Exec exec() {
         return [this](const QString &program, const QStringList &args, int, const QByteArray &input) {
             const QString call = (QStringList{QFileInfo(program).fileName()} + args).join(' ');
             calls << call;
+            if (onRun)
+                onRun(QFileInfo(program).fileName(), args);
             if (!input.isEmpty())
                 inputs[call] += input;
             if (call == "hyprctl reload")
@@ -1834,8 +1839,15 @@ private slots:
         QCOMPARE(byFile["Other-0.9-linux-x86_64.AppImage"].value("replaces").toString(), paths.home + "/Applications/Other-1.0.AppImage");
         QCOMPARE(byFile["Other-0.9-linux-x86_64.AppImage"].value("compare").toString(), QString("older"));
 
-        QVERIFY(!store.act("appimage.replace", {paths.downloads + "/tool-2.0-x86_64.AppImage"}).isEmpty());
-        QCOMPARE(store.act("appimage.replace", {paths.downloads + "/Tool_v1.2_amd64.AppImage"}), QString());
+        // Nothing checked where the download came from, and the list says so.
+        QCOMPARE(byFile["Tool_v1.2_amd64.AppImage"].value("verified"), QVariant(false));
+
+        QVERIFY(!store.act("appimage.replace", {paths.downloads + "/tool-2.0-x86_64.AppImage", "unverified"}).isEmpty());
+        // Replacing needs saying so; without it nothing moves.
+        QVERIFY(!store.act("appimage.replace", {paths.downloads + "/Tool_v1.2_amd64.AppImage"}).isEmpty());
+        QVERIFY(QFileInfo::exists(paths.downloads + "/Tool_v1.2_amd64.AppImage"));
+        QVERIFY(!sys.calls.contains("gio trash " + tool));
+        QCOMPARE(store.act("appimage.replace", {paths.downloads + "/Tool_v1.2_amd64.AppImage", "unverified"}), QString());
         // The old one went to the trash; the new one has its name and a launcher entry.
         QVERIFY(sys.calls.contains("gio trash " + tool));
         const QString fresh = paths.home + "/Applications/Tool_v1.2_amd64.AppImage";
@@ -1843,6 +1855,105 @@ private slots:
         QVERIFY(!QFileInfo::exists(paths.downloads + "/Tool_v1.2_amd64.AppImage"));
         QVERIFY(!QFileInfo::exists(paths.data + "/applications/appimage-tool-1.0-x86_64.desktop"));
         QVERIFY(readText(paths.data + "/applications/appimage-tool_v1.2_amd64.desktop").contains("Exec=\"" + fresh + "\" %U"));
+    }
+
+    // The name and icon come out of the squashfs after the runtime, read by
+    // unsquashfs: the AppImage itself never runs.
+    void anAppImageIsReadWithoutRunningIt() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths paths = pathsIn(dir);
+        paths.data = dir.path() + "/data";
+        const QByteArray runtime = fakeElf("");
+        const QString image = paths.home + "/Applications/Tool-1.0.AppImage";
+        writeText(image, runtime + "hsqs" + QByteArray(60, '\0'));
+        writeText(dir.path() + "/secret.desktop", "[Desktop Entry]\nName=Secret\n");
+        writeText(dir.path() + "/outside/icon.png", "not theirs");
+        // What unsquashfs would write: a .desktop that is a link out, the real
+        // one, and a .DirIcon that is a link to the icon inside.
+        sys.onRun = [&](const QString &program, const QStringList &args) {
+            if (program != "unsquashfs")
+                return;
+            const QString root = args.value(args.indexOf("-d") + 1);
+            QDir().mkpath(root);
+            const QStringList patterns = args.mid(args.indexOf(image) + 1);
+            if (patterns.contains("*.desktop")) {
+                QFile::link(dir.path() + "/secret.desktop", root + "/a-link.desktop");
+                writeText(root + "/tool.desktop", "[Desktop Entry]\nName=Real Tool\nComment=Bad\\nKey=1\n");
+                QFile::link("usr/share/icons/tool.png", root + "/.DirIcon");
+            } else if (patterns == QStringList{"usr/share/icons/tool.png"}) {
+                writeText(root + "/usr/share/icons/tool.png", "png");
+            }
+        };
+        Store store(paths, sys.exec());
+        QCOMPARE(store.act("appimage.integrate", {image}), QString());
+        QVERIFY(sys.calls.filter("--appimage-extract").isEmpty());
+        const QStringList unsquashfs = sys.calls.filter(QRegularExpression("^unsquashfs "));
+        QCOMPARE(unsquashfs.size(), 2);
+        QVERIFY2(unsquashfs[0].startsWith(QStringLiteral("unsquashfs -no-xattrs -o %1 -d ").arg(runtime.size())), qPrintable(unsquashfs[0]));
+        QVERIFY(unsquashfs[0].endsWith(" " + image + " *.desktop .DirIcon"));
+        QVERIFY(unsquashfs[1].endsWith(" " + image + " usr/share/icons/tool.png"));
+        const QString entry = readText(paths.data + "/applications/appimage-tool-1.0.desktop");
+        QVERIFY(entry.contains("\nName=Real Tool\n"));
+        QVERIFY(!entry.contains("Secret"));
+        // An escaped line break in a value is left out rather than passed on.
+        QVERIFY(!entry.contains("Comment="));
+        const QString icon = paths.data + "/icons/omasettings-appimages/tool-1.0.png";
+        QVERIFY(entry.contains("Icon=" + icon + "\n"));
+        QCOMPARE(readText(icon), QString("png"));
+
+        // An icon behind a folder that links out of the AppImage is not taken.
+        sys.calls.clear();
+        sys.onRun = [&](const QString &program, const QStringList &args) {
+            const QString root = args.value(args.indexOf("-d") + 1);
+            QDir().mkpath(root);
+            const QStringList patterns = args.mid(args.indexOf(image) + 1);
+            if (program == "unsquashfs" && patterns.contains(".DirIcon"))
+                QFile::link("share/icon.png", root + "/.DirIcon");
+            else if (program == "unsquashfs")
+                QFile::link(dir.path() + "/outside", root + "/share");
+        };
+        QFile::remove(icon);
+        QCOMPARE(store.act("appimage.integrate", {image}), QString());
+        QCOMPARE(sys.calls.filter(QRegularExpression("^unsquashfs ")).size(), 2);
+        QVERIFY(readText(paths.data + "/applications/appimage-tool-1.0.desktop").contains("Icon=application-x-executable\n"));
+        QVERIFY(!QFileInfo::exists(icon));
+
+        // Without unsquashfs, it says so.
+        sys.onRun = nullptr;
+        sys.prefixAnswers.insert("unsquashfs", ProcResult{false, -1, {}, {}});
+        QVERIFY(store.act("appimage.integrate", {image}).contains("unsquashfs"));
+    }
+
+    // A file name can't add lines to the launcher entry, and a % in it is
+    // not a field code.
+    void anAppImagesNameCannotRewriteItsLauncherEntry() {
+        QTemporaryDir dir;
+        FakeSystem sys;
+        Paths paths = pathsIn(dir);
+        paths.data = dir.path() + "/data";
+        const QString bad = paths.home + "/Applications/Tool\nExec=evil\n.AppImage";
+        writeText(bad, fakeElf(""));
+        Store store(paths, sys.exec());
+        QVERIFY(!store.act("appimage.integrate", {bad}).isEmpty());
+        QVERIFY(QDir(paths.data + "/applications").entryList({"*.desktop"}, QDir::Files).isEmpty());
+        const QString downloaded = paths.downloads + "/Other\r1.0.AppImage";
+        writeText(downloaded, fakeElf(""));
+        QVERIFY(!store.act("appimage.add", {downloaded}).isEmpty());
+        QVERIFY(QFileInfo::exists(downloaded));
+
+        const QString odd = paths.home + "/Applications/100%-tool.AppImage";
+        writeText(odd, fakeElf(""));
+        QCOMPARE(store.act("appimage.integrate", {odd}), QString());
+        const QString entry = readText(paths.data + "/applications/appimage-100--tool.desktop");
+        QVERIFY2(entry.contains("\nExec=\"" + paths.home + "/Applications/100%%-tool.AppImage\" %U\n"), qPrintable(entry));
+        QVERIFY(entry.contains("\nTryExec=" + odd + "\n"));
+        // And it is still recognized as the entry for that file.
+        bool integrated = false;
+        for (const QVariant &v : store.list("appimages").toList())
+            if (v.toMap().value("path") == odd)
+                integrated = v.toMap().value("integrated").toBool();
+        QVERIFY(integrated);
     }
 
     void appImageUpdatesAreFoundByTheReleasesChecksum() {
@@ -1854,10 +1965,10 @@ private slots:
         const QByteArray bytes = fakeElf("gh-releases-zsync|me|tool|latest|Tool-*-x86_64.AppImage.zsync");
         writeText(image, bytes);
         const QString sha1 = QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha1).toHex());
-        sys.answer("curl -fsSL --max-time 20 -H Accept: application/vnd.github+json https://api.github.com/repos/me/tool/releases/latest",
+        sys.answer("curl -fsSL --proto =https --proto-redir =https --max-time 20 -H Accept: application/vnd.github+json https://api.github.com/repos/me/tool/releases/latest",
                    "{\"assets\": [{\"name\": \"Tool-2.0-x86_64.AppImage\", \"browser_download_url\": \"https://github.com/me/tool/releases/download/v2/Tool-2.0-x86_64.AppImage\"},"
                    " {\"name\": \"Tool-2.0-x86_64.AppImage.zsync\", \"browser_download_url\": \"https://github.com/me/tool/releases/download/v2/Tool-2.0-x86_64.AppImage.zsync\"}]}");
-        const QString zsync = "curl -fsSL --max-time 20 -r 0-4095 https://github.com/me/tool/releases/download/v2/Tool-2.0-x86_64.AppImage.zsync";
+        const QString zsync = "curl -fsSL --proto =https --proto-redir =https --max-time 20 -r 0-4095 https://github.com/me/tool/releases/download/v2/Tool-2.0-x86_64.AppImage.zsync";
         sys.answer(zsync, "zsync: 0.6.2\nFilename: Tool-2.0-x86_64.AppImage\nURL: Tool-2.0-x86_64.AppImage\nSHA-1: 0123abcd\n\n" "\x01\x02" "binary");
         Store store(paths, sys.exec());
         QStringList command;
@@ -1871,6 +1982,10 @@ private slots:
         QCOMPARE(store.appImageUpdateCommand(image, command), QString());
         QCOMPARE(command.first(), QString("omarchy-launch-floating-terminal-with-presentation"));
         QVERIFY(command.last().contains("sha1sum -c"));
+        // The download can't be sent to plain http by a redirect either.
+        QVERIFY(command.last().contains("curl -fL --proto =https --proto-redir =https "));
+        for (const QString &call : sys.calls.filter(QRegularExpression("^curl ")))
+            QVERIFY2(call.startsWith("curl -fsSL --proto =https --proto-redir =https "), qPrintable(call));
         QVERIFY(command.last().contains("'0123abcd  " + paths.home + "/Applications/.Tool.AppImage.part'"));
 
         // The same checksum as the file here: up to date.
@@ -1880,7 +1995,7 @@ private slots:
         QVERIFY(!store.appImageUpdateCommand(image, command).isEmpty());
 
         // GitHub out of reach.
-        sys.answer("curl -fsSL --max-time 20 -H Accept: application/vnd.github+json https://api.github.com/repos/me/tool/releases/latest", "", 22);
+        sys.answer("curl -fsSL --proto =https --proto-redir =https --max-time 20 -H Accept: application/vnd.github+json https://api.github.com/repos/me/tool/releases/latest", "", 22);
         QCOMPARE(store.list("appimageUpdates").toMap().value(image).toMap().value("status").toString(), QString("unreachable"));
     }
 

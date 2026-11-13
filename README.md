@@ -88,7 +88,8 @@ has them already, and the plugin offers to add any that are missing. Panes
 use the tools Omarchy ships for them and say so when one is missing:
 NetworkManager for Wi-Fi, `bluez-utils` for Bluetooth, `pactl` for sound,
 `power-profiles-daemon` for power modes, `brightnessctl` for laptop
-brightness, `ufw` for the firewall, and CUPS for printers.
+brightness, `ufw` for the firewall, CUPS for printers, and `squashfs-tools`
+for reading an AppImage's name and icon without running it.
 
 Settings changes your own config files (under `~/.config`) only when you
 change a setting, keeps a backup before rewriting one, and lists everything
